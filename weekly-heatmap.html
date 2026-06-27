@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weekly Heatmap · MWFC</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1623; --surface: #1a2235; --surface2: #222d42;
+      --border: #2e3f5c; --accent: #38bdf8; --accent2: #0ea5e9;
+      --text: #e2e8f0; --muted: #94a3b8; --card-hover: #263550;
+      --shift-a: #38bdf8; --shift-b: #818cf8; --shift-c: #fb923c;
+      --heat-0: #1a2235; --heat-1: #0c3a52; --heat-2: #0a4f6e;
+      --heat-3: #0e6b93; --heat-4: #1389bb; --heat-5: #38bdf8;
+      --cell-text-low: #94a3b8; --cell-text-high: #fff;
+    }
+    [data-theme="light"] {
+      --bg: #f0f4f8; --surface: #ffffff; --surface2: #e8eef5;
+      --border: #cbd5e1; --accent: #0369a1; --accent2: #0284c7;
+      --text: #1e293b; --muted: #64748b; --card-hover: #dbeafe;
+      --shift-a: #0369a1; --shift-b: #6d28d9; --shift-c: #c2410c;
+      --heat-0: #f0f4f8; --heat-1: #bae6fd; --heat-2: #7dd3fc;
+      --heat-3: #38bdf8; --heat-4: #0284c7; --heat-5: #075985;
+      --cell-text-low: #94a3b8; --cell-text-high: #fff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .75rem 1.25rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; gap: .75rem; }
+    .header-left { display: flex; align-items: center; gap: .75rem; }
+    .back-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; color: var(--text); font-size: .82rem; cursor: pointer; text-decoration: none; }
+    .back-btn:hover { background: var(--card-hover); }
+    .header-title { font-size: 1rem; font-weight: 700; }
+    .header-sub { font-size: .72rem; color: var(--muted); }
+    .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; color: var(--text); font-size: .82rem; cursor: pointer; }
+
+    /* UPLOAD */
+    #upload-section { max-width: 600px; margin: 4rem auto; padding: 1.5rem; text-align: center; }
+    .upload-box { border: 2px dashed var(--border); border-radius: 16px; padding: 3rem 2rem; cursor: pointer; transition: border-color .2s, background .2s; }
+    .upload-box:hover, .upload-box.drag { border-color: var(--accent); background: var(--surface); }
+    .upload-icon { font-size: 2.5rem; margin-bottom: .75rem; }
+    .upload-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
+    .upload-sub { font-size: .85rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .upload-btn-ui { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: .65rem 1.5rem; font-size: .95rem; font-weight: 600; cursor: pointer; }
+    #file-input { display: none; }
+
+    /* SELECTOR */
+    #week-selector { max-width: 600px; margin: 2rem auto; padding: 1.5rem; display: none; }
+    .selector-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; }
+    .selector-label { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: .75rem; display: block; }
+    .selector-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+    select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: .6rem .9rem; font-size: .95rem; flex: 1; min-width: 160px; }
+    .load-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; cursor: pointer; }
+    .load-btn:hover { background: var(--accent2); }
+    .file-ok { font-size: .8rem; color: #34d399; margin-top: .5rem; }
+
+    /* DASHBOARD */
+    #dashboard { display: none; max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+    .rpt-title { font-size: 1.25rem; font-weight: 700; margin-bottom: .25rem; }
+    .rpt-sub { font-size: .8rem; color: var(--muted); margin-bottom: 1.5rem; }
+    .section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .75rem; margin-top: 1.5rem; }
+
+    /* SUMMARY CARDS */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+    .card-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .3rem; }
+    .card-value { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+    .card-sub { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+    .shift-a-text { color: var(--shift-a); }
+    .shift-b-text { color: var(--shift-b); }
+    .shift-c-text { color: var(--shift-c); }
+
+    /* HEATMAP */
+    .heatmap-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; overflow-x: auto; }
+    .heatmap-table { width: 100%; border-collapse: separate; border-spacing: 4px; min-width: 520px; }
+    .heatmap-table th { font-size: .75rem; font-weight: 700; color: var(--muted); text-align: center; padding: .4rem .2rem; }
+    .heatmap-table th.shift-header { text-align: left; width: 80px; }
+    .heatmap-table th.day-header { min-width: 60px; }
+    .heatmap-table td { border-radius: 8px; text-align: center; font-weight: 700; font-size: .95rem; padding: .75rem .4rem; transition: transform .1s; cursor: default; position: relative; min-width: 60px; }
+    .heatmap-table td:hover { transform: scale(1.06); z-index: 2; }
+    .heatmap-table td.shift-label { background: none !important; text-align: left; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding-right: .5rem; cursor: default; }
+    .heatmap-table td.shift-label:hover { transform: none; }
+    .heatmap-table td.total-cell { background: var(--surface2) !important; color: var(--text) !important; font-size: .82rem; }
+    .heatmap-table tr.total-row td { background: var(--surface2) !important; color: var(--muted) !important; font-size: .78rem; font-weight: 700; }
+    .heatmap-table tr.total-row td.shift-label { background: none !important; color: var(--muted) !important; }
+
+    /* Heat levels — 0 through 5 */
+    .h0 { background: var(--heat-0); color: var(--cell-text-low); }
+    .h1 { background: var(--heat-1); color: var(--cell-text-low); }
+    .h2 { background: var(--heat-2); color: var(--cell-text-high); }
+    .h3 { background: var(--heat-3); color: var(--cell-text-high); }
+    .h4 { background: var(--heat-4); color: var(--cell-text-high); }
+    .h5 { background: var(--heat-5); color: var(--cell-text-high); }
+    .empty-cell { color: var(--muted); font-size: .75rem; }
+
+    /* LEGEND */
+    .legend { display: flex; align-items: center; gap: .4rem; margin-top: .75rem; font-size: .75rem; color: var(--muted); }
+    .legend-box { width: 18px; height: 18px; border-radius: 4px; }
+
+    /* DAY BAR CHART */
+    .bar-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
+    .bar-chart { display: flex; align-items: flex-end; gap: .5rem; height: 120px; padding-bottom: 1.5rem; position: relative; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .bar-stack { width: 100%; display: flex; flex-direction: column; justify-content: flex-end; border-radius: 4px 4px 0 0; overflow: hidden; }
+    .bar-seg-a { background: var(--shift-a); }
+    .bar-seg-b { background: var(--shift-b); }
+    .bar-seg-c { background: var(--shift-c); }
+    .bar-day-label { font-size: .68rem; color: var(--muted); font-weight: 600; margin-top: .25rem; }
+    .bar-total-label { font-size: .7rem; color: var(--text); font-weight: 700; }
+    .bar-chart-baseline { position: absolute; bottom: 1.5rem; left: 0; right: 0; height: 1px; background: var(--border); }
+
+    /* SHIFT LEGEND */
+    .shift-legend { display: flex; gap: 1rem; margin-top: .75rem; flex-wrap: wrap; }
+    .shift-legend-item { display: flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--muted); }
+    .shift-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+    /* PEAK TABLE */
+    .peak-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .peak-table th { text-align: left; color: var(--muted); font-weight: 600; padding: .4rem .5rem; border-bottom: 1px solid var(--border); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+    .peak-table td { padding: .4rem .5rem; border-bottom: 1px solid var(--border); }
+    .peak-table tr:last-child td { border-bottom: none; }
+    .peak-badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px; font-size: .7rem; font-weight: 700; }
+    .badge-a { background: rgba(56,189,248,.15); color: var(--shift-a); }
+    .badge-b { background: rgba(129,140,248,.15); color: var(--shift-b); }
+    .badge-c { background: rgba(251,146,60,.15); color: var(--shift-c); }
+
+    @media (max-width: 480px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body data-theme="dark">
+
+<header>
+  <div class="header-left">
+    <a href="index.html" class="back-btn">← Hub</a>
+    <div>
+      <div class="header-title">🗓️ Weekly Heatmap</div>
+      <div class="header-sub">MWFC Receiving Operations</div>
+    </div>
+  </div>
+  <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
+</header>
+
+<!-- UPLOAD -->
+<div id="upload-section">
+  <div class="upload-box" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+    <div class="upload-icon">📂</div>
+    <div class="upload-title">Upload Your Workbook</div>
+    <div class="upload-sub">Drop your weekly error Excel file here, or tap to browse.<br>Data stays in your browser — nothing is uploaded to any server.</div>
+    <button class="upload-btn-ui" onclick="event.stopPropagation(); document.getElementById('file-input').click()">Choose File</button>
+  </div>
+  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)" />
+</div>
+
+<!-- WEEK SELECTOR -->
+<div id="week-selector">
+  <div class="selector-box">
+    <span class="selector-label">Select Fiscal Week</span>
+    <div class="selector-row">
+      <select id="week-select"></select>
+      <button class="load-btn" onclick="loadWeek()">Load Heatmap</button>
+    </div>
+    <div class="file-ok" id="file-name-display"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="rpt-title" id="rpt-title">—</div>
+  <div class="rpt-sub" id="rpt-sub">—</div>
+
+  <div class="section-label">Summary</div>
+  <div class="summary-grid">
+    <div class="card">
+      <div class="card-title">Total Errors</div>
+      <div class="card-value" id="s-total">—</div>
+      <div class="card-sub">this week</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Peak Day</div>
+      <div class="card-value" id="s-peak-day" style="font-size:1.2rem">—</div>
+      <div class="card-sub" id="s-peak-day-sub">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Peak Combo</div>
+      <div class="card-value" id="s-peak-combo" style="font-size:1.1rem">—</div>
+      <div class="card-sub" id="s-peak-combo-sub">—</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Quiet Day</div>
+      <div class="card-value" id="s-quiet-day" style="font-size:1.2rem">—</div>
+      <div class="card-sub" id="s-quiet-day-sub">—</div>
+    </div>
+  </div>
+
+  <div class="section-label">Error Heatmap — Shift × Day</div>
+  <div class="heatmap-wrap">
+    <table class="heatmap-table" id="heatmap-table"></table>
+    <div class="legend" id="heat-legend">
+      <span>Low</span>
+      <div class="legend-box h1"></div>
+      <div class="legend-box h2"></div>
+      <div class="legend-box h3"></div>
+      <div class="legend-box h4"></div>
+      <div class="legend-box h5"></div>
+      <span>High</span>
+    </div>
+  </div>
+
+  <div class="section-label">Daily Error Volume by Shift</div>
+  <div class="bar-chart-wrap">
+    <div class="bar-chart" id="bar-chart">
+      <div class="bar-chart-baseline"></div>
+    </div>
+    <div class="shift-legend">
+      <div class="shift-legend-item"><div class="shift-dot" style="background:var(--shift-a)"></div>A-Shift</div>
+      <div class="shift-legend-item"><div class="shift-dot" style="background:var(--shift-b)"></div>B-Shift</div>
+      <div class="shift-legend-item"><div class="shift-dot" style="background:var(--shift-c)"></div>C-Shift</div>
+    </div>
+  </div>
+
+  <div class="section-label">Peak Shift–Day Combinations</div>
+  <div class="card">
+    <table class="peak-table" id="peak-table"></table>
+  </div>
+
+  <div style="height:2rem"></div>
+</div>
+
+<script>
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const SHIFTS = ['A-Shift','B-Shift','C-Shift'];
+let workbook = null;
+let allWeeks = [];
+
+function toggleTheme() {
+  const b = document.body, btn = document.getElementById('theme-btn');
+  if (b.dataset.theme === 'dark') { b.dataset.theme = 'light'; btn.textContent = '🌙 Dark'; }
+  else { b.dataset.theme = 'dark'; btn.textContent = '☀️ Light'; }
+}
+
+function dragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
+function dragLeave() { document.getElementById('drop-zone').classList.remove('drag'); }
+function dropFile(e) { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) processFile(f); }
+function handleFile(e) { const f = e.target.files[0]; if (f) processFile(f); }
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+    allWeeks = workbook.SheetNames.filter(n => /^Week \d+$/i.test(n));
+    let lastPop = 0;
+    for (let i = 0; i < allWeeks.length; i++) {
+      const data = XLSX.utils.sheet_to_json(workbook.Sheets[allWeeks[i]], { header: 1, defval: '' });
+      if (data.slice(5).some(r => r.some(c => c !== ''))) lastPop = i;
+    }
+    const sel = document.getElementById('week-select');
+    sel.innerHTML = allWeeks.map((w, i) => `<option value="${i}" ${i === lastPop ? 'selected' : ''}>${w}</option>`).join('');
+    document.getElementById('file-name-display').textContent = `✓ ${file.name} loaded`;
+    document.getElementById('upload-section').style.display = 'none';
+    document.getElementById('week-selector').style.display = 'block';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseWeek(sheetName) {
+  const ws = workbook.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const headers = raw[4].map(h => String(h).trim().replace(/:$/, '').trim());
+  const rows = raw.slice(5).filter(r => r.some(c => c !== ''));
+
+  const col = (name) => {
+    const e = headers.indexOf(name);
+    if (e >= 0) return e;
+    return headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+  };
+  const iWM = col('WM SIGN ON'), iShift = col('Shift'), iDate = col('Date Error');
+  const records = rows.filter(r => r[iWM] && String(r[iWM]).trim());
+
+  // Build shift×day matrix
+  const matrix = {};
+  SHIFTS.forEach(s => { matrix[s] = {}; DAYS.forEach(d => { matrix[s][d] = 0; }); });
+  const dayTotals = {};
+  DAYS.forEach(d => { dayTotals[d] = 0; });
+
+  records.forEach(r => {
+    const shift = String(r[iShift] || '').trim();
+    let dateVal = r[iDate];
+    let dayName = null;
+    if (dateVal) {
+      let d = dateVal instanceof Date ? dateVal : new Date(dateVal);
+      if (!isNaN(d)) dayName = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1]; // Mon=0
+    }
+    if (dayName && SHIFTS.includes(shift)) {
+      matrix[shift][dayName]++;
+      dayTotals[dayName]++;
+    }
+  });
+
+  return { matrix, dayTotals, total: records.length };
+}
+
+function heatClass(val, max) {
+  if (val === 0) return 'h0 empty-cell';
+  const ratio = val / max;
+  if (ratio < 0.15) return 'h1';
+  if (ratio < 0.30) return 'h2';
+  if (ratio < 0.50) return 'h3';
+  if (ratio < 0.75) return 'h4';
+  return 'h5';
+}
+
+function loadWeek() {
+  const idx = parseInt(document.getElementById('week-select').value);
+  const weekName = allWeeks[idx];
+  const { matrix, dayTotals, total } = parseWeek(weekName);
+
+  document.getElementById('rpt-title').textContent = `${weekName} — Weekly Heatmap`;
+  document.getElementById('rpt-sub').textContent = `${total} total errors · error density by shift and day`;
+  document.getElementById('s-total').textContent = total;
+
+  // Find max cell value for heat scale
+  let maxCell = 1;
+  SHIFTS.forEach(s => DAYS.forEach(d => { if (matrix[s][d] > maxCell) maxCell = matrix[s][d]; }));
+
+  // Peak day
+  const activeDays = DAYS.filter(d => dayTotals[d] > 0);
+  const peakDay = activeDays.sort((a, b) => dayTotals[b] - dayTotals[a])[0];
+  const quietDay = [...activeDays].sort((a, b) => dayTotals[a] - dayTotals[b])[0];
+  document.getElementById('s-peak-day').textContent = peakDay ? peakDay.slice(0,3) : '—';
+  document.getElementById('s-peak-day-sub').textContent = peakDay ? `${dayTotals[peakDay]} errors` : '';
+  document.getElementById('s-quiet-day').textContent = quietDay ? quietDay.slice(0,3) : '—';
+  document.getElementById('s-quiet-day-sub').textContent = quietDay ? `${dayTotals[quietDay]} errors` : '';
+
+  // Peak combo
+  let peakCombo = { shift: '', day: '', val: 0 };
+  SHIFTS.forEach(s => DAYS.forEach(d => { if (matrix[s][d] > peakCombo.val) peakCombo = { shift: s, day: d, val: matrix[s][d] }; }));
+  document.getElementById('s-peak-combo').textContent = peakCombo.val > 0 ? `${peakCombo.shift.replace('-Shift', '')} · ${peakCombo.day.slice(0,3)}` : '—';
+  document.getElementById('s-peak-combo-sub').textContent = peakCombo.val > 0 ? `${peakCombo.val} errors` : '';
+
+  // ── HEATMAP TABLE ──
+  const tbl = document.getElementById('heatmap-table');
+  let html = '<thead><tr><th class="shift-header">Shift</th>';
+  DAYS.forEach((d, i) => html += `<th class="day-header">${DAY_SHORT[i]}</th>`);
+  html += '<th>Total</th></tr></thead><tbody>';
+
+  SHIFTS.forEach(s => {
+    const shiftClass = s === 'A-Shift' ? 'shift-a-text' : s === 'B-Shift' ? 'shift-b-text' : 'shift-c-text';
+    const shiftTotal = DAYS.reduce((sum, d) => sum + matrix[s][d], 0);
+    html += `<tr><td class="shift-label ${shiftClass}">${s}</td>`;
+    DAYS.forEach(d => {
+      const v = matrix[s][d];
+      const cls = heatClass(v, maxCell);
+      html += `<td class="${cls}" title="${s} · ${d}: ${v} errors">${v > 0 ? v : '·'}</td>`;
+    });
+    html += `<td class="total-cell">${shiftTotal}</td></tr>`;
+  });
+
+  // Day totals row
+  html += `<tr class="total-row"><td class="shift-label">Total</td>`;
+  DAYS.forEach(d => html += `<td>${dayTotals[d] || 0}</td>`);
+  html += `<td>${total}</td></tr></tbody>`;
+  tbl.innerHTML = html;
+
+  // ── BAR CHART ──
+  const maxDay = Math.max(...DAYS.map(d => dayTotals[d] || 0), 1);
+  const chartH = 100;
+  const bc = document.getElementById('bar-chart');
+  bc.innerHTML = '<div class="bar-chart-baseline"></div>';
+  DAYS.forEach((day, i) => {
+    const tot = dayTotals[day] || 0;
+    const a = matrix['A-Shift'][day] || 0;
+    const b = matrix['B-Shift'][day] || 0;
+    const c = matrix['C-Shift'][day] || 0;
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    const stackH = tot > 0 ? Math.round((tot / maxDay) * chartH) : 0;
+    const aH = tot > 0 ? Math.round((a / tot) * stackH) : 0;
+    const bH = tot > 0 ? Math.round((b / tot) * stackH) : 0;
+    const cH = stackH - aH - bH;
+    col.innerHTML = `
+      <div class="bar-total-label">${tot || ''}</div>
+      <div class="bar-stack" style="height:${stackH}px">
+        ${cH > 0 ? `<div class="bar-seg-c" style="height:${cH}px"></div>` : ''}
+        ${bH > 0 ? `<div class="bar-seg-b" style="height:${bH}px"></div>` : ''}
+        ${aH > 0 ? `<div class="bar-seg-a" style="height:${aH}px"></div>` : ''}
+      </div>
+      <div class="bar-day-label">${DAY_SHORT[i]}</div>`;
+    bc.appendChild(col);
+  });
+
+  // ── PEAK TABLE ──
+  const combos = [];
+  SHIFTS.forEach(s => DAYS.forEach(d => { if (matrix[s][d] > 0) combos.push({ shift: s, day: d, val: matrix[s][d] }); }));
+  combos.sort((a, b) => b.val - a.val);
+  const top5 = combos.slice(0, 5);
+  const badgeClass = s => s === 'A-Shift' ? 'badge-a' : s === 'B-Shift' ? 'badge-b' : 'badge-c';
+  document.getElementById('peak-table').innerHTML =
+    `<thead><tr><th>Rank</th><th>Shift</th><th>Day</th><th>Errors</th><th>% of Week</th></tr></thead><tbody>` +
+    top5.map((c, i) => `<tr>
+      <td>#${i + 1}</td>
+      <td><span class="peak-badge ${badgeClass(c.shift)}">${c.shift}</span></td>
+      <td>${c.day}</td>
+      <td><strong>${c.val}</strong></td>
+      <td>${+(c.val / total * 100).toFixed(1)}%</td>
+    </tr>`).join('') + '</tbody>';
+
+  document.getElementById('week-selector').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+</script>
+</body>
+</html>
