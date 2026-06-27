@@ -1,132 +1,117 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Weekly Heatmap · MWFC</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    :root {
-      --bg: #0f1623; --surface: #1a2235; --surface2: #222d42;
-      --border: #2e3f5c; --accent: #38bdf8; --accent2: #0ea5e9;
-      --text: #e2e8f0; --muted: #94a3b8; --card-hover: #263550;
-      --shift-a: #38bdf8; --shift-b: #818cf8; --shift-c: #fb923c;
-      --heat-0: #1a2235; --heat-1: #0c3a52; --heat-2: #0a4f6e;
-      --heat-3: #0e6b93; --heat-4: #1389bb; --heat-5: #38bdf8;
-      --cell-text-low: #94a3b8; --cell-text-high: #fff;
-    }
-    [data-theme="light"] {
-      --bg: #f0f4f8; --surface: #ffffff; --surface2: #e8eef5;
-      --border: #cbd5e1; --accent: #0369a1; --accent2: #0284c7;
-      --text: #1e293b; --muted: #64748b; --card-hover: #dbeafe;
-      --shift-a: #0369a1; --shift-b: #6d28d9; --shift-c: #c2410c;
-      --heat-0: #f0f4f8; --heat-1: #bae6fd; --heat-2: #7dd3fc;
-      --heat-3: #38bdf8; --heat-4: #0284c7; --heat-5: #075985;
-      --cell-text-low: #94a3b8; --cell-text-high: #fff;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Error Frequency Heatmap · MWFC</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg:#0f1623;--surface:#1a2235;--surface2:#222d42;--border:#2e3f5c;
+  --accent:#38bdf8;--text:#e2e8f0;--muted:#94a3b8;--card-hover:#263550;
+  --shift-a:#38bdf8;--shift-b:#818cf8;--shift-c:#fb923c;
+}
+[data-theme="light"]{
+  --bg:#f0f4f8;--surface:#fff;--surface2:#e8eef5;--border:#cbd5e1;
+  --accent:#0369a1;--text:#1e293b;--muted:#64748b;--card-hover:#dbeafe;
+  --shift-a:#0369a1;--shift-b:#6d28d9;--shift-c:#c2410c;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .2s,color .2s;}
 
-    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .75rem 1.25rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; gap: .75rem; }
-    .header-left { display: flex; align-items: center; gap: .75rem; }
-    .back-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; color: var(--text); font-size: .82rem; cursor: pointer; text-decoration: none; }
-    .back-btn:hover { background: var(--card-hover); }
-    .header-title { font-size: 1rem; font-weight: 700; }
-    .header-sub { font-size: .72rem; color: var(--muted); }
-    .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; color: var(--text); font-size: .82rem; cursor: pointer; }
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:.75rem 1.25rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20;}
+.header-left{display:flex;align-items:center;gap:.75rem;}
+.back-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.35rem .7rem;color:var(--text);font-size:.82rem;cursor:pointer;text-decoration:none;}
+.back-btn:hover{background:var(--card-hover);}
+.header-title{font-size:1rem;font-weight:700;}
+.header-sub{font-size:.72rem;color:var(--muted);}
+.theme-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.35rem .7rem;color:var(--text);font-size:.82rem;cursor:pointer;}
 
-    /* UPLOAD */
-    #upload-section { max-width: 600px; margin: 4rem auto; padding: 1.5rem; text-align: center; }
-    .upload-box { border: 2px dashed var(--border); border-radius: 16px; padding: 3rem 2rem; cursor: pointer; transition: border-color .2s, background .2s; }
-    .upload-box:hover, .upload-box.drag { border-color: var(--accent); background: var(--surface); }
-    .upload-icon { font-size: 2.5rem; margin-bottom: .75rem; }
-    .upload-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
-    .upload-sub { font-size: .85rem; color: var(--muted); margin-bottom: 1.25rem; }
-    .upload-btn-ui { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: .65rem 1.5rem; font-size: .95rem; font-weight: 600; cursor: pointer; }
-    #file-input { display: none; }
+/* UPLOAD */
+#upload-section{max-width:580px;margin:4rem auto;padding:1.5rem;text-align:center;}
+.upload-box{border:2px dashed var(--border);border-radius:16px;padding:3rem 2rem;cursor:pointer;transition:border-color .2s,background .2s;}
+.upload-box:hover,.upload-box.drag{border-color:var(--accent);background:var(--surface);}
+.upload-icon{font-size:2.5rem;margin-bottom:.75rem;}
+.upload-title{font-size:1.1rem;font-weight:700;margin-bottom:.35rem;}
+.upload-sub{font-size:.85rem;color:var(--muted);margin-bottom:1.25rem;}
+.upload-btn-ui{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.65rem 1.5rem;font-size:.95rem;font-weight:600;cursor:pointer;}
+#file-input{display:none;}
 
-    /* SELECTOR */
-    #week-selector { max-width: 600px; margin: 2rem auto; padding: 1.5rem; display: none; }
-    .selector-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; }
-    .selector-label { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: .75rem; display: block; }
-    .selector-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
-    select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: .6rem .9rem; font-size: .95rem; flex: 1; min-width: 160px; }
-    .load-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; cursor: pointer; }
-    .load-btn:hover { background: var(--accent2); }
-    .file-ok { font-size: .8rem; color: #34d399; margin-top: .5rem; }
+/* CONTROLS */
+#controls{display:none;background:var(--surface);border-bottom:1px solid var(--border);padding:.75rem 1.25rem;position:sticky;top:57px;z-index:15;}
+.ctrl-row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;}
+.file-info{font-size:.75rem;color:var(--muted);margin-bottom:.5rem;}
+.new-file-btn{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:.3rem .7rem;color:var(--text);font-size:.75rem;cursor:pointer;font-weight:600;}
+.new-file-btn:hover{background:var(--card-hover);}
 
-    /* DASHBOARD */
-    #dashboard { display: none; max-width: 960px; margin: 0 auto; padding: 1.5rem; }
-    .rpt-title { font-size: 1.25rem; font-weight: 700; margin-bottom: .25rem; }
-    .rpt-sub { font-size: .8rem; color: var(--muted); margin-bottom: 1.5rem; }
-    .section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .75rem; margin-top: 1.5rem; }
+/* SHIFT TABS */
+.shift-tabs{display:flex;gap:.4rem;}
+.shift-tab{border:1px solid var(--border);border-radius:8px;padding:.4rem .85rem;font-size:.82rem;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--muted);transition:all .15s;}
+.shift-tab.active-a{background:rgba(56,189,248,.15);color:var(--shift-a);border-color:var(--shift-a);}
+.shift-tab.active-b{background:rgba(129,140,248,.15);color:var(--shift-b);border-color:var(--shift-b);}
+.shift-tab.active-c{background:rgba(251,146,60,.15);color:var(--shift-c);border-color:var(--shift-c);}
 
-    /* SUMMARY CARDS */
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
-    .card-title { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .3rem; }
-    .card-value { font-size: 1.9rem; font-weight: 800; line-height: 1; }
-    .card-sub { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
-    .shift-a-text { color: var(--shift-a); }
-    .shift-b-text { color: var(--shift-b); }
-    .shift-c-text { color: var(--shift-c); }
+/* RAW/DELTA */
+.mode-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.mode-btn{padding:.35rem .75rem;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--muted);border:none;}
+.mode-btn.active{background:var(--accent);color:#fff;}
 
-    /* HEATMAP */
-    .heatmap-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; overflow-x: auto; }
-    .heatmap-table { width: 100%; border-collapse: separate; border-spacing: 4px; min-width: 520px; }
-    .heatmap-table th { font-size: .75rem; font-weight: 700; color: var(--muted); text-align: center; padding: .4rem .2rem; }
-    .heatmap-table th.shift-header { text-align: left; width: 80px; }
-    .heatmap-table th.day-header { min-width: 60px; }
-    .heatmap-table td { border-radius: 8px; text-align: center; font-weight: 700; font-size: .95rem; padding: .75rem .4rem; transition: transform .1s; cursor: default; position: relative; min-width: 60px; }
-    .heatmap-table td:hover { transform: scale(1.06); z-index: 2; }
-    .heatmap-table td.shift-label { background: none !important; text-align: left; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding-right: .5rem; cursor: default; }
-    .heatmap-table td.shift-label:hover { transform: none; }
-    .heatmap-table td.total-cell { background: var(--surface2) !important; color: var(--text) !important; font-size: .82rem; }
-    .heatmap-table tr.total-row td { background: var(--surface2) !important; color: var(--muted) !important; font-size: .78rem; font-weight: 700; }
-    .heatmap-table tr.total-row td.shift-label { background: none !important; color: var(--muted) !important; }
+/* DEPT FILTER */
+.dept-filters{display:flex;gap:.4rem;}
+.dept-btn{border:1px solid var(--border);border-radius:999px;padding:.3rem .75rem;font-size:.75rem;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--muted);display:flex;align-items:center;gap:.35rem;transition:all .15s;}
+.dept-btn.active-recv{background:rgba(226,232,240,.1);color:var(--text);border-color:var(--text);}
+.dept-btn.active-train{background:rgba(167,139,250,.15);color:#a78bfa;border-color:#a78bfa;}
+.dept-dot{width:8px;height:8px;border-radius:50%;}
+.dot-recv{background:var(--text);}
+.dot-train{background:#a78bfa;}
 
-    /* Heat levels — 0 through 5 */
-    .h0 { background: var(--heat-0); color: var(--cell-text-low); }
-    .h1 { background: var(--heat-1); color: var(--cell-text-low); }
-    .h2 { background: var(--heat-2); color: var(--cell-text-high); }
-    .h3 { background: var(--heat-3); color: var(--cell-text-high); }
-    .h4 { background: var(--heat-4); color: var(--cell-text-high); }
-    .h5 { background: var(--heat-5); color: var(--cell-text-high); }
-    .empty-cell { color: var(--muted); font-size: .75rem; }
+/* STATS ROW */
+.stats-row{display:flex;gap:1.5rem;align-items:center;padding:.5rem 0 0;}
+.stat-item{text-align:center;}
+.stat-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.stat-value{font-size:1.1rem;font-weight:800;color:var(--accent);}
 
-    /* LEGEND */
-    .legend { display: flex; align-items: center; gap: .4rem; margin-top: .75rem; font-size: .75rem; color: var(--muted); }
-    .legend-box { width: 18px; height: 18px; border-radius: 4px; }
+/* LEGEND */
+.legend-row{display:flex;align-items:center;gap:.35rem;font-size:.7rem;color:var(--muted);}
+.leg-box{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;}
 
-    /* DAY BAR CHART */
-    .bar-chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
-    .bar-chart { display: flex; align-items: flex-end; gap: .5rem; height: 120px; padding-bottom: 1.5rem; position: relative; }
-    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .bar-stack { width: 100%; display: flex; flex-direction: column; justify-content: flex-end; border-radius: 4px 4px 0 0; overflow: hidden; }
-    .bar-seg-a { background: var(--shift-a); }
-    .bar-seg-b { background: var(--shift-b); }
-    .bar-seg-c { background: var(--shift-c); }
-    .bar-day-label { font-size: .68rem; color: var(--muted); font-weight: 600; margin-top: .25rem; }
-    .bar-total-label { font-size: .7rem; color: var(--text); font-weight: 700; }
-    .bar-chart-baseline { position: absolute; bottom: 1.5rem; left: 0; right: 0; height: 1px; background: var(--border); }
+/* HEATMAP */
+#heatmap-section{display:none;padding:1rem 1.25rem;overflow-x:auto;}
+.heatmap-container{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table.hmap{border-collapse:separate;border-spacing:3px;font-size:.75rem;}
+table.hmap th{color:var(--muted);font-weight:600;padding:.2rem .25rem;text-align:center;white-space:nowrap;position:sticky;top:0;background:var(--bg);z-index:5;}
+table.hmap th.proc-th{text-align:left;min-width:70px;position:sticky;left:0;background:var(--bg);z-index:6;}
+table.hmap td.proc-cell{position:sticky;left:0;background:var(--bg);z-index:4;white-space:nowrap;padding:.15rem .4rem .15rem 0;font-size:.73rem;font-weight:700;font-family:monospace;}
+table.hmap td.proc-cell .proc-name{display:inline;}
+table.hmap td.proc-cell .trend{font-size:.65rem;margin-left:.2rem;}
+table.hmap td.proc-cell .dept-dot-sm{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:.25rem;vertical-align:middle;}
+table.hmap td.week-cell{width:30px;min-width:28px;height:28px;border-radius:5px;text-align:center;vertical-align:middle;font-weight:700;font-size:.75rem;cursor:default;transition:transform .1s;}
+table.hmap td.week-cell:hover{transform:scale(1.2);z-index:3;position:relative;}
+table.hmap td.divider-cell{width:2px;min-width:2px;background:var(--border);padding:0;}
+table.hmap td.total-cell{font-size:.72rem;font-weight:800;color:var(--text);text-align:center;padding:0 .35rem;}
+table.hmap tr.total-row td{background:var(--surface2)!important;color:var(--muted);font-weight:700;border-radius:4px;}
+table.hmap tr.total-row td.proc-cell{background:var(--bg)!important;color:var(--muted);}
 
-    /* SHIFT LEGEND */
-    .shift-legend { display: flex; gap: 1rem; margin-top: .75rem; flex-wrap: wrap; }
-    .shift-legend-item { display: flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--muted); }
-    .shift-dot { width: 10px; height: 10px; border-radius: 2px; }
+/* HEAT COLORS */
+.h0{background:var(--surface2);color:transparent;}
+.h1{background:#fbbf24;color:#78350f;}
+.h2{background:#f97316;color:#fff;}
+.h3{background:#ef4444;color:#fff;}
+.h4{background:#b91c1c;color:#fff;}
+.h5{background:#7f1d1d;color:#fca5a5;}
 
-    /* PEAK TABLE */
-    .peak-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-    .peak-table th { text-align: left; color: var(--muted); font-weight: 600; padding: .4rem .5rem; border-bottom: 1px solid var(--border); font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
-    .peak-table td { padding: .4rem .5rem; border-bottom: 1px solid var(--border); }
-    .peak-table tr:last-child td { border-bottom: none; }
-    .peak-badge { display: inline-block; padding: .15rem .5rem; border-radius: 999px; font-size: .7rem; font-weight: 700; }
-    .badge-a { background: rgba(56,189,248,.15); color: var(--shift-a); }
-    .badge-b { background: rgba(129,140,248,.15); color: var(--shift-b); }
-    .badge-c { background: rgba(251,146,60,.15); color: var(--shift-c); }
+/* DELTA COLORS */
+.dpos{background:#ef4444;color:#fff;}
+.dneg{background:#34d399;color:#064e3b;}
+.dzero{background:var(--surface2);color:var(--muted);}
 
-    @media (max-width: 480px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
-  </style>
+.trend-up{color:#f87171;}
+.trend-dn{color:#34d399;}
+.trend-fl{color:var(--muted);}
+
+.section-heading{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);padding:.75rem 0 .5rem;border-bottom:1px solid var(--border);margin-bottom:.5rem;}
+</style>
 </head>
 <body data-theme="dark">
 
@@ -134,8 +119,8 @@
   <div class="header-left">
     <a href="index.html" class="back-btn">← Hub</a>
     <div>
-      <div class="header-title">🗓️ Weekly Heatmap</div>
-      <div class="header-sub">MWFC Receiving Operations</div>
+      <div class="header-title">🗺️ Error Frequency Heatmap</div>
+      <div class="header-sub">MWFC · Receiving · YTD 2026</div>
     </div>
   </div>
   <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
@@ -143,271 +128,293 @@
 
 <!-- UPLOAD -->
 <div id="upload-section">
-  <div class="upload-box" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+  <div class="upload-box" id="drop-zone"
+    onclick="document.getElementById('file-input').click()"
+    ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
     <div class="upload-icon">📂</div>
-    <div class="upload-title">Upload Your Workbook</div>
-    <div class="upload-sub">Drop your weekly error Excel file here, or tap to browse.<br>Data stays in your browser — nothing is uploaded to any server.</div>
-    <button class="upload-btn-ui" onclick="event.stopPropagation(); document.getElementById('file-input').click()">Choose File</button>
+    <div class="upload-title">Upload Weekly Error Workbook</div>
+    <div class="upload-sub">Reads all populated weeks automatically.<br>Data stays in your browser — never uploaded to any server.</div>
+    <button class="upload-btn-ui" onclick="event.stopPropagation();document.getElementById('file-input').click()">Choose File</button>
   </div>
-  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)" />
+  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)"/>
 </div>
 
-<!-- WEEK SELECTOR -->
-<div id="week-selector">
-  <div class="selector-box">
-    <span class="selector-label">Select Fiscal Week</span>
-    <div class="selector-row">
-      <select id="week-select"></select>
-      <button class="load-btn" onclick="loadWeek()">Load Heatmap</button>
+<!-- CONTROLS -->
+<div id="controls">
+  <div class="file-info" id="file-info-label"></div>
+  <div class="ctrl-row">
+    <button class="new-file-btn" onclick="resetUpload()">↑ NEW FILE</button>
+    <div class="shift-tabs" id="shift-tabs"></div>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-raw" onclick="setMode('raw')">RAW</button>
+      <button class="mode-btn" id="btn-delta" onclick="setMode('delta')">DELTA</button>
     </div>
-    <div class="file-ok" id="file-name-display"></div>
+    <div class="dept-filters">
+      <button class="dept-btn active-recv" id="dept-recv" onclick="toggleDept('recv')">
+        <span class="dept-dot dot-recv"></span>RECEIVING
+      </button>
+      <button class="dept-btn active-train" id="dept-train" onclick="toggleDept('train')">
+        <span class="dept-dot dot-train"></span>TRAINING
+      </button>
+    </div>
+  </div>
+  <div class="ctrl-row" style="margin-top:.5rem;justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="legend-row">
+      <span>NONE</span>
+      <div class="leg-box h0" style="color:var(--muted)">0</div>
+      <div class="leg-box h1">1</div>
+      <div class="leg-box h2">2</div>
+      <div class="leg-box h3">3</div>
+      <div class="leg-box h4">4</div>
+      <div class="leg-box h5">5+</div>
+      <span>PEAK</span>
+      &nbsp;|&nbsp;
+      <span class="trend-dn">▼</span><span style="font-size:.68rem">IMPR</span>
+      <span class="trend-fl">→</span><span style="font-size:.68rem">STABLE</span>
+      <span class="trend-up">▲</span><span style="font-size:.68rem">WORSE</span>
+    </div>
   </div>
 </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard">
-  <div class="rpt-title" id="rpt-title">—</div>
-  <div class="rpt-sub" id="rpt-sub">—</div>
-
-  <div class="section-label">Summary</div>
-  <div class="summary-grid">
-    <div class="card">
-      <div class="card-title">Total Errors</div>
-      <div class="card-value" id="s-total">—</div>
-      <div class="card-sub">this week</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Peak Day</div>
-      <div class="card-value" id="s-peak-day" style="font-size:1.2rem">—</div>
-      <div class="card-sub" id="s-peak-day-sub">—</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Peak Combo</div>
-      <div class="card-value" id="s-peak-combo" style="font-size:1.1rem">—</div>
-      <div class="card-sub" id="s-peak-combo-sub">—</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Quiet Day</div>
-      <div class="card-value" id="s-quiet-day" style="font-size:1.2rem">—</div>
-      <div class="card-sub" id="s-quiet-day-sub">—</div>
-    </div>
-  </div>
-
-  <div class="section-label">Error Heatmap — Shift × Day</div>
-  <div class="heatmap-wrap">
-    <table class="heatmap-table" id="heatmap-table"></table>
-    <div class="legend" id="heat-legend">
-      <span>Low</span>
-      <div class="legend-box h1"></div>
-      <div class="legend-box h2"></div>
-      <div class="legend-box h3"></div>
-      <div class="legend-box h4"></div>
-      <div class="legend-box h5"></div>
-      <span>High</span>
-    </div>
-  </div>
-
-  <div class="section-label">Daily Error Volume by Shift</div>
-  <div class="bar-chart-wrap">
-    <div class="bar-chart" id="bar-chart">
-      <div class="bar-chart-baseline"></div>
-    </div>
-    <div class="shift-legend">
-      <div class="shift-legend-item"><div class="shift-dot" style="background:var(--shift-a)"></div>A-Shift</div>
-      <div class="shift-legend-item"><div class="shift-dot" style="background:var(--shift-b)"></div>B-Shift</div>
-      <div class="shift-legend-item"><div class="shift-dot" style="background:var(--shift-c)"></div>C-Shift</div>
-    </div>
-  </div>
-
-  <div class="section-label">Peak Shift–Day Combinations</div>
-  <div class="card">
-    <table class="peak-table" id="peak-table"></table>
-  </div>
-
-  <div style="height:2rem"></div>
+<!-- HEATMAP -->
+<div id="heatmap-section">
+  <div id="heatmap-container"></div>
 </div>
 
 <script>
-const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-const SHIFTS = ['A-Shift','B-Shift','C-Shift'];
-let workbook = null;
-let allWeeks = [];
+let WB = null, allData = [], allWeeks = [], fileName = '';
+let curShift = 'A-Shift', curMode = 'raw';
+let deptRecv = true, deptTrain = true;
 
-function toggleTheme() {
-  const b = document.body, btn = document.getElementById('theme-btn');
-  if (b.dataset.theme === 'dark') { b.dataset.theme = 'light'; btn.textContent = '🌙 Dark'; }
-  else { b.dataset.theme = 'dark'; btn.textContent = '☀️ Light'; }
+function toggleTheme(){
+  const b=document.body,btn=document.getElementById('theme-btn');
+  if(b.dataset.theme==='dark'){b.dataset.theme='light';btn.textContent='🌙 Dark';}
+  else{b.dataset.theme='dark';btn.textContent='☀️ Light';}
+  if(allData.length) renderHeatmap();
+}
+function dragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('drag');}
+function dragLeave(){document.getElementById('drop-zone').classList.remove('drag');}
+function dropFile(e){e.preventDefault();document.getElementById('drop-zone').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);}
+function handleFile(e){const f=e.target.files[0];if(f)processFile(f);}
+function resetUpload(){
+  WB=null;allData=[];allWeeks=[];
+  document.getElementById('upload-section').style.display='block';
+  document.getElementById('controls').style.display='none';
+  document.getElementById('heatmap-section').style.display='none';
 }
 
-function dragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
-function dragLeave() { document.getElementById('drop-zone').classList.remove('drag'); }
-function dropFile(e) { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) processFile(f); }
-function handleFile(e) { const f = e.target.files[0]; if (f) processFile(f); }
-
-function processFile(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-    allWeeks = workbook.SheetNames.filter(n => /^Week \d+$/i.test(n));
-    let lastPop = 0;
-    for (let i = 0; i < allWeeks.length; i++) {
-      const data = XLSX.utils.sheet_to_json(workbook.Sheets[allWeeks[i]], { header: 1, defval: '' });
-      if (data.slice(5).some(r => r.some(c => c !== ''))) lastPop = i;
-    }
-    const sel = document.getElementById('week-select');
-    sel.innerHTML = allWeeks.map((w, i) => `<option value="${i}" ${i === lastPop ? 'selected' : ''}>${w}</option>`).join('');
-    document.getElementById('file-name-display').textContent = `✓ ${file.name} loaded`;
-    document.getElementById('upload-section').style.display = 'none';
-    document.getElementById('week-selector').style.display = 'block';
+function processFile(file){
+  fileName=file.name;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    WB=XLSX.read(e.target.result,{type:'array',cellDates:true});
+    parseAllWeeks();
+    buildControls();
+    renderHeatmap();
+    document.getElementById('upload-section').style.display='none';
+    document.getElementById('controls').style.display='block';
+    document.getElementById('heatmap-section').style.display='block';
   };
   reader.readAsArrayBuffer(file);
 }
 
-function parseWeek(sheetName) {
-  const ws = workbook.Sheets[sheetName];
-  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  const headers = raw[4].map(h => String(h).trim().replace(/:$/, '').trim());
-  const rows = raw.slice(5).filter(r => r.some(c => c !== ''));
-
-  const col = (name) => {
-    const e = headers.indexOf(name);
-    if (e >= 0) return e;
-    return headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
-  };
-  const iWM = col('WM SIGN ON'), iShift = col('Shift'), iDate = col('Date Error');
-  const records = rows.filter(r => r[iWM] && String(r[iWM]).trim());
-
-  // Build shift×day matrix
-  const matrix = {};
-  SHIFTS.forEach(s => { matrix[s] = {}; DAYS.forEach(d => { matrix[s][d] = 0; }); });
-  const dayTotals = {};
-  DAYS.forEach(d => { dayTotals[d] = 0; });
-
-  records.forEach(r => {
-    const shift = String(r[iShift] || '').trim();
-    let dateVal = r[iDate];
-    let dayName = null;
-    if (dateVal) {
-      let d = dateVal instanceof Date ? dateVal : new Date(dateVal);
-      if (!isNaN(d)) dayName = DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1]; // Mon=0
-    }
-    if (dayName && SHIFTS.includes(shift)) {
-      matrix[shift][dayName]++;
-      dayTotals[dayName]++;
-    }
-  });
-
-  return { matrix, dayTotals, total: records.length };
-}
-
-function heatClass(val, max) {
-  if (val === 0) return 'h0 empty-cell';
-  const ratio = val / max;
-  if (ratio < 0.15) return 'h1';
-  if (ratio < 0.30) return 'h2';
-  if (ratio < 0.50) return 'h3';
-  if (ratio < 0.75) return 'h4';
-  return 'h5';
-}
-
-function loadWeek() {
-  const idx = parseInt(document.getElementById('week-select').value);
-  const weekName = allWeeks[idx];
-  const { matrix, dayTotals, total } = parseWeek(weekName);
-
-  document.getElementById('rpt-title').textContent = `${weekName} — Weekly Heatmap`;
-  document.getElementById('rpt-sub').textContent = `${total} total errors · error density by shift and day`;
-  document.getElementById('s-total').textContent = total;
-
-  // Find max cell value for heat scale
-  let maxCell = 1;
-  SHIFTS.forEach(s => DAYS.forEach(d => { if (matrix[s][d] > maxCell) maxCell = matrix[s][d]; }));
-
-  // Peak day
-  const activeDays = DAYS.filter(d => dayTotals[d] > 0);
-  const peakDay = activeDays.sort((a, b) => dayTotals[b] - dayTotals[a])[0];
-  const quietDay = [...activeDays].sort((a, b) => dayTotals[a] - dayTotals[b])[0];
-  document.getElementById('s-peak-day').textContent = peakDay ? peakDay.slice(0,3) : '—';
-  document.getElementById('s-peak-day-sub').textContent = peakDay ? `${dayTotals[peakDay]} errors` : '';
-  document.getElementById('s-quiet-day').textContent = quietDay ? quietDay.slice(0,3) : '—';
-  document.getElementById('s-quiet-day-sub').textContent = quietDay ? `${dayTotals[quietDay]} errors` : '';
-
-  // Peak combo
-  let peakCombo = { shift: '', day: '', val: 0 };
-  SHIFTS.forEach(s => DAYS.forEach(d => { if (matrix[s][d] > peakCombo.val) peakCombo = { shift: s, day: d, val: matrix[s][d] }; }));
-  document.getElementById('s-peak-combo').textContent = peakCombo.val > 0 ? `${peakCombo.shift.replace('-Shift', '')} · ${peakCombo.day.slice(0,3)}` : '—';
-  document.getElementById('s-peak-combo-sub').textContent = peakCombo.val > 0 ? `${peakCombo.val} errors` : '';
-
-  // ── HEATMAP TABLE ──
-  const tbl = document.getElementById('heatmap-table');
-  let html = '<thead><tr><th class="shift-header">Shift</th>';
-  DAYS.forEach((d, i) => html += `<th class="day-header">${DAY_SHORT[i]}</th>`);
-  html += '<th>Total</th></tr></thead><tbody>';
-
-  SHIFTS.forEach(s => {
-    const shiftClass = s === 'A-Shift' ? 'shift-a-text' : s === 'B-Shift' ? 'shift-b-text' : 'shift-c-text';
-    const shiftTotal = DAYS.reduce((sum, d) => sum + matrix[s][d], 0);
-    html += `<tr><td class="shift-label ${shiftClass}">${s}</td>`;
-    DAYS.forEach(d => {
-      const v = matrix[s][d];
-      const cls = heatClass(v, maxCell);
-      html += `<td class="${cls}" title="${s} · ${d}: ${v} errors">${v > 0 ? v : '·'}</td>`;
+function parseAllWeeks(){
+  allData=[];allWeeks=[];
+  const sheetNames=WB.SheetNames.filter(n=>/^Week \d+$/i.test(n));
+  sheetNames.forEach(sheet=>{
+    const wn=parseInt(sheet.replace(/\D/g,''));
+    const raw=XLSX.utils.sheet_to_json(WB.Sheets[sheet],{header:1,defval:''});
+    if(raw.length<6) return;
+    const headers=raw[4].map(h=>String(h).trim().replace(/:$/,'').trim());
+    const rows=raw.slice(5).filter(r=>r.some(c=>c!==''));
+    const col=name=>{
+      const e=headers.indexOf(name);
+      if(e>=0) return e;
+      return headers.findIndex(h=>h.toLowerCase().includes(name.toLowerCase()));
+    };
+    const iWM=col('WM SIGN ON'),iShift=col('Shift'),iDept=col('Home Department');
+    rows.forEach(r=>{
+      const wm=String(r[iWM]||'').trim();
+      if(!wm||wm==='nan') return;
+      const shift=String(r[iShift]||'').trim();
+      const dept=String(r[iDept]||'').trim();
+      allData.push({wm,shift,dept,week:wn});
     });
-    html += `<td class="total-cell">${shiftTotal}</td></tr>`;
+    if(rows.filter(r=>r.some(c=>c!=='')).length>0) allWeeks.push(wn);
+  });
+  allWeeks=[...new Set(allWeeks)].sort((a,b)=>a-b);
+
+  // Update file info
+  const lastWk=allWeeks[allWeeks.length-1];
+  document.getElementById('file-info-label').textContent=`${fileName} · data thru Week ${lastWk} · ${allWeeks.length} weeks loaded`;
+}
+
+function buildControls(){
+  // Shift tabs with totals
+  const shifts=['A-Shift','B-Shift','C-Shift'];
+  const shiftLabels=['A-Shift','B-Shift','C-Shift'];
+  const shiftKeys=['a','b','c'];
+  const tabs=document.getElementById('shift-tabs');
+  tabs.innerHTML='';
+  shifts.forEach((s,i)=>{
+    const cnt=allData.filter(r=>r.shift===s).length;
+    const btn=document.createElement('button');
+    btn.className=`shift-tab${curShift===s?' active-'+shiftKeys[i]:''}`;
+    btn.dataset.shift=s;
+    btn.dataset.key=shiftKeys[i];
+    btn.textContent=`${shiftLabels[i].replace('-Shift','-\nShift')} ${cnt}`;
+    btn.innerHTML=`${shiftLabels[i]} <span style="font-size:.7rem">${cnt}</span>`;
+    btn.onclick=()=>setShift(s,shiftKeys[i]);
+    tabs.appendChild(btn);
+  });
+}
+
+function setShift(s,key){
+  curShift=s;
+  document.querySelectorAll('.shift-tab').forEach(t=>t.className='shift-tab');
+  const active=document.querySelector(`.shift-tab[data-shift="${s}"]`);
+  if(active) active.className=`shift-tab active-${key}`;
+  renderHeatmap();
+}
+function setMode(m){
+  curMode=m;
+  document.getElementById('btn-raw').className='mode-btn'+(m==='raw'?' active':'');
+  document.getElementById('btn-delta').className='mode-btn'+(m==='delta'?' active':'');
+  renderHeatmap();
+}
+function toggleDept(d){
+  if(d==='recv') deptRecv=!deptRecv;
+  else deptTrain=!deptTrain;
+  document.getElementById('dept-recv').className='dept-btn'+(deptRecv?' active-recv':'');
+  document.getElementById('dept-train').className='dept-btn'+(deptTrain?' active-train':'');
+  renderHeatmap();
+}
+
+function isDeptShown(dept){
+  const isRecv=dept.toLowerCase()==='receiving';
+  const isTrain=dept.toLowerCase()==='training';
+  if(isRecv && deptRecv) return true;
+  if(isTrain && deptTrain) return true;
+  if(!isRecv && !isTrain) return true; // always show other depts
+  return false;
+}
+
+function renderHeatmap(){
+  const filtered=allData.filter(r=>r.shift===curShift && isDeptShown(r.dept));
+
+  // Build processor → week count map
+  const procWeekMap={};
+  const procDept={};
+  filtered.forEach(r=>{
+    if(!procWeekMap[r.wm]) procWeekMap[r.wm]={};
+    procWeekMap[r.wm][r.week]=(procWeekMap[r.wm][r.week]||0)+1;
+    procDept[r.wm]=r.dept;
   });
 
-  // Day totals row
-  html += `<tr class="total-row"><td class="shift-label">Total</td>`;
-  DAYS.forEach(d => html += `<td>${dayTotals[d] || 0}</td>`);
-  html += `<td>${total}</td></tr></tbody>`;
-  tbl.innerHTML = html;
-
-  // ── BAR CHART ──
-  const maxDay = Math.max(...DAYS.map(d => dayTotals[d] || 0), 1);
-  const chartH = 100;
-  const bc = document.getElementById('bar-chart');
-  bc.innerHTML = '<div class="bar-chart-baseline"></div>';
-  DAYS.forEach((day, i) => {
-    const tot = dayTotals[day] || 0;
-    const a = matrix['A-Shift'][day] || 0;
-    const b = matrix['B-Shift'][day] || 0;
-    const c = matrix['C-Shift'][day] || 0;
-    const col = document.createElement('div');
-    col.className = 'bar-col';
-    const stackH = tot > 0 ? Math.round((tot / maxDay) * chartH) : 0;
-    const aH = tot > 0 ? Math.round((a / tot) * stackH) : 0;
-    const bH = tot > 0 ? Math.round((b / tot) * stackH) : 0;
-    const cH = stackH - aH - bH;
-    col.innerHTML = `
-      <div class="bar-total-label">${tot || ''}</div>
-      <div class="bar-stack" style="height:${stackH}px">
-        ${cH > 0 ? `<div class="bar-seg-c" style="height:${cH}px"></div>` : ''}
-        ${bH > 0 ? `<div class="bar-seg-b" style="height:${bH}px"></div>` : ''}
-        ${aH > 0 ? `<div class="bar-seg-a" style="height:${aH}px"></div>` : ''}
-      </div>
-      <div class="bar-day-label">${DAY_SHORT[i]}</div>`;
-    bc.appendChild(col);
+  // Sort processors by total descending
+  const procs=Object.keys(procWeekMap).sort((a,b)=>{
+    const ta=Object.values(procWeekMap[a]).reduce((s,v)=>s+v,0);
+    const tb=Object.values(procWeekMap[b]).reduce((s,v)=>s+v,0);
+    return tb-ta;
   });
 
-  // ── PEAK TABLE ──
-  const combos = [];
-  SHIFTS.forEach(s => DAYS.forEach(d => { if (matrix[s][d] > 0) combos.push({ shift: s, day: d, val: matrix[s][d] }); }));
-  combos.sort((a, b) => b.val - a.val);
-  const top5 = combos.slice(0, 5);
-  const badgeClass = s => s === 'A-Shift' ? 'badge-a' : s === 'B-Shift' ? 'badge-b' : 'badge-c';
-  document.getElementById('peak-table').innerHTML =
-    `<thead><tr><th>Rank</th><th>Shift</th><th>Day</th><th>Errors</th><th>% of Week</th></tr></thead><tbody>` +
-    top5.map((c, i) => `<tr>
-      <td>#${i + 1}</td>
-      <td><span class="peak-badge ${badgeClass(c.shift)}">${c.shift}</span></td>
-      <td>${c.day}</td>
-      <td><strong>${c.val}</strong></td>
-      <td>${+(c.val / total * 100).toFixed(1)}%</td>
-    </tr>`).join('') + '</tbody>';
+  const weeks=allWeeks;
+  const total=filtered.length;
+  const associates=procs.length;
+  const avg=associates>0?(total/associates).toFixed(1):0;
 
-  document.getElementById('week-selector').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
+  // Stats
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat-item"><div class="stat-label">Associates</div><div class="stat-value">${associates}</div></div>
+    <div class="stat-item"><div class="stat-label">Total</div><div class="stat-value">${total}</div></div>
+    <div class="stat-item"><div class="stat-label">Avg</div><div class="stat-value">${avg}</div></div>`;
+
+  // Trend function: compare last 3 weeks vs prior 3 weeks
+  function getTrend(wm){
+    const wkNums=weeks.filter(w=>procWeekMap[wm][w]>0);
+    if(wkNums.length<4) return '→';
+    const last3=wkNums.slice(-3).reduce((s,w)=>s+(procWeekMap[wm][w]||0),0);
+    const prev3=wkNums.slice(-6,-3).reduce((s,w)=>s+(procWeekMap[wm][w]||0),0);
+    if(prev3===0) return '→';
+    if(last3<prev3) return '▼';
+    if(last3>prev3) return '▲';
+    return '→';
+  }
+
+  function heatClass(v){
+    if(v===0||v===null||v===undefined) return 'h0';
+    if(v===1) return 'h1';
+    if(v===2) return 'h2';
+    if(v===3) return 'h3';
+    if(v===4) return 'h4';
+    return 'h5';
+  }
+  function deltaClass(d){
+    if(!d||d===0) return 'dzero';
+    return d>0?'dpos':'dneg';
+  }
+  function trendClass(t){
+    if(t==='▼') return 'trend-dn';
+    if(t==='▲') return 'trend-up';
+    return 'trend-fl';
+  }
+
+  // Build divider positions (every 4 weeks = fiscal month)
+  function isDivider(weekIdx){
+    const w=weeks[weekIdx];
+    return w%4===0 && weekIdx<weeks.length-1;
+  }
+
+  // Build table
+  let html=`<div class="section-heading">${curShift} · RECEIVING &amp; TRAINING</div>`;
+  html+=`<div class="heatmap-container"><table class="hmap"><thead><tr>`;
+  html+=`<th class="proc-th">LanID</th>`;
+  weeks.forEach((w,i)=>{
+    html+=`<th>${w}</th>`;
+    if(isDivider(i)) html+=`<th style="width:6px;min-width:6px;background:transparent;"></th>`;
+  });
+  html+=`<th>Total</th></tr></thead><tbody>`;
+
+  procs.forEach(wm=>{
+    const dept=procDept[wm]||'';
+    const isRecv=dept.toLowerCase()==='receiving';
+    const isTrain=dept.toLowerCase()==='training';
+    const dotColor=isTrain?'background:#a78bfa':isRecv?'background:var(--text)':'background:var(--muted)';
+    const trend=getTrend(wm);
+    const tc=trendClass(trend);
+    const procTotal=Object.values(procWeekMap[wm]).reduce((s,v)=>s+v,0);
+    html+=`<tr>`;
+    html+=`<td class="proc-cell"><span class="dept-dot-sm" style="${dotColor}"></span>${wm}<span class="trend ${tc}">${trend}</span></td>`;
+    weeks.forEach((w,i)=>{
+      const v=procWeekMap[wm][w]||0;
+      if(curMode==='raw'){
+        const cls=heatClass(v);
+        html+=`<td class="week-cell ${cls}" title="Week ${w}: ${v} error${v!==1?'s':''}">${v>0?v:''}</td>`;
+      } else {
+        const prev=i>0?(procWeekMap[wm][weeks[i-1]]||0):0;
+        const d=i>0?v-prev:null;
+        const cls=d===null?'week-cell h0':('week-cell '+deltaClass(d));
+        const label=d===null?'':(d>0?'+'+d:d===0?'=':d);
+        html+=`<td class="${cls}" title="Week ${w}: ${v} errors (Δ${d>=0?'+':''}${d})">${d!==null&&d!==0?label:''}</td>`;
+      }
+      if(isDivider(i)) html+=`<td class="divider-cell"></td>`;
+    });
+    html+=`<td class="total-cell">${procTotal}</td></tr>`;
+  });
+
+  // Week totals row
+  html+=`<tr class="total-row"><td class="proc-cell">Total</td>`;
+  weeks.forEach((w,i)=>{
+    const wkTotal=procs.reduce((s,p)=>s+(procWeekMap[p][w]||0),0);
+    html+=`<td class="week-cell" style="font-size:.65rem">${wkTotal||''}</td>`;
+    if(isDivider(i)) html+=`<td class="divider-cell"></td>`;
+  });
+  const grandTotal=procs.reduce((s,p)=>s+Object.values(procWeekMap[p]).reduce((a,b)=>a+b,0),0);
+  html+=`<td class="total-cell">${grandTotal}</td></tr>`;
+
+  html+=`</tbody></table></div>`;
+  document.getElementById('heatmap-container').innerHTML=html;
 }
 </script>
 </body>
