@@ -265,7 +265,7 @@
     <div id="checkpoint-body"></div>
   </div>
 
-  <!-- Processors 3+ -->
+  <!-- Processors 5+ -->
   <div class="card">
     <div class="section-header" id="procs-header"></div>
     <table id="procs-table"></table>
@@ -317,10 +317,8 @@ const MONTHLY_DATA = {
       ['Case Quantity Scan Error', 2],
       ['Units Sent to stock as Multi- Pack', 1],
     ],
-    procs3: [
+    procs5: [
       ['NWZQ',5],['WXSV',5],['MWR3',5],['H1K0',5],
-      ['ET85',4],['CWMU',4],['H42J',4],['GQ78',4],
-      ['G13V',3],['MGR9',3],['GVK8',3],['EUKC',3],['M5ZW',3],
     ],
   },
   '2026-02': {
@@ -343,14 +341,11 @@ const MONTHLY_DATA = {
       ['Case Quantity Scan Error', 1],
       ['Units Sent to stock as Multi- Pack', 1],
     ],
-    procs3: [
+    procs5: [
       ['UP07',11],['H42J',9],['QM0P',8],['MGR9',8],['KP6T',8],
       ['NWZQ',7],['ET85',7],['MWR3',6],['CWMU',6],['UOX3',6],
       ['FJK4',5],['WXSV',5],['M5ZW',5],['AHZ7',5],['GVK8',5],
-      ['DWKH',5],['QU12',5],['TL5N',5],['GRQL',4],['BPP7',4],
-      ['AXNW',4],['D0CB',4],['H1K0',4],['GJD2',3],['Q9UE',3],
-      ['GQ78',3],['NBZD',3],['Q9YK',3],['QU09',3],['OLYB',3],
-      ['MOTO',3],['G2A4',3],['FPD3',3],['EBBY',3],
+      ['DWKH',5],['QU12',5],['TL5N',5],
     ],
   },
   '2026-03': {
@@ -375,15 +370,11 @@ const MONTHLY_DATA = {
       ['QA/ Photo Not Palletized Located', 7],
       ['Units Sent to stock as Multi- Pack', 2],
     ],
-    procs3: [
+    procs5: [
       ['H42J',12],['MWR3',10],['TI03',10],['ET85',9],
       ['GQ78',7],['MGR9',7],['FPD3',7],['QU12',7],['Q9UE',7],['TXIW',7],
       ['KP6T',6],['G2A4',6],['FJK4',6],['MT3O',6],['S939',6],['AXNW',6],['GNLE',6],
       ['UP07',5],['WXSV',5],['QM0P',5],['GVK8',5],['UOX3',5],['VPC6',5],
-      ['O240',4],['G2CD',4],['Q9YK',4],['FXPS',4],['OLYB',4],['EBBY',4],
-      ['H066',4],['CVVW',4],['QWX1',4],['GJD2',4],
-      ['G13V',3],['GRQL',3],['H5J8',3],['DWKH',3],['FY5Y',3],
-      ['TL5N',3],['G26W',3],['F6FU',3],['WXLO',3],
     ],
   },
   '2026-04': {
@@ -406,13 +397,11 @@ const MONTHLY_DATA = {
       ['Units Sent to stock as Multi- Pack', 2],
       ['QA/ Photo Not Palletized Located', 1],
     ],
-    procs3: [
+    procs5: [
       ['MWR3',13],['QU12',10],['TXIW',9],['H42J',9],
       ['ET85',7],['TI03',7],['GQ78',7],
       ['MGR9',6],['G2CD',6],['GJD2',6],
       ['FPD3',5],['Q9UE',5],
-      ['H1K0',4],['GRQL',4],['VPC6',4],['GVK8',4],
-      ['QU09',3],['WXSV',3],['E8VM',3],['OLYB',3],['O240',3],['MT3O',3],['S939',3],
     ],
   },
   '2026-05': {
@@ -435,11 +424,8 @@ const MONTHLY_DATA = {
       ['Units Sent to stock as Multi- Pack', 2],
       ['QA/ Photo Not Palletized Located', 1],
     ],
-    procs3: [
-      ['TXIW',11],['ET85',10],
-      ['W04E',7],['VPC6',7],
-      ['MGR9',4],['MWR3',4],['MOTO',4],['NWZQ',4],['TI03',4],['WT9N',4],
-      ['H42J',3],['FPD3',3],['GJD2',3],['GRQL',3],['Y8KT',3],
+    procs5: [
+      ['TXIW',11],['ET85',10],['W04E',7],['VPC6',7],
     ],
   },
   '2026-06': {
@@ -462,16 +448,11 @@ const MONTHLY_DATA = {
       ['Case Quantity Scan Error', 11],
       ['Units Sent to stock as Multi- Pack', 1],
     ],
-    procs3: [
+    procs5: [
       ['MGR9',12],['TI03',11],['M5ZW',9],['GA4H',8],
       ['ET85',6],['GRQL',6],['MWR3',6],['TXIW',6],
       ['FPD3',5],['Q9UE',5],['QWX1',5],['DWKH',5],['QKSJ',5],
       ['AHZ7',5],['NWZQ',5],['PLG8',5],['UP39',5],
-      ['QU12',4],['S939',4],['BPP7',4],['FY5Y',4],['Y8KT',4],
-      ['GV99',4],['H5J8',4],['AXNW',4],['CEVV',4],['EUKC',4],
-      ['UP07',4],['VPC6',4],['FXPS',4],['G13V',4],
-      ['G9M1',3],['CD1U',3],['DAQC',3],['QZ0E',3],['CVVW',3],
-      ['AHWV',3],['G2CD',3],['U4MO',3],['F2LU',3],
     ],
   },
 };
@@ -702,7 +683,7 @@ function render() {
     { label:'Total Errors',     value: total,                                        color:'#16A34A', bg: isDark?'#16A34A22':'#dcfce7' },
     { label:'Busiest Shift',    value: `${busyL}-Shift (${p(busyN)})`,               color: SHIFT_COLORS[busyL], bg: isDark?SHIFT_COLORS[busyL]+'22':'#f0f9ff' },
     { label:'Top Checkpoint',   value: topCP.name,                                   color:'#0284C7', bg: isDark?'#0284C722':'#e0f2fe' },
-    { label:'Processors w/ 3+', value: data.procs3.length,                           color:'#B45309', bg: isDark?'#B4530922':'#fef3c7' },
+    { label:'Processors w/ 5+', value: data.procs5.length,                           color:'#B45309', bg: isDark?'#B4530922':'#fef3c7' },
   ].map(s => `<div class="stat-tile" style="background:${s.bg};border:1px solid ${s.color}30;">
       <div class="s-label">${esc(s.label)}</div>
       <div class="s-value" style="color:${s.color}">${esc(String(s.value))}</div>
@@ -826,18 +807,18 @@ function render() {
     renderCP(data.piece,    'Piece Error Check',    false) +
     renderCP(data.carton,   'Carton Error Check',   false);
 
-  /* —— PROCESSORS 3+ —— */
-  const procSum = data.procs3.reduce((s,[,c]) => s+c, 0);
+  /* —— PROCESSORS 5+ —— */
+  const procSum = data.procs5.reduce((s,[,c]) => s+c, 0);
   const amberBg = isDark ? '#B4530922' : '#fef3c7';
   document.getElementById('procs-header').innerHTML = `
     <span class="badge" style="color:#B45309;background:${amberBg};">Processors</span>
-    <h2>Processors with 3+ Errors</h2>
-    <p>${data.procs3.length} processors generated ${procSum} of the ${total} logged errors (${pct(procSum, total)}) this month</p>`;
+    <h2>Processors with 5+ Errors</h2>
+    <p>${data.procs5.length} processors generated ${procSum} of the ${total} logged errors (${pct(procSum, total)}) this month</p>`;
   document.getElementById('procs-table').innerHTML = `
     <thead><tr>
       <th>Processor</th><th class="r">Errors</th><th class="r">% of Total</th>
     </tr></thead>
-    <tbody>${data.procs3.map(([name, count]) => `<tr>
+    <tbody>${data.procs5.map(([name, count]) => `<tr>
       <td style="font-weight:600">${esc(name)}</td>
       <td class="r" style="color:#B45309">${count}</td>
       <td class="m">${p(count)}</td>
