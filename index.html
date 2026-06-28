@@ -60,63 +60,26 @@
       text-align: center;
       box-shadow: 0 8px 32px rgba(0,0,0,0.35);
     }
-    .gate-logo {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-    }
-    .gate-title {
-      font-size: 1.4rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 0.25rem;
-    }
-    .gate-sub {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin-bottom: 2rem;
-    }
+    .gate-logo { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .gate-title { font-size: 1.4rem; font-weight: 700; color: var(--text); margin-bottom: 0.25rem; }
+    .gate-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 2rem; }
     .gate-label {
-      display: block;
-      text-align: left;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.5rem;
+      display: block; text-align: left; font-size: 0.8rem; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;
     }
     .gate-input {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 1rem;
-      margin-bottom: 1rem;
-      outline: none;
-      transition: border-color 0.2s;
+      width: 100%; padding: 0.75rem 1rem; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+      font-size: 1rem; margin-bottom: 1rem; outline: none; transition: border-color 0.2s;
     }
     .gate-input:focus { border-color: var(--accent); }
     .gate-btn {
-      width: 100%;
-      padding: 0.75rem;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
+      width: 100%; padding: 0.75rem; background: var(--accent); color: #fff;
+      border: none; border-radius: 8px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
     }
     .gate-btn:hover { background: var(--accent2); }
-    .gate-error {
-      margin-top: 0.75rem;
-      font-size: 0.85rem;
-      color: #f87171;
-      display: none;
-    }
+    .gate-error { margin-top: 0.75rem; font-size: 0.85rem; color: #f87171; display: none; }
 
     /* ── MAIN HUB ── */
     #hub { display: none; }
@@ -132,48 +95,22 @@
       top: 0;
       z-index: 10;
     }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
+    .header-left { display: flex; align-items: center; gap: 0.75rem; }
     .header-icon { font-size: 1.5rem; }
-    .header-title {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1.2;
-    }
-    .header-sub {
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
+    .header-title { font-size: 1.1rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .header-sub { font-size: 0.75rem; color: var(--muted); }
     .theme-btn {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.4rem 0.8rem;
-      color: var(--text);
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.2s;
-      white-space: nowrap;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.4rem 0.8rem; color: var(--text); font-size: 0.85rem;
+      cursor: pointer; transition: background 0.2s; white-space: nowrap;
     }
     .theme-btn:hover { background: var(--card-hover); }
 
-    main {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 2.5rem 1.5rem;
-    }
+    main { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem; }
 
     .section-label {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--accent);
-      margin-bottom: 1rem;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--accent); margin-bottom: 1rem;
     }
 
     .grid {
@@ -184,78 +121,32 @@
     }
 
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.5rem;
-      text-decoration: none;
-      color: var(--text);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 1.5rem; text-decoration: none; color: var(--text);
+      display: flex; flex-direction: column; gap: 0.75rem;
       transition: background 0.15s, border-color 0.15s, transform 0.15s;
       cursor: pointer;
     }
-    .card:hover {
-      background: var(--card-hover);
-      border-color: var(--accent);
-      transform: translateY(-2px);
-    }
-    .card-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-    }
-    .card-icon {
-      font-size: 1.75rem;
-      line-height: 1;
-    }
+    .card:hover { background: var(--card-hover); border-color: var(--accent); transform: translateY(-2px); }
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; }
+    .card-icon { font-size: 1.75rem; line-height: 1; }
     .card-badge {
-      font-size: 0.7rem;
-      font-weight: 600;
-      background: var(--badge-bg);
-      color: var(--badge-text);
-      padding: 0.2rem 0.55rem;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      font-size: 0.7rem; font-weight: 600; background: var(--badge-bg); color: var(--badge-text);
+      padding: 0.2rem 0.55rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em;
     }
-    .card-name {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .card-desc {
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.5;
-    }
+    .card-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .card-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
     .card-footer {
-      margin-top: auto;
-      font-size: 0.78rem;
-      color: var(--accent);
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
+      margin-top: auto; font-size: 0.78rem; color: var(--accent);
+      font-weight: 600; display: flex; align-items: center; gap: 0.25rem;
     }
 
-    .coming-soon {
-      opacity: 0.5;
-      pointer-events: none;
-      cursor: default;
-    }
-    .coming-soon .card-badge {
-      background: var(--surface2);
-      color: var(--muted);
-    }
+    .coming-soon { opacity: 0.5; pointer-events: none; cursor: default; }
+    .coming-soon .card-badge { background: var(--surface2); color: var(--muted); }
 
     footer {
-      text-align: center;
-      padding: 2rem;
-      font-size: 0.75rem;
-      color: var(--muted);
-      border-top: 1px solid var(--border);
+      text-align: center; padding: 2rem; font-size: 0.75rem;
+      color: var(--muted); border-top: 1px solid var(--border);
     }
   </style>
 </head>
@@ -268,7 +159,8 @@
       <div class="gate-title">MWFC Receiving</div>
       <div class="gate-sub">Error Dashboard Hub · Internal Use Only</div>
       <label class="gate-label" for="pwd">Access Code</label>
-      <input class="gate-input" type="password" id="pwd" placeholder="Enter access code" onkeydown="if(event.key==='Enter')unlock()" />
+      <input class="gate-input" type="password" id="pwd" placeholder="Enter access code"
+        onkeydown="if(event.key==='Enter')unlock()" />
       <button class="gate-btn" onclick="unlock()">Enter</button>
       <div class="gate-error" id="gate-error">Incorrect access code. Try again.</div>
     </div>
@@ -312,17 +204,6 @@
           <div class="card-desc">Visual error density by day and shift. Quickly spot high-error patterns across the fiscal week.</div>
           <div class="card-footer">Open tool →</div>
         </div>
-        
-            <!-- YTD Weekly Heatmap -->
-        <div class="card" onclick="goTo('weeklyheatmaperrorsreceiving.html')">
-          <div class="card-top">
-            <span class="card-icon">🗓️</span>
-            <span class="card-badge">Live</span>
-          </div>
-          <div class="card-name">YTD Weekly Heatmap</div>
-          <div class="card-desc">Visual error density by week and shift. Quickly spot high-error users across the fiscal weeks.</div>
-          <div class="card-footer">Open tool →</div>
-        </div>
 
         <!-- Processor Performance -->
         <div class="card" onclick="goTo('processor-performance.html')">
@@ -343,6 +224,17 @@
           </div>
           <div class="card-name">Processor Error Card v2</div>
           <div class="card-desc">Individual error summary cards per processor. Formatted for coaching conversations and documentation.</div>
+          <div class="card-footer">Open tool →</div>
+        </div>
+
+        <!-- Weekly Error Frequency Heat Map — NEW -->
+        <div class="card" onclick="goTo('WeeklyHeatMapErrorsReceiving.html')">
+          <div class="card-top">
+            <span class="card-icon">🔥</span>
+            <span class="card-badge">Live</span>
+          </div>
+          <div class="card-name">Weekly Error Frequency Heat Map</div>
+          <div class="card-desc">52-week error frequency grid by LanID. Shift tabs, RAW/DELTA toggle, trend arrows, and Receiving vs Training department split.</div>
           <div class="card-footer">Open tool →</div>
         </div>
 
@@ -370,7 +262,6 @@
   </div>
 
   <script>
-    // ── CHANGE THIS PASSWORD ──
     const ACCESS_CODE = "599";
 
     function unlock() {
@@ -385,15 +276,12 @@
       }
     }
 
-    // Stay unlocked within the same browser session
     if (sessionStorage.getItem('mwfc_auth') === '1') {
       document.getElementById('gate').style.display = 'none';
       document.getElementById('hub').style.display = 'block';
     }
 
-    function goTo(page) {
-      window.location.href = page;
-    }
+    function goTo(page) { window.location.href = page; }
 
     function toggleTheme() {
       const body = document.body;
