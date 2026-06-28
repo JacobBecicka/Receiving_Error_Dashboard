@@ -16,7 +16,7 @@
       border: 1.5px dashed #94a3b8; border-radius: 16px;
       padding: 4rem 2rem; text-align: center; cursor: pointer; transition: all .3s;
     }
-    .drop-zone:hover, .drop-zone.active { border-color: #0EA5E9; background: rgba(14,165,233,.06); }
+    .drop-zone:hover, .drop-zone.active { border-color: #38BDF8; background: rgba(56,189,248,.06); }
     .btn-hover:hover { opacity: .85; }
   </style>
 </head>
@@ -26,40 +26,37 @@
 const { useState, useRef, useCallback } = React;
 const XLSX = window.XLSX;
 
-const SHIFT_COLORS = { A:"#0EA5E9", B:"#8B5CF6", C:"#F59E0B" };
-const DEPT_COLORS  = { Receiving:"#0EA5E9", Transfers:"#94A3B8" };
+// ── Shift colors locked from screenshots ──────────────────────────────────
+// A-Shift: #38BDF8 (sky blue)
+// B-Shift: #A78BFA (soft purple/lavender)
+// C-Shift: #34D399 (mint green)
+const SHIFT_COLORS = { A:"#38BDF8", B:"#A78BFA", C:"#34D399" };
+const DEPT_COLORS  = { Receiving:"#38BDF8", Transfers:"#94A3B8" };
 
 /* ── FISCAL WEEK HELPERS ─────────────────────────────────────────────────────
    Sheet Week 1 starts Dec 28, 2025.
    Sheets 1–5  → FY2025 (Week 48–52 2025)
    Sheet 6+    → FY2026 (Week 1+ 2026), offset = sheetNum - 5
    ────────────────────────────────────────────────────────────────────────── */
-const SHEET_WEEK_1_START = new Date(2025, 11, 28); // Dec 28, 2025
+const SHEET_WEEK_1_START = new Date(2025, 11, 28);
 
 function getSheetWeekStart(n) {
   const d = new Date(SHEET_WEEK_1_START);
   d.setDate(d.getDate() + (n - 1) * 7);
   return d;
 }
-
 function getWeekDisplay(sheetNum) {
   if (sheetNum <= 5) return { week: 47 + sheetNum, year: 2025 };
   return { week: sheetNum - 5, year: 2026 };
 }
-
-// Full label: "Week 20 2026"
 function getWeekLabel(sheetNum) {
   const { week, year } = getWeekDisplay(sheetNum);
   return `Week ${week} ${year}`;
 }
-
-// Short label for bar chart x-axis: "W20"
 function getWeekShort(sheetNum) {
   const { week } = getWeekDisplay(sheetNum);
   return `W${week}`;
 }
-
-// Is this sheet week already started (i.e., not in the future)?
 function isWeekStarted(sheetNum) {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
@@ -90,7 +87,6 @@ function BarChartSVG({ data, t }) {
   const H = 110, W = 360;
   const barW = 52;
   const gap = (W - data.length * barW) / (data.length + 1);
-
   return (
     <svg width="100%" viewBox={`0 0 ${W} 185`} style={{ display:"block", margin:"0 auto" }}>
       {[0.25, 0.5, 0.75, 1].map(f => {
@@ -165,16 +161,13 @@ function parseWeek(wb, weekNum) {
   if (!wb.SheetNames.includes(name)) return null;
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:"" });
   if (!rows || rows.length < 6) return null;
-
   const dateRange = String(rows[1]?.[1] || "").trim();
   const dataRows  = rows.slice(5).filter(r => r && String(r[6]||"").trim());
-
   let total = 0;
   const shiftC = { A:0, B:0, C:0 };
   const deptC  = { recv:0, xfer:0 };
   const sErrs = {}, pErrs = {}, cErrs = {}, procC = {};
   let firstId = null, lastId = null;
-
   dataRows.forEach(row => {
     const shift = String(row[9] ||"").replace(/\xa0/g,"").trim();
     const dept  = String(row[10]||"").replace(/\xa0/g,"").trim().toLowerCase();
@@ -197,7 +190,6 @@ function parseWeek(wb, weekNum) {
     };
     add(se, sErrs); add(pe, pErrs); add(ce, cErrs);
   });
-
   const sortObj = o => Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([name,value])=>({name,value}));
   return {
     total, dateRange,
@@ -213,11 +205,7 @@ function buildRolling(wb, weekNum) {
   const out = [];
   for (let i = Math.max(1, weekNum - 3); i <= weekNum; i++) {
     const d = parseWeek(wb, i);
-    if (d) out.push({
-      short: getWeekShort(i),   // "W20" — for bar chart x-axis
-      label: getWeekLabel(i),   // "Week 20 2026" — for table
-      total: d.total,
-    });
+    if (d) out.push({ short:getWeekShort(i), label:getWeekLabel(i), total:d.total });
   }
   return out;
 }
@@ -232,8 +220,7 @@ function generateTakeaways(data, prevData, rolling, weekNum) {
   const cpArr = [["Shipment",sT,data.shipment],["Piece",pT,data.piece],["Carton",cT,data.carton]].sort((a,b)=>b[1]-a[1]);
   const topCP = cpArr[0];
   const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : null;
-  const wLabel     = getWeekLabel(weekNum);
-  const wLabelPrev = getWeekLabel(weekNum - 1);
+  const wLabel = getWeekLabel(weekNum), wLabelPrev = getWeekLabel(weekNum - 1);
   const takes = [];
   takes.push({
     h: `${topShift[0]}-Shift leads with ${fp(topShift[1])} of errors`,
@@ -244,8 +231,8 @@ function generateTakeaways(data, prevData, rolling, weekNum) {
     const pct   = ((delta/prevData.total)*100).toFixed(1);
     const dir   = delta<0?"down":delta>0?"up":"unchanged";
     takes.push({
-      h: `Total errors ${dir} ${Math.abs(delta)} week over week`,
-      b: `${data.total} errors in ${wLabel} vs. ${prevData.total} in ${wLabelPrev} (${delta>0?"+":""}${delta}, ${pct}%).${rollingAvg!==null?` The ${rolling.length}-week rolling average is ${rollingAvg} errors/week.`:""}`,
+      h:`Total errors ${dir} ${Math.abs(delta)} week over week`,
+      b:`${data.total} errors in ${wLabel} vs. ${prevData.total} in ${wLabelPrev} (${delta>0?"+":""}${delta}, ${pct}%).${rollingAvg!==null?` The ${rolling.length}-week rolling average is ${rollingAvg} errors/week.`:""}`,
     });
   } else {
     takes.push({ h:"First week of data in this window", b:`${data.total} errors logged in ${wLabel} — no prior week available for comparison.` });
@@ -262,17 +249,13 @@ function Badge({ children, color, bg }) {
   return <span style={{ fontSize:10, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase",
     background:bg, color, padding:"3px 10px", borderRadius:20 }}>{children}</span>;
 }
-
 function Card({ t, children, style }) {
   return (
     <div style={{ background:t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16,
       padding:"24px 26px 22px", marginBottom:20, boxShadow:t.shadow,
-      transition:"background .25s,border-color .25s", ...style }}>
-      {children}
-    </div>
+      transition:"background .25s,border-color .25s", ...style }}>{children}</div>
   );
 }
-
 function SectionHeader({ t, eyebrow, eyebrowColor, eyebrowBg, title, subtitle }) {
   return (
     <div style={{ marginBottom:18 }}>
@@ -282,7 +265,6 @@ function SectionHeader({ t, eyebrow, eyebrowColor, eyebrowBg, title, subtitle })
     </div>
   );
 }
-
 function CheckpointTable({ t, rows, total, accent, fmtPct }) {
   if (!rows.length) return (
     <div style={{ marginTop:10, padding:"14px 10px", textAlign:"center",
@@ -311,7 +293,6 @@ function CheckpointTable({ t, rows, total, accent, fmtPct }) {
     </div>
   );
 }
-
 function NavBar({ t, dark, setMode, onChangeWeek, showChange }) {
   return (
     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
@@ -350,13 +331,11 @@ function App() {
   const t    = getTheme(mode);
   const dark = mode === "dark";
 
-  // Only show sheet weeks that have already started — no future weeks
   const availableWeeks = wb
-    ? wb.SheetNames
-        .filter(n => n.startsWith("Week"))
-        .map(n => parseInt(n.replace("Week","").trim()))
-        .filter(n => !isNaN(n) && n > 0 && isWeekStarted(n))
-        .sort((a,b) => a - b)
+    ? wb.SheetNames.filter(n=>n.startsWith("Week"))
+        .map(n=>parseInt(n.replace("Week","").trim()))
+        .filter(n=>!isNaN(n)&&n>0&&isWeekStarted(n))
+        .sort((a,b)=>a-b)
     : [];
 
   const loadFile = useCallback(file => {
@@ -365,13 +344,10 @@ function App() {
     reader.onload = e => {
       const workbook = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
       setWb(workbook); setFileName(file.name); setReport(null);
-      // Auto-select the most recent non-future week
-      const weeks = workbook.SheetNames
-        .filter(n => n.startsWith("Week"))
-        .map(n => parseInt(n.replace("Week","").trim()))
-        .filter(n => !isNaN(n) && n > 0 && isWeekStarted(n))
-        .sort((a,b) => a - b);
-      if (weeks.length) setWeekNum(weeks[weeks.length - 1]);
+      const weeks = workbook.SheetNames.filter(n=>n.startsWith("Week"))
+        .map(n=>parseInt(n.replace("Week","").trim()))
+        .filter(n=>!isNaN(n)&&n>0&&isWeekStarted(n)).sort((a,b)=>a-b);
+      if (weeks.length) setWeekNum(weeks[weeks.length-1]);
     };
     reader.readAsArrayBuffer(file);
   }, []);
@@ -381,15 +357,14 @@ function App() {
   const runReport = () => {
     if (!wb || !weekNum) return;
     const data     = parseWeek(wb, weekNum);
-    const prevData = weekNum > 1 ? parseWeek(wb, weekNum - 1) : null;
+    const prevData = weekNum > 1 ? parseWeek(wb, weekNum-1) : null;
     const rolling  = buildRolling(wb, weekNum);
     if (!data) return;
-    setReport({ data, prevData, rolling, takeaways: generateTakeaways(data, prevData, rolling, weekNum), weekNum });
+    setReport({ data, prevData, rolling, takeaways:generateTakeaways(data, prevData, rolling, weekNum), weekNum });
   };
 
   const reset = () => { setWb(null); setFileName(""); setWeekNum(null); setReport(null); };
 
-  /* ── UPLOAD ── */
   if (!wb) return (
     <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
       padding:"28px 16px 60px", transition:"background .25s" }}>
@@ -401,7 +376,7 @@ function App() {
           <p style={{ fontSize:13, color:t.textSecond, marginTop:6 }}>Upload your workbook to generate the report</p>
         </div>
         <div className={`drop-zone${dragging?" active":""}`}
-          style={{ background:t.card, borderColor:dragging?"#0EA5E9":t.inputBorder }}
+          style={{ background:t.card, borderColor:dragging?"#38BDF8":t.inputBorder }}
           onDragOver={e=>{e.preventDefault();setDragging(true);}}
           onDragLeave={()=>setDragging(false)} onDrop={onDrop}
           onClick={()=>inputRef.current.click()}>
@@ -415,7 +390,6 @@ function App() {
     </div>
   );
 
-  /* ── WEEK SELECTOR ── */
   if (!report) return (
     <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
       padding:"28px 16px 60px", transition:"background .25s" }}>
@@ -423,21 +397,19 @@ function App() {
         <NavBar t={t} dark={dark} setMode={setMode} showChange={false} />
         <Card t={t}>
           <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Workbook Loaded</div>
-          <p style={{ fontSize:13, color:"#16A34A", fontWeight:600, marginBottom:18 }}>✓ {fileName}</p>
+          <p style={{ fontSize:13, color:"#34D399", fontWeight:600, marginBottom:18 }}>✓ {fileName}</p>
           <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond,
             textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
           <select value={weekNum||""} onChange={e=>setWeekNum(Number(e.target.value))}
             style={{ width:"100%", padding:"10px 14px", borderRadius:10, fontSize:14,
               border:`1px solid ${t.inputBorder}`, background:t.inputBg, color:t.textPrimary,
               marginBottom:16, cursor:"pointer" }}>
-            {availableWeeks.map(w => (
-              <option key={w} value={w}>{getWeekLabel(w)}</option>
-            ))}
+            {availableWeeks.map(w => <option key={w} value={w}>{getWeekLabel(w)}</option>)}
           </select>
           <button className="btn-hover" onClick={runReport} style={{
-            width:"100%", padding:12, borderRadius:10, background:"#0EA5E9",
+            width:"100%", padding:12, borderRadius:10, background:"#38BDF8",
             color:"#fff", fontWeight:800, fontSize:14, border:"none", cursor:"pointer",
-            boxShadow:"0 2px 10px rgba(14,165,233,.3)" }}>Generate Report →</button>
+            boxShadow:"0 2px 10px rgba(56,189,248,.3)" }}>Generate Report →</button>
           <button onClick={reset} style={{ width:"100%", marginTop:10, padding:9, borderRadius:10,
             background:"transparent", color:t.textMuted, fontWeight:600, fontSize:13,
             border:`1px solid ${t.cardBorder}`, cursor:"pointer" }}>↑ Load Different File</button>
@@ -446,13 +418,13 @@ function App() {
     </div>
   );
 
-  /* ── REPORT ── */
   const { data, prevData, rolling, takeaways } = report;
   const wLabel     = getWeekLabel(report.weekNum);
   const wLabelPrev = getWeekLabel(report.weekNum - 1);
   const fmtPct     = n => `${((n/data.total)*100).toFixed(1)}%`;
-  const shiftArr   = [["A",data.shift.A,SHIFT_COLORS.A],["B",data.shift.B,SHIFT_COLORS.B],["C",data.shift.C,SHIFT_COLORS.C]].sort((a,b)=>b[1]-a[1]);
+  const shiftArr   = [["A",data.shift.A],["B",data.shift.B],["C",data.shift.C]].sort((a,b)=>b[1]-a[1]);
   const topShift   = shiftArr[0];
+  const topShiftColor = SHIFT_COLORS[topShift[0]];
   const sTotal     = data.shipment.reduce((s,r)=>s+r.value,0);
   const pTotal     = data.piece.reduce((s,r)=>s+r.value,0);
   const cTotal     = data.carton.reduce((s,r)=>s+r.value,0);
@@ -461,7 +433,7 @@ function App() {
   const pct        = prevData ? (delta/prevData.total)*100 : null;
   const improving  = delta !== null && delta < 0;
   const flat       = delta === 0;
-  const arrowColor = flat ? t.textMuted : improving ? "#16A34A" : "#DC2626";
+  const arrowColor = flat ? t.textMuted : improving ? "#34D399" : "#f87171";
   const arrow      = flat ? "→" : improving ? "↓" : "↑";
   const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : 0;
 
@@ -479,7 +451,6 @@ function App() {
 
         <NavBar t={t} dark={dark} setMode={setMode} showChange={true} onChangeWeek={()=>setReport(null)} />
 
-        {/* Title */}
         <div style={{ marginBottom:22 }}>
           <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
             textTransform:"uppercase", marginBottom:6 }}>Receiving Research Error Form</div>
@@ -493,18 +464,18 @@ function App() {
           )}
         </div>
 
-        {/* Summary */}
+        {/* Summary — Busiest Shift box uses that shift's color */}
         <Card t={t} style={{ padding:"18px 20px" }}>
           <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
             textTransform:"uppercase", marginBottom:10 }}>Summary</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
             {[
-              { label:"Total Errors",     value:data.total,                                  color:"#16A34A", bg:dark?"#16A34A22":"#dcfce7" },
-              { label:"Busiest Shift",    value:`${topShift[0]} (${fmtPct(topShift[1])})`,   color:"#8B5CF6", bg:dark?"#8B5CF622":"#ede9fe" },
-              { label:"Top Checkpoint",   value:topCP[0],                                    color:"#0284C7", bg:dark?"#0284C722":"#e0f2fe" },
-              { label:"Processors w/ 3+", value:String(data.topProcessors.length),            color:"#B45309", bg:dark?"#B4530922":"#fef3c7" },
+              { label:"Total Errors",     value:data.total,                                         color:"#34D399", bg:dark?"#34D39922":"#d1fae5" },
+              { label:"Busiest Shift",    value:`${topShift[0]} (${fmtPct(topShift[1])})`,          color:topShiftColor, bg:`${topShiftColor}22` },
+              { label:"Top Checkpoint",   value:topCP[0],                                           color:"#0284C7", bg:dark?"#0284C722":"#e0f2fe" },
+              { label:"Processors w/ 3+", value:String(data.topProcessors.length),                   color:"#B45309", bg:dark?"#B4530922":"#fef3c7" },
             ].map(s => (
-              <div key={s.label} style={{ background:s.bg, border:`1px solid ${s.color}30`,
+              <div key={s.label} style={{ background:s.bg, border:`1px solid ${s.color}40`,
                 borderRadius:10, padding:"9px 16px", flex:"1 1 130px" }}>
                 <div style={{ fontSize:10.5, color:t.textSecond, marginBottom:2 }}>{s.label}</div>
                 <div style={{ fontSize:17, fontWeight:800, color:s.color }}>{s.value}</div>
@@ -517,8 +488,7 @@ function App() {
         {prevData && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Trend" eyebrowColor="#0D9488" eyebrowBg={dark?"#0D948822":"#ccfbf1"}
-              title="Week-over-Week: Total Errors"
-              subtitle={`${wLabel} vs. ${wLabelPrev}`} />
+              title="Week-over-Week: Total Errors" subtitle={`${wLabel} vs. ${wLabelPrev}`} />
             <div style={{ display:"flex", alignItems:"center", gap:18, marginTop:4 }}>
               <div style={{ textAlign:"center" }}>
                 <div style={{ fontSize:11, color:t.textMuted }}>{wLabelPrev}</div>
@@ -544,7 +514,7 @@ function App() {
         {/* 4-Week Rolling Trend */}
         {rolling.length >= 2 && (
           <Card t={t}>
-            <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#DC2626" eyebrowBg={dark?"#DC262622":"#fee2e2"}
+            <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#f87171" eyebrowBg={dark?"#f8717122":"#fee2e2"}
               title="4-Week Rolling Review"
               subtitle={`${rolling[0].label} – ${rolling[rolling.length-1].label}`} />
             <BarChartSVG data={rolling} t={t} />
@@ -561,7 +531,7 @@ function App() {
                   const prev = i>0?rolling[i-1].total:null;
                   const delt = prev!==null?d.total-prev:null;
                   const dpct = prev!==null?(delt/prev)*100:null;
-                  const col  = delt===null?t.textMuted:delt>0?"#DC2626":delt<0?"#16A34A":t.textMuted;
+                  const col  = delt===null?t.textMuted:delt>0?"#f87171":delt<0?"#34D399":t.textMuted;
                   return (
                     <tr key={d.label} style={{ background:i%2?t.rowAlt:"transparent" }}>
                       <td style={{ padding:"7px 10px", color:t.textPrimary, fontWeight:i===rolling.length-1?800:600 }}>{d.label}</td>
@@ -585,9 +555,9 @@ function App() {
           </Card>
         )}
 
-        {/* Shift */}
+        {/* Shift — donut uses shift colors */}
         <Card t={t}>
-          <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#7C3AED" eyebrowBg={dark?"#7C3AED22":"#ede9fe"}
+          <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#A78BFA" eyebrowBg={dark?"#A78BFA22":"#ede9fe"}
             title="Error Share by Shift" subtitle="A-Shift, B-Shift, C-Shift — % of total errors" />
           <DonutChart data={shiftPieData} t={t} />
           <div style={{ display:"flex", gap:8, marginTop:12 }}>
@@ -603,7 +573,7 @@ function App() {
 
         {/* Dept */}
         <Card t={t}>
-          <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#0EA5E9" eyebrowBg={dark?"#0EA5E922":"#e0f2fe"}
+          <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#38BDF8" eyebrowBg={dark?"#38BDF822":"#e0f2fe"}
             title="Receiving vs. Transfers" subtitle="Home Department — Receiving vs. all transfer departments combined" />
           <DonutChart data={deptPieData} t={t} />
           <div style={{ display:"flex", gap:8, marginTop:12 }}>
@@ -629,7 +599,7 @@ function App() {
           <CheckpointTable t={t} rows={data.carton}   total={cTotal} accent="#0284C7" fmtPct={fmtPct} />
         </Card>
 
-        {/* Processors */}
+        {/* Processors — row color matches their shift */}
         {data.topProcessors.length > 0 && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Processors" eyebrowColor="#B45309" eyebrowBg={dark?"#B4530922":"#fef3c7"}
@@ -658,11 +628,11 @@ function App() {
 
         {/* Takeaways */}
         <Card t={t}>
-          <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#16A34A" eyebrowBg={dark?"#16A34A22":"#dcfce7"}
+          <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#34D399" eyebrowBg={dark?"#34D39922":"#d1fae5"}
             title="Key Takeaways" />
           {takeaways.map(item => (
             <div key={item.h} style={{ marginBottom:14, paddingLeft:14,
-              borderLeft:`3px solid ${dark?"#16A34A55":"#16A34A30"}` }}>
+              borderLeft:`3px solid ${dark?"#34D39955":"#34D39930"}` }}>
               <div style={{ fontSize:14, fontWeight:700, color:t.textPrimary, marginBottom:3 }}>{item.h}</div>
               <div style={{ fontSize:13, color:t.textSecond, lineHeight:1.5 }}>{item.b}</div>
             </div>
