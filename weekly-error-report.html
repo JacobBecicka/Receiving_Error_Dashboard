@@ -12,34 +12,22 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #f1f5f9; }
     #root { min-height: 100vh; }
-    .drop-zone {
-      border: 1.5px dashed #94a3b8; border-radius: 16px;
-      padding: 4rem 2rem; text-align: center; cursor: pointer; transition: all .3s;
-    }
-    .drop-zone:hover, .drop-zone.active { border-color: #38BDF8; background: rgba(56,189,248,.06); }
     .btn-hover:hover { opacity: .85; }
   </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useRef, useCallback } = React;
+const { useState, useEffect, useRef } = React;
 const XLSX = window.XLSX;
 
-// ── Shift colors locked from screenshots ──────────────────────────────────
-// A-Shift: #38BDF8 (sky blue)
-// B-Shift: #A78BFA (soft purple/lavender)
-// C-Shift: #34D399 (mint green)
+const WORKBOOK_URL =
+  "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
+
 const SHIFT_COLORS = { A:"#38BDF8", B:"#A78BFA", C:"#34D399" };
 const DEPT_COLORS  = { Receiving:"#38BDF8", Transfers:"#94A3B8" };
 
-/* ── FISCAL WEEK HELPERS ─────────────────────────────────────────────────────
-   Sheet Week 1 starts Dec 28, 2025.
-   Sheets 1–5  → FY2025 (Week 48–52 2025)
-   Sheet 6+    → FY2026 (Week 1+ 2026), offset = sheetNum - 5
-   ────────────────────────────────────────────────────────────────────────── */
 const SHEET_WEEK_1_START = new Date(2025, 11, 28);
-
 function getSheetWeekStart(n) {
   const d = new Date(SHEET_WEEK_1_START);
   d.setDate(d.getDate() + (n - 1) * 7);
@@ -63,7 +51,6 @@ function isWeekStarted(sheetNum) {
   return getSheetWeekStart(sheetNum) <= today;
 }
 
-/* ── THEME ── */
 function getTheme(mode) {
   const d = mode === "dark";
   return {
@@ -81,7 +68,6 @@ function getTheme(mode) {
   };
 }
 
-/* ── SVG BAR CHART ── */
 function BarChartSVG({ data, t }) {
   const max = Math.max(...data.map(d => d.total), 1);
   const H = 110, W = 360;
@@ -115,7 +101,6 @@ function BarChartSVG({ data, t }) {
   );
 }
 
-/* ── SVG DONUT CHART ── */
 function DonutChart({ data, t }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   if (!total) return null;
@@ -150,7 +135,6 @@ function DonutChart({ data, t }) {
   );
 }
 
-/* ── PARSING ── */
 function isNoError(v) {
   const s = String(v || "").trim().toLowerCase();
   return !s || s === "no errors" || s === "no error";
@@ -244,7 +228,6 @@ function generateTakeaways(data, prevData, rolling, weekNum) {
   return takes;
 }
 
-/* ── SMALL COMPONENTS ── */
 function Badge({ children, color, bg }) {
   return <span style={{ fontSize:10, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase",
     background:bg, color, padding:"3px 10px", borderRadius:20 }}>{children}</span>;
@@ -319,17 +302,40 @@ function NavBar({ t, dark, setMode, onChangeWeek, showChange }) {
   );
 }
 
-/* ── APP ── */
 function App() {
   const [mode,    setMode]    = useState("light");
   const [wb,      setWb]      = useState(null);
-  const [fileName,setFileName]= useState("");
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
   const [weekNum, setWeekNum] = useState(null);
   const [report,  setReport]  = useState(null);
-  const [dragging,setDragging]= useState(false);
-  const inputRef = useRef();
   const t    = getTheme(mode);
   const dark = mode === "dark";
+
+  // Auto-fetch workbook on mount
+  useEffect(() => {
+    setLoading(true);
+    fetch(WORKBOOK_URL)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.arrayBuffer();
+      })
+      .then(buf => {
+        const workbook = XLSX.read(new Uint8Array(buf), { type:"array" });
+        const weeks = workbook.SheetNames
+          .filter(n => n.startsWith("Week"))
+          .map(n => parseInt(n.replace("Week","").trim()))
+          .filter(n => !isNaN(n) && n > 0 && isWeekStarted(n))
+          .sort((a,b) => a - b);
+        setWb(workbook);
+        if (weeks.length) setWeekNum(weeks[weeks.length - 1]);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
 
   const availableWeeks = wb
     ? wb.SheetNames.filter(n=>n.startsWith("Week"))
@@ -337,22 +343,6 @@ function App() {
         .filter(n=>!isNaN(n)&&n>0&&isWeekStarted(n))
         .sort((a,b)=>a-b)
     : [];
-
-  const loadFile = useCallback(file => {
-    if (!file?.name.endsWith(".xlsx")) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const workbook = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
-      setWb(workbook); setFileName(file.name); setReport(null);
-      const weeks = workbook.SheetNames.filter(n=>n.startsWith("Week"))
-        .map(n=>parseInt(n.replace("Week","").trim()))
-        .filter(n=>!isNaN(n)&&n>0&&isWeekStarted(n)).sort((a,b)=>a-b);
-      if (weeks.length) setWeekNum(weeks[weeks.length-1]);
-    };
-    reader.readAsArrayBuffer(file);
-  }, []);
-
-  const onDrop = e => { e.preventDefault(); setDragging(false); loadFile(e.dataTransfer.files[0]); };
 
   const runReport = () => {
     if (!wb || !weekNum) return;
@@ -363,61 +353,61 @@ function App() {
     setReport({ data, prevData, rolling, takeaways:generateTakeaways(data, prevData, rolling, weekNum), weekNum });
   };
 
-  const reset = () => { setWb(null); setFileName(""); setWeekNum(null); setReport(null); };
-
-  if (!wb) return (
-    <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+  const pageWrap = children => (
+    <div style={{ minHeight:"100vh", background:t.pageBg,
+      fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
       padding:"28px 16px 60px", transition:"background .25s" }}>
       <div style={{ maxWidth:580, margin:"0 auto" }}>
         <NavBar t={t} dark={dark} setMode={setMode} showChange={false} />
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>MWFC Receiving Operations</div>
-          <h1 style={{ fontSize:28, fontWeight:800, color:t.textPrimary, letterSpacing:"-.5px" }}>Weekly Error Report</h1>
-          <p style={{ fontSize:13, color:t.textSecond, marginTop:6 }}>Upload your workbook to generate the report</p>
-        </div>
-        <div className={`drop-zone${dragging?" active":""}`}
-          style={{ background:t.card, borderColor:dragging?"#38BDF8":t.inputBorder }}
-          onDragOver={e=>{e.preventDefault();setDragging(true);}}
-          onDragLeave={()=>setDragging(false)} onDrop={onDrop}
-          onClick={()=>inputRef.current.click()}>
-          <div style={{ fontSize:"2.5rem", marginBottom:12, opacity:.4 }}>📊</div>
-          <p style={{ color:t.textSecond, fontWeight:600, marginBottom:4 }}>Drop AI Safe Weekly Error Data.xlsx here</p>
-          <p style={{ fontSize:12, color:t.textMuted }}>or click to browse · .xlsx only</p>
-          <input ref={inputRef} type="file" accept=".xlsx" style={{ display:"none" }}
-            onChange={e=>loadFile(e.target.files[0])} />
-        </div>
+        {children}
       </div>
     </div>
   );
 
-  if (!report) return (
-    <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
-      padding:"28px 16px 60px", transition:"background .25s" }}>
-      <div style={{ maxWidth:580, margin:"0 auto" }}>
-        <NavBar t={t} dark={dark} setMode={setMode} showChange={false} />
-        <Card t={t}>
-          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Workbook Loaded</div>
-          <p style={{ fontSize:13, color:"#34D399", fontWeight:600, marginBottom:18 }}>✓ {fileName}</p>
-          <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond,
-            textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
-          <select value={weekNum||""} onChange={e=>setWeekNum(Number(e.target.value))}
-            style={{ width:"100%", padding:"10px 14px", borderRadius:10, fontSize:14,
-              border:`1px solid ${t.inputBorder}`, background:t.inputBg, color:t.textPrimary,
-              marginBottom:16, cursor:"pointer" }}>
-            {availableWeeks.map(w => <option key={w} value={w}>{getWeekLabel(w)}</option>)}
-          </select>
-          <button className="btn-hover" onClick={runReport} style={{
-            width:"100%", padding:12, borderRadius:10, background:"#38BDF8",
-            color:"#fff", fontWeight:800, fontSize:14, border:"none", cursor:"pointer",
-            boxShadow:"0 2px 10px rgba(56,189,248,.3)" }}>Generate Report →</button>
-          <button onClick={reset} style={{ width:"100%", marginTop:10, padding:9, borderRadius:10,
-            background:"transparent", color:t.textMuted, fontWeight:600, fontSize:13,
-            border:`1px solid ${t.cardBorder}`, cursor:"pointer" }}>↑ Load Different File</button>
-        </Card>
-      </div>
+  // Loading state
+  if (loading) return pageWrap(
+    <div style={{ textAlign:"center", padding:"60px 0" }}>
+      <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
+        textTransform:"uppercase", marginBottom:12 }}>MWFC Receiving Operations</div>
+      <h1 style={{ fontSize:26, fontWeight:800, color:t.textPrimary, marginBottom:20 }}>Weekly Error Report</h1>
+      <div style={{ fontSize:32, marginBottom:12, opacity:.5 }}>⏳</div>
+      <p style={{ color:t.textSecond, fontSize:13 }}>Loading workbook…</p>
     </div>
   );
 
+  // Error state
+  if (error) return pageWrap(
+    <Card t={t} style={{ textAlign:"center" }}>
+      <div style={{ fontSize:28, marginBottom:12 }}>⚠️</div>
+      <div style={{ fontSize:14, fontWeight:700, color:"#f87171", marginBottom:8 }}>Failed to load workbook</div>
+      <div style={{ fontSize:12, color:t.textMuted }}>{error}</div>
+    </Card>
+  );
+
+  // Week picker
+  if (!report) return pageWrap(
+    <Card t={t}>
+      <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
+        textTransform:"uppercase", marginBottom:12 }}>Workbook Loaded</div>
+      <p style={{ fontSize:13, color:"#34D399", fontWeight:600, marginBottom:18 }}>
+        ✓ AI_Safe_Weekly_Error_Data.xlsx
+      </p>
+      <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond,
+        textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
+      <select value={weekNum||""} onChange={e=>setWeekNum(Number(e.target.value))}
+        style={{ width:"100%", padding:"10px 14px", borderRadius:10, fontSize:14,
+          border:`1px solid ${t.inputBorder}`, background:t.inputBg, color:t.textPrimary,
+          marginBottom:16, cursor:"pointer" }}>
+        {availableWeeks.map(w => <option key={w} value={w}>{getWeekLabel(w)}</option>)}
+      </select>
+      <button className="btn-hover" onClick={runReport} style={{
+        width:"100%", padding:12, borderRadius:10, background:"#38BDF8",
+        color:"#fff", fontWeight:800, fontSize:14, border:"none", cursor:"pointer",
+        boxShadow:"0 2px 10px rgba(56,189,248,.3)" }}>Generate Report →</button>
+    </Card>
+  );
+
+  // Report
   const { data, prevData, rolling, takeaways } = report;
   const wLabel     = getWeekLabel(report.weekNum);
   const wLabelPrev = getWeekLabel(report.weekNum - 1);
@@ -436,7 +426,6 @@ function App() {
   const arrowColor = flat ? t.textMuted : improving ? "#34D399" : "#f87171";
   const arrow      = flat ? "→" : improving ? "↓" : "↑";
   const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : 0;
-
   const shiftPieData = [
     { name:"A-Shift", value:data.shift.A, color:SHIFT_COLORS.A },
     { name:"B-Shift", value:data.shift.B, color:SHIFT_COLORS.B },
@@ -464,7 +453,6 @@ function App() {
           )}
         </div>
 
-        {/* Summary — Busiest Shift box uses that shift's color */}
         <Card t={t} style={{ padding:"18px 20px" }}>
           <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
             textTransform:"uppercase", marginBottom:10 }}>Summary</div>
@@ -484,7 +472,6 @@ function App() {
           </div>
         </Card>
 
-        {/* Week-over-Week */}
         {prevData && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Trend" eyebrowColor="#0D9488" eyebrowBg={dark?"#0D948822":"#ccfbf1"}
@@ -511,7 +498,6 @@ function App() {
           </Card>
         )}
 
-        {/* 4-Week Rolling Trend */}
         {rolling.length >= 2 && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#f87171" eyebrowBg={dark?"#f8717122":"#fee2e2"}
@@ -555,7 +541,6 @@ function App() {
           </Card>
         )}
 
-        {/* Shift — donut uses shift colors */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#A78BFA" eyebrowBg={dark?"#A78BFA22":"#ede9fe"}
             title="Error Share by Shift" subtitle="A-Shift, B-Shift, C-Shift — % of total errors" />
@@ -571,7 +556,6 @@ function App() {
           </div>
         </Card>
 
-        {/* Dept */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#38BDF8" eyebrowBg={dark?"#38BDF822":"#e0f2fe"}
             title="Receiving vs. Transfers" subtitle="Home Department — Receiving vs. all transfer departments combined" />
@@ -587,7 +571,6 @@ function App() {
           </div>
         </Card>
 
-        {/* Checkpoints */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="Checkpoints" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
             title="Errors by Checkpoint" subtitle="Shipment, Piece, and Carton checks — error types found at each stage" />
@@ -599,7 +582,6 @@ function App() {
           <CheckpointTable t={t} rows={data.carton}   total={cTotal} accent="#0284C7" fmtPct={fmtPct} />
         </Card>
 
-        {/* Processors — row color matches their shift */}
         {data.topProcessors.length > 0 && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Processors" eyebrowColor="#B45309" eyebrowBg={dark?"#B4530922":"#fef3c7"}
@@ -626,7 +608,6 @@ function App() {
           </Card>
         )}
 
-        {/* Takeaways */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#34D399" eyebrowBg={dark?"#34D39922":"#d1fae5"}
             title="Key Takeaways" />
