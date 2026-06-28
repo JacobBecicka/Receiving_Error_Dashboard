@@ -286,6 +286,18 @@
                   </span>
                 </p>
               )}
+              <a href="index.html" style={{
+                display:"flex", alignItems:"center", gap:".35rem",
+                background:"transparent", border:`1px solid ${tk.borderMuted}`,
+                borderRadius:8, padding:".35rem .8rem", cursor:"pointer",
+                fontFamily:"DM Mono,monospace", fontSize:".65rem",
+                letterSpacing:".05em", color:tk.textMuted,
+                textDecoration:"none", transition:"all .2s",
+              }}
+                onMouseOver={e=>{ e.currentTarget.style.color="#38bdf8"; e.currentTarget.style.borderColor="#38bdf8"; }}
+                onMouseOut={e=>{ e.currentTarget.style.color=tk.textMuted; e.currentTarget.style.borderColor=tk.borderMuted; }}>
+                ← HUB
+              </a>
               <DarkToggle dark={dark} setDark={setDark} tk={tk} />
             </div>
           </div>
