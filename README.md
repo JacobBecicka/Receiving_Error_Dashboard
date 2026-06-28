@@ -1,2 +1,2 @@
 # Receiving_Error_Dashboard
-Receiving department error dashboard 
+Receiving department error dashboard hub 
