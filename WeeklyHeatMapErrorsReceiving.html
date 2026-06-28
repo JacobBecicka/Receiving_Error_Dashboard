@@ -17,7 +17,10 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useRef, useCallback, useMemo } = React;
+    const { useState, useRef, useCallback, useMemo, useEffect } = React;
+
+    const REPO_RAW = 'https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main';
+    const WORKBOOK  = 'AI_Safe_Weekly_Error_Data.xlsx';
 
     const WEEKS = Array.from({ length: 52 }, (_, i) => `Week ${i + 1}`);
 
@@ -141,8 +144,29 @@
       const [dragging, setDragging] = useState(false);
       const [viewMode, setViewMode] = useState("raw");
       const [dark,     setDark]     = useState(false);
+      const [loading,  setLoading]  = useState(true);
+      const [loadErr,  setLoadErr]  = useState(null);
       const inputRef = useRef();
       const tk = makeTk(dark);
+
+      // ── Auto-fetch workbook from GitHub on mount ──
+      useEffect(() => {
+        async function autoLoad() {
+          try {
+            const resp = await fetch(`${REPO_RAW}/${WORKBOOK}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const buf = await resp.arrayBuffer();
+            const wb = XLSX.read(new Uint8Array(buf), { type:"array" });
+            const { counts, ranges, trainingWMs } = parseWorkbook(wb);
+            setData({ counts, ranges, trainingWMs, fileName: WORKBOOK });
+          } catch(e) {
+            setLoadErr(e.message);
+          } finally {
+            setLoading(false);
+          }
+        }
+        autoLoad();
+      }, []);
 
       const load = useCallback(file => {
         if (!file?.name.endsWith(".xlsx")) return;
@@ -216,7 +240,7 @@
             ::-webkit-scrollbar-track{background:${tk.scrollTrack}}
             ::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:2px}
             .drop-zone{border:1.5px dashed ${tk.dropBorder};border-radius:16px;
-              padding:5rem 3rem;text-align:center;cursor:pointer;transition:all .3s;background:${tk.dropBg}}
+              padding:3rem 3rem;text-align:center;cursor:pointer;transition:all .3s;background:${tk.dropBg}}
             .drop-zone:hover,.drop-zone.active{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.08)}
             .wk-cell{transition:transform .1s;cursor:default;border-radius:3px}
             .wk-cell:hover{transform:scale(1.35);z-index:40;position:relative;box-shadow:0 0 10px rgba(251,146,60,.5)}
@@ -235,6 +259,7 @@
             .sticky-wm{position:sticky;left:0;z-index:10;padding-right:.75rem;background:${tk.sticky}}
             .sticky-th{position:sticky;left:0;z-index:11;background:${tk.sticky}}
             .mo-sep{border-left:1px solid ${tk.moSep}}
+            @keyframes spin{to{transform:rotate(360deg)}}
           `}</style>
 
           {/* Header */}
@@ -265,20 +290,45 @@
             </div>
           </div>
 
-          {!data ? (
-            <div className={`drop-zone${dragging?" active":""}`}
-              onDragOver={e=>{e.preventDefault();setDragging(true);}}
-              onDragLeave={()=>setDragging(false)}
-              onDrop={onDrop}
-              onClick={()=>inputRef.current.click()}>
-              <div style={{ fontSize:"2rem", marginBottom:"1rem", opacity:.4 }}>⬆</div>
-              <p style={{ fontFamily:"DM Sans,sans-serif", color:tk.textMuted, marginBottom:".4rem" }}>
-                Drop Weekly Error Report here
+          {/* ── Loading state ── */}
+          {loading ? (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center",
+              justifyContent:"center", minHeight:"60vh", gap:"1.25rem" }}>
+              <div style={{ width:44, height:44, borderRadius:"50%",
+                border:`3px solid ${tk.border}`, borderTopColor:"#38bdf8",
+                animation:"spin .8s linear infinite" }} />
+              <p style={{ fontFamily:"DM Sans,sans-serif", color:tk.textMuted, fontSize:".85rem" }}>
+                Loading workbook from GitHub…
               </p>
-              <p style={{ fontSize:".65rem", color:tk.textFaint }}>click to browse · .xlsx only</p>
-              <input ref={inputRef} type="file" accept=".xlsx" style={{ display:"none" }}
-                onChange={e=>load(e.target.files[0])} />
             </div>
+
+          ) : !data ? (
+            /* ── Error / manual fallback ── */
+            <div style={{ maxWidth:480, margin:"4rem auto", textAlign:"center" }}>
+              {loadErr && (
+                <div style={{ marginBottom:"1.5rem", padding:".75rem 1.25rem",
+                  background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.3)",
+                  borderRadius:10, color:"#f87171", fontSize:".75rem",
+                  fontFamily:"DM Sans,sans-serif", lineHeight:1.5 }}>
+                  ⚠ Auto-load failed: {loadErr}<br/>
+                  <span style={{ opacity:.7 }}>Upload the workbook manually below as a fallback.</span>
+                </div>
+              )}
+              <div className={`drop-zone${dragging?" active":""}`}
+                onDragOver={e=>{e.preventDefault();setDragging(true);}}
+                onDragLeave={()=>setDragging(false)}
+                onDrop={onDrop}
+                onClick={()=>inputRef.current.click()}>
+                <div style={{ fontSize:"2rem", marginBottom:"1rem", opacity:.4 }}>⬆</div>
+                <p style={{ fontFamily:"DM Sans,sans-serif", color:tk.textMuted, marginBottom:".4rem" }}>
+                  Upload workbook manually
+                </p>
+                <p style={{ fontSize:".65rem", color:tk.textFaint }}>click to browse · .xlsx only</p>
+                <input ref={inputRef} type="file" accept=".xlsx" style={{ display:"none" }}
+                  onChange={e=>load(e.target.files[0])} />
+              </div>
+            </div>
+
           ) : (
             <>
               {/* Control bar */}
