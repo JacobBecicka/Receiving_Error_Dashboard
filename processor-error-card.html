@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Processor Error Card — Receiving Research</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ────────────────────────────────────────── */
+:root {
+  --bg:     #f1f5f9;
+  --card:   #ffffff;
+  --border: #e2e8f0;
+  --text:   #1e293b;
+  --muted:  #64748b;
+  --navy:   #003087;
+  --accent: #0097A7;
+  --cp1:    #0097A7;
+  --cp2:    #7C3AED;
+  --cp3:    #F59E0B;
+}
+[data-dark] {
+  --bg:     #0f172a;
+  --card:   #1e293b;
+  --border: #334155;
+  --text:   #e2e8f0;
+  --muted:  #94a3b8;
+  --navy:   #4D8EE8;
+}
+
+/* ── RESET ─────────────────────────────────────────── */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  transition: background .2s, color .2s;
+}
+
+/* ── LOADING ───────────────────────────────────────── */
+#v-load {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 14px;
+}
+.spin {
+  width: 40px; height: 40px;
+  border: 4px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── FALLBACK ──────────────────────────────────────── */
+#v-fallback {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 48px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s;
+  background: var(--card);
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.drop-zone:hover { border-color: var(--navy); }
+
+/* ── VIEWS ─────────────────────────────────────────── */
+.view { display: none; padding: 20px 16px; max-width: 1200px; margin: 0 auto; }
+.view.active { display: block; }
+
+/* ── HEADER ────────────────────────────────────────── */
+.hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.eyebrow { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+.hdr h1  { font-size: 22px; font-weight: 800; color: var(--text); }
+.hdr-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.hdr-r   { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── BUTTONS ───────────────────────────────────────── */
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn-outline { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+.btn-outline:hover { border-color: var(--accent); color: var(--text); }
+.btn-accent  { background: var(--accent); color: #fff; }
+.btn-navy    { background: var(--navy); color: #fff; }
+.btn-theme   { background: var(--border); color: var(--text); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* ── PROC SELECT ───────────────────────────────────── */
+.proc-sel {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 140px;
+}
+
+/* ── STAT GRID ─────────────────────────────────────── */
+.stat-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  flex: 1; min-width: 110px;
+}
+.s-lbl { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.s-val { font-size: 26px; font-weight: 900; line-height: 1; }
+.s-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ── CHART CARD ────────────────────────────────────── */
+.chart-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.ct { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+.cs { font-size: 10px; color: var(--muted); margin-bottom: 12px; }
+.ch-wrap { position: relative; }
+
+/* ── IDENTITY CARD ─────────────────────────────────── */
+.id-card {
+  background: var(--card);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.id-avatar {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 900; color: #fff;
+  flex-shrink: 0;
+}
+.id-stats { margin-left: auto; display: flex; gap: 20px; text-align: right; flex-wrap: wrap; }
+.id-slbl  { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.id-sval  { font-size: 32px; font-weight: 900; line-height: 1; }
+.id-ssub  { font-size: 10px; color: var(--muted); }
+.id-div   { border-left: 1px solid var(--border); padding-left: 20px; }
+
+/* ── SELECT BANNER ─────────────────────────────────── */
+.sel-banner {
+  background: var(--card);
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.sel-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+
+/* ── ERROR LOG ─────────────────────────────────────── */
+.log-entry {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.log-wk  { min-width: 52px; }
+.log-wk  .wk-num { font-size: 11px; font-weight: 800; color: var(--accent); }
+.log-wk  .wk-dt  { font-size: 10px; color: var(--muted); }
+.log-bdgs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.log-badge{ font-size: 10px; border-radius: 4px; padding: 2px 6px; font-weight: 600; }
+.log-co   { font-size: 12px; color: var(--text); line-height: 1.4; }
+.log-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* ── FILTER BUTTONS ────────────────────────────────── */
+.flt-wrap { display: flex; gap: 6px; }
+.flt-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.flt-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── UTILS ─────────────────────────────────────────── */
+.sec-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+.row     { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.mb20    { margin-bottom: 20px; }
+.cp-legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 12px; }
+.cp-dot  { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<!-- ══ LOADING ══════════════════════════════════════════ -->
+<div id="v-load">
+  <div class="spin"></div>
+  <div style="font-size:14px;font-weight:600;color:var(--muted)">Loading error data…</div>
+  <div id="load-msg" style="font-size:12px;color:var(--muted)">Fetching from GitHub…</div>
+</div>
+
+<!-- ══ FALLBACK (auto-load failed) ══════════════════════ -->
+<div id="v-fallback">
+  <div style="margin-bottom:32px;display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px">
+    <div>
+      <div class="eyebrow">Receiving Research</div>
+      <div style="font-size:22px;font-weight:800;color:var(--text)">Processor Error Card</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-outline" onclick="goHub()">⌂ Hub</button>
+      <button class="btn btn-theme" onclick="toggleDark()">◑ Dark</button>
+    </div>
+  </div>
+  <div style="font-size:48px;margin-bottom:16px">📊</div>
+  <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">Auto-load failed</div>
+  <div id="fallback-msg" style="font-size:12px;color:var(--muted);margin-bottom:28px;text-align:center;max-width:380px"></div>
+  <label class="drop-zone">
+    <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
+    <div style="font-size:36px;margin-bottom:12px">📁</div>
+    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">Drop .xlsx file here</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">AI_Safe_Weekly_Error_Data.xlsx</div>
+    <div class="btn btn-navy">Browse Files</div>
+  </label>
+</div>
+
+<!-- ══ OVERVIEW VIEW ════════════════════════════════════ -->
+<div id="v-ov" class="view">
+  <div class="hdr">
+    <div>
+      <div class="eyebrow">Receiving Research</div>
+      <h1>Department Overview</h1>
+      <div class="hdr-sub" id="ov-sub"></div>
+    </div>
+    <div class="hdr-r">
+      <button class="btn btn-outline" onclick="goHub()">⌂ Hub</button>
+      <label style="cursor:pointer">
+        <span class="btn btn-outline">📂 Load File</span>
+        <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
+      </label>
+      <button class="btn btn-theme" onclick="toggleDark()">◑ Dark</button>
+    </div>
+  </div>
+
+  <div class="stat-grid" id="ov-stats"></div>
+
+  <div class="sel-banner">
+    <span class="sel-lbl">View Processor Card</span>
+    <select class="proc-sel" id="ov-sel"><option value="">— Select a LanID —</option></select>
+    <button class="btn btn-accent" onclick="gotoDetail()">View Card →</button>
+  </div>
+
+  <div class="chart-card mb20">
+    <div class="ct">Checkpoint Errors by Week — All Processors</div>
+    <div class="cs">Stacked by CP1 · CP2 · CP3</div>
+    <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-weekly"></canvas></div>
+  </div>
+
+  <div class="sec-lbl">Top Error Types by Checkpoint</div>
+  <div class="row">
+    <div class="chart-card" style="flex:1;min-width:240px">
+      <div class="ct" style="color:var(--cp1)">CP1 — Shipment</div>
+      <div class="cs">Top error types · dept-wide</div>
+      <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-cp1"></canvas></div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:240px">
+      <div class="ct" style="color:var(--cp2)">CP2 — Piece</div>
+      <div class="cs">Top error types · dept-wide</div>
+      <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-cp2"></canvas></div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:240px">
+      <div class="ct" style="color:var(--cp3)">CP3 — Carton</div>
+      <div class="cs">Top error types · dept-wide</div>
+      <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-cp3"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DETAIL VIEW ═══════════════════════════════════════ -->
+<div id="v-det" class="view">
+  <div class="hdr">
+    <div>
+      <div class="eyebrow">Receiving Research</div>
+      <h1>Processor Error Card</h1>
+    </div>
+    <div class="hdr-r">
+      <button class="btn btn-outline" onclick="goHub()">⌂ Hub</button>
+      <button class="btn btn-outline" onclick="showView('ov')">← Overview</button>
+      <select class="proc-sel" id="det-sel" onchange="renderDetail(this.value)"></select>
+      <label style="cursor:pointer">
+        <span class="btn btn-outline">📂 Update</span>
+        <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
+      </label>
+      <button class="btn btn-theme" onclick="toggleDark()">◑ Dark</button>
+    </div>
+  </div>
+
+  <div class="id-card" id="det-id"></div>
+  <div class="stat-grid" id="det-stats"></div>
+
+  <div class="row">
+    <div class="chart-card" style="flex:2;min-width:280px">
+      <div class="ct">Assessed Errors by Week</div>
+      <div class="cs">Each bar = 1 incident assessed · color = severity</div>
+      <div class="ch-wrap" style="height:160px"><canvas id="ch-det-weekly"></canvas></div>
+    </div>
+    <div class="chart-card" style="flex:1;min-width:200px">
+      <div class="ct">Checkpoint Flags</div>
+      <div class="cs">Total flags per checkpoint</div>
+      <div class="ch-wrap" style="height:160px"><canvas id="ch-det-cp"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-card mb20">
+    <div class="ct">Top Error Types by Checkpoint Flag</div>
+    <div class="cp-legend">
+      <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:#0097A7"></span><span style="font-size:10px;color:var(--muted);font-weight:600">CP1</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:#7C3AED"></span><span style="font-size:10px;color:var(--muted);font-weight:600">CP2</span></div>
+      <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:#F59E0B"></span><span style="font-size:10px;color:var(--muted);font-weight:600">CP3</span></div>
+    </div>
+    <div class="ch-wrap" style="height:220px"><canvas id="ch-det-errs"></canvas></div>
+  </div>
+
+  <div class="chart-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div class="ct" id="log-title">Assessed Error Log</div>
+      <div class="flt-wrap">
+        <button class="flt-btn on"  onclick="setFlt('All',this)">All</button>
+        <button class="flt-btn"     onclick="setFlt('CP1',this)">CP1</button>
+        <button class="flt-btn"     onclick="setFlt('CP2',this)">CP2</button>
+        <button class="flt-btn"     onclick="setFlt('CP3',this)">CP3</button>
+      </div>
+    </div>
+    <div id="log-body" style="max-height:360px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ══ SCRIPT ════════════════════════════════════════════ -->
+<script>
+// ── CONFIG ──────────────────────────────────────────
+const XLSX_URL = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
+const CP_CLR   = { CP1:"#0097A7", CP2:"#7C3AED", CP3:"#F59E0B" };
+const CORAL    = "#FF6B6B";
+const GOLD     = "#F5A623";
+
+// ── STATE ────────────────────────────────────────────
+let _data = {};
+let _file = "";
+let _id   = "";
+let _flt  = "All";
+let _dark = false;
+const _ch = {};   // chart instances
+
+// ── HELPERS ──────────────────────────────────────────
+const isNoErr = v => {
+  const s = String(v||"").trim().toLowerCase();
+  return !s || s === "no errors" || s === "no error";
+};
+const isFYI = r => /\bfyi\b|fyi only|not an error/i.test(r.co || "");
+const pNum  = v  => { const m = String(v||"").match(/\d+/); return m ? +m[0] : 0; };
+const pCase = (c,u) => String(c||"").toLowerCase().includes("tote") && pNum(u) > 1 ? pNum(u) : pNum(c);
+const esc   = s  => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+function classErr(recs) {
+  const c1={},c2={},c3={}; let t1=0,t2=0,t3=0;
+  recs.forEach(r => {
+    if (!isNoErr(r.c1)) { const k=r.c1.split(";")[0].trim(); c1[k]=(c1[k]||0)+1; t1++; }
+    if (!isNoErr(r.c2)) { const k=r.c2.split(";")[0].trim(); c2[k]=(c2[k]||0)+1; t2++; }
+    if (!isNoErr(r.c3)) { const k=r.c3.split(";")[0].trim(); c3[k]=(c3[k]||0)+1; t3++; }
+  });
+  return { c1,c2,c3, t1,t2,t3 };
+}
+
+// ── PARSE WORKBOOK ───────────────────────────────────
+function parseWB(wb) {
+  const res = {};
+  const cl = v => {
+    if (v == null) return "";
+    let s = String(v).trim().replace(/\xa0/g, "");
+    if (/^no\s+errors?$/i.test(s)) s = "No Errors";
+    return s;
+  };
+  for (const sn of wb.SheetNames) {
+    const m = sn.match(/^Week\s*(\d+)$/i);
+    if (!m) continue;
+    const wn = +m[1];
+    const ws = wb.Sheets[sn];
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
+    let hi = -1;
+    for (let i=0;i<rows.length;i++) { if (String(rows[i][0]).trim()==="Id") { hi=i; break; } }
+    if (hi === -1) continue;
+    for (let i=hi+1; i<rows.length; i++) {
+      const row = rows[i];
+      if (!row[0]) continue;
+      const wm = String(row[6]||"").trim().replace(/\xa0/g,"");
+      if (!wm || wm==="None") continue;
+      const dv = row[8];
+      let ds = "";
+      if (dv instanceof Date) ds = dv.toISOString().slice(0,10);
+      else if (dv) ds = String(dv).slice(0,10);
+      if (!res[wm]) res[wm] = [];
+      res[wm].push({
+        w: wn, d: ds,
+        s:    cl(row[9]).replace(/-?Shift/i,"").trim(),
+        dept: cl(row[10]),
+        c1:   cl(row[11]), c2: cl(row[12]), c3: cl(row[13]),
+        co:   cl(row[18]).slice(0,200),
+        cases:cl(row[16]), units:cl(row[17]),
+      });
+    }
+  }
+  return res;
+}
+
+// ── FILE LOAD ────────────────────────────────────────
+async function loadFile(file) {
+  if (!file) return;
+  _file = file.name;
+  setLoading("Parsing file…");
+  try {
+    const buf = await file.arrayBuffer();
+    const wb  = XLSX.read(buf, { type:"array", cellDates:true });
+    const d   = parseWB(wb);
+    if (!Object.keys(d).length) throw new Error("No data found. Check sheet names follow 'Week N' format.");
+    _data = d;
+    renderOverview();
+    showView("ov");
+  } catch(e) {
+    document.getElementById("load-msg").textContent = "Error: " + e.message;
+  }
+}
+
+async function autoLoad() {
+  setLoading("Fetching from GitHub…");
+  try {
+    const res = await fetch(XLSX_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    document.getElementById("load-msg").textContent = "Parsing workbook…";
+    const wb  = XLSX.read(buf, { type:"array", cellDates:true });
+    const d   = parseWB(wb);
+    if (!Object.keys(d).length) throw new Error("No data found in workbook.");
+    _data = d;
+    _file = "AI_Safe_Weekly_Error_Data.xlsx";
+    renderOverview();
+    showView("ov");
+  } catch(e) {
+    showFallback(e.message);
+  }
+}
+
+// ── VIEW CONTROL ─────────────────────────────────────
+function setLoading(msg) {
+  document.getElementById("v-load").style.display = "flex";
+  document.getElementById("v-fallback").style.display = "none";
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("load-msg").textContent = msg || "";
+}
+
+function showView(name) {
+  document.getElementById("v-load").style.display = "none";
+  document.getElementById("v-fallback").style.display = "none";
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  const el = document.getElementById("v-" + name);
+  if (el) el.classList.add("active");
+}
+
+function showFallback(msg) {
+  document.getElementById("v-load").style.display = "none";
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("v-fallback").style.display = "flex";
+  document.getElementById("fallback-msg").textContent = msg;
+}
+
+function goHub() { window.location.href = "index.html"; }
+
+function gotoDetail() {
+  const v = document.getElementById("ov-sel").value;
+  if (v) { _id = v; renderDetail(v); showView("det"); }
+}
+
+// ── THEME ────────────────────────────────────────────
+function toggleDark() {
+  _dark = !_dark;
+  if (_dark) document.body.setAttribute("data-dark","");
+  else       document.body.removeAttribute("data-dark");
+  document.querySelectorAll(".btn-theme").forEach(b => b.textContent = _dark ? "☀ Light" : "◑ Dark");
+  redraw();
+}
+const gCard   = () => _dark ? "#1e293b" : "#ffffff";
+const gBorder = () => _dark ? "#334155" : "#e2e8f0";
+const gMuted  = () => _dark ? "#94a3b8" : "#64748b";
+const gText   = () => _dark ? "#e2e8f0" : "#1e293b";
+const gNavy   = () => _dark ? "#4D8EE8" : "#003087";
+
+// ── CHART UTILS ──────────────────────────────────────
+function killChart(id) {
+  if (_ch[id]) { _ch[id].destroy(); delete _ch[id]; }
+}
+
+function mkBar(id, labels, datasets, opts={}) {
+  killChart(id);
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  const { stacked=false, horizontal=false, legend=false } = opts;
+  _ch[id] = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: horizontal ? "y" : "x",
+      plugins: {
+        legend: {
+          display: legend,
+          labels: { color: gMuted(), font: { size: 11 }, boxWidth: 12, padding: 12 }
+        },
+        tooltip: {
+          backgroundColor: gCard(),
+          titleColor: gText(),
+          bodyColor: gMuted(),
+          borderColor: gBorder(),
+          borderWidth: 1,
+          cornerRadius: 8,
+        }
+      },
+      scales: {
+        x: {
+          stacked,
+          ticks: { color: gMuted(), font: { size: 10 } },
+          grid: { display: horizontal, color: gBorder() },
+          border: { display: false },
+        },
+        y: {
+          stacked,
+          ticks: { color: gMuted(), font: { size: 10 } },
+          grid: { display: !horizontal, color: gBorder() },
+          border: { display: false },
+        }
+      }
+    }
+  });
+}
+
+// ── STAT CARD HTML ───────────────────────────────────
+function statCard(label, value, sub, color) {
+  return `<div class="stat-card" style="border-left:4px solid ${color}">
+    <div class="s-lbl">${label}</div>
+    <div class="s-val" style="color:${color}">${value}</div>
+    <div class="s-sub">${sub}</div>
+  </div>`;
+}
+
+// ── OVERVIEW RENDER ──────────────────────────────────
+function renderOverview() {
+  const allRecs  = Object.values(_data).flat();
+  const assessed = allRecs.filter(r => !isFYI(r));
+  const { t1,t2,t3 } = classErr(allRecs);
+  const procs = Object.keys(_data).sort();
+  const weeks = [...new Set(assessed.map(r => r.w))].sort((a,b)=>a-b);
+  const navy  = gNavy();
+
+  document.getElementById("ov-sub").textContent =
+    `All processors · all shifts · ${_file}`;
+
+  document.getElementById("ov-stats").innerHTML = [
+    { l:"Processors",      v:procs.length,    s:"LanIDs on record",    c:navy      },
+    { l:"Total Incidents", v:assessed.length, s:"assessed dept-wide",  c:navy      },
+    { l:"Active Weeks",    v:weeks.length,    s:"weeks with errors",   c:navy      },
+    { l:"CP1 Flags",       v:t1,              s:"Shipment checkpoint", c:"#0097A7" },
+    { l:"CP2 Flags",       v:t2,              s:"Piece checkpoint",    c:"#7C3AED" },
+    { l:"CP3 Flags",       v:t3,              s:"Carton checkpoint",   c:"#F59E0B" },
+  ].map(x => statCard(x.l, x.v, x.s, x.c)).join("");
+
+  // Populate processor select
+  const sel = document.getElementById("ov-sel");
+  sel.innerHTML = '<option value="">— Select a LanID —</option>' +
+    procs.map(p => `<option value="${p}">${p}</option>`).join("");
+
+  // Weekly stacked chart
+  const wm = {};
+  assessed.forEach(r => {
+    if (!wm[r.w]) wm[r.w] = { cp1:0, cp2:0, cp3:0 };
+    if (!isNoErr(r.c1)) wm[r.w].cp1++;
+    if (!isNoErr(r.c2)) wm[r.w].cp2++;
+    if (!isNoErr(r.c3)) wm[r.w].cp3++;
+  });
+  const wks = Object.keys(wm).map(Number).sort((a,b)=>a-b);
+  mkBar("ch-ov-weekly", wks.map(w=>`Wk ${w}`), [
+    { label:"CP1 — Shipment", data:wks.map(w=>wm[w].cp1), backgroundColor:"#0097A7", stack:"s" },
+    { label:"CP2 — Piece",    data:wks.map(w=>wm[w].cp2), backgroundColor:"#7C3AED", stack:"s" },
+    { label:"CP3 — Carton",   data:wks.map(w=>wm[w].cp3), backgroundColor:"#F59E0B", stack:"s", borderRadius:4 },
+  ], { stacked:true, legend:true });
+
+  // Top errors per CP (horizontal)
+  const TR = 28;
+  const tk = s => s.length > TR ? s.slice(0,TR-1)+"…" : s;
+  ["c1","c2","c3"].forEach((fld, i) => {
+    const color = Object.values(CP_CLR)[i];
+    const cnt   = {};
+    allRecs.forEach(r => {
+      if (!isNoErr(r[fld])) {
+        const k = tk(r[fld].split(";")[0].trim());
+        cnt[k] = (cnt[k]||0)+1;
+      }
+    });
+    const sorted = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    mkBar(`ch-ov-cp${i+1}`,
+      sorted.map(e=>e[0]),
+      [{ data:sorted.map(e=>e[1]), backgroundColor:color, borderRadius:4 }],
+      { horizontal:true }
+    );
+  });
+}
+
+// ── DETAIL RENDER ────────────────────────────────────
+function renderDetail(id) {
+  if (!id) return;
+  _id = id;
+
+  const recs  = _data[id] || [];
+  const { c1,c2,c3, t1,t2,t3 } = classErr(recs);
+  const total = recs.filter(r=>!isFYI(r)).length;
+  const flags = t1+t2+t3;
+  const units = recs.filter(r=>!isFYI(r)).reduce((s,r)=>s+pNum(r.units),0);
+  const cases = recs.filter(r=>!isFYI(r)).reduce((s,r)=>s+pCase(r.cases,r.units),0);
+  const awks  = new Set(recs.filter(r=>!isFYI(r)).map(r=>r.w)).size;
+
+  const sc={}, dc={};
+  recs.forEach(r => {
+    sc[r.s] = (sc[r.s]||0)+1;
+    if (r.dept) dc[r.dept] = (dc[r.dept]||0)+1;
+  });
+  const pShift = Object.entries(sc).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
+  const pDept  = Object.entries(dc).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
+  const aColor = total>=20 ? CORAL : total>=10 ? GOLD : "#0097A7";
+
+  // Identity card
+  document.getElementById("det-id").innerHTML = `
+    <div class="id-avatar">${esc(id.slice(0,2))}</div>
+    <div>
+      <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(id)}</div>
+      <div style="font-size:12px;color:var(--muted)">${esc(pShift)}-Shift · ${esc(pDept)}</div>
+    </div>
+    <div class="id-stats">
+      <div>
+        <div class="id-slbl">Assessed Errors</div>
+        <div class="id-sval" style="color:${aColor}">${total}</div>
+        <div class="id-ssub">incidents on record</div>
+      </div>
+      <div class="id-div">
+        <div class="id-slbl">Checkpoint Flags</div>
+        <div class="id-sval" style="color:${gText()}">${flags}</div>
+        <div class="id-ssub">across CP1 · CP2 · CP3</div>
+      </div>
+    </div>`;
+
+  // Stat cards
+  const navy = gNavy();
+  document.getElementById("det-stats").innerHTML = [
+    { l:"Assessed Errors",   v:total,                  s:"incidents on record",  c:navy      },
+    { l:"Active Weeks",      v:awks,                   s:"weeks with errors",    c:navy      },
+    { l:"Units Impacted",    v:units.toLocaleString(), s:"across all incidents", c:"#B5651D" },
+    { l:"Cases Impacted",    v:cases.toLocaleString(), s:"across all incidents", c:"#B5651D" },
+    { l:"Checkpoint Flags",  v:flags, s:`avg ${total>0?(flags/total).toFixed(1):0} per incident`, c:"#607D8B" },
+    { l:"CP1 Flags",         v:t1,                     s:"Shipment checkpoint",  c:"#607D8B" },
+    { l:"CP2 Flags",         v:t2,                     s:"Piece checkpoint",     c:"#607D8B" },
+    { l:"CP3 Flags",         v:t3,                     s:"Carton checkpoint",    c:"#607D8B" },
+  ].map(x => statCard(x.l, x.v, x.s, x.c)).join("");
+
+  // Weekly errors chart
+  const wc = {};
+  recs.filter(r=>!isFYI(r)).forEach(r => { wc[r.w]=(wc[r.w]||0)+1; });
+  const wks = Object.keys(wc).map(Number).sort((a,b)=>a-b);
+  mkBar("ch-det-weekly", wks.map(w=>`Wk${w}`), [{
+    data: wks.map(w=>wc[w]),
+    backgroundColor: wks.map(w => wc[w]>=4?CORAL : wc[w]>=2?GOLD : "#0097A7"),
+    borderRadius: 4,
+  }]);
+
+  // CP flags chart
+  mkBar("ch-det-cp", ["CP1","CP2","CP3"], [{
+    data: [t1,t2,t3],
+    backgroundColor: ["#0097A7","#7C3AED","#F59E0B"],
+    borderRadius: 6,
+  }]);
+
+  // Top error types (horizontal)
+  const all={}, src={};
+  const addC = (cnt, cpk) => Object.entries(cnt).forEach(([k,v]) => {
+    all[k] = (all[k]||0)+v;
+    if (!src[k]) src[k]={};
+    src[k][cpk] = (src[k][cpk]||0)+v;
+  });
+  addC(c1,"CP1"); addC(c2,"CP2"); addC(c3,"CP3");
+  const top = Object.entries(all)
+    .sort((a,b)=>b[1]-a[1]).slice(0,7)
+    .map(([name,val]) => {
+      const dom = Object.entries(src[name]||{}).sort((a,b)=>b[1]-a[1])[0]?.[0]||"CP1";
+      return { name: name.length>22 ? name.slice(0,20)+"…" : name, val, color: CP_CLR[dom] };
+    });
+  mkBar("ch-det-errs", top.map(e=>e.name), [{
+    data: top.map(e=>e.val),
+    backgroundColor: top.map(e=>e.color),
+    borderRadius: 4,
+  }], { horizontal:true });
+
+  // Populate proc select
+  const procs = Object.keys(_data).sort();
+  document.getElementById("det-sel").innerHTML =
+    procs.map(p => `<option value="${p}"${p===id?" selected":""}>${p} (${_data[p].length})</option>`).join("");
+
+  renderLog();
+}
+
+// ── LOG RENDER ───────────────────────────────────────
+function renderLog() {
+  const recs = _data[_id] || [];
+  const filtered =
+    _flt==="CP1" ? recs.filter(r=>!isNoErr(r.c1)) :
+    _flt==="CP2" ? recs.filter(r=>!isNoErr(r.c2)) :
+    _flt==="CP3" ? recs.filter(r=>!isNoErr(r.c3)) :
+    recs;
+
+  const aCount = filtered.filter(r=>!isFYI(r)).length;
+  const fCount = filtered.filter(r=>isFYI(r)).length;
+  document.getElementById("log-title").textContent =
+    `Assessed Error Log (${aCount} assessed${fCount>0?` · ${fCount} FYI`:""})`;
+
+  if (!filtered.length) {
+    document.getElementById("log-body").innerHTML =
+      `<div style="color:var(--muted);font-size:13px;padding:12px 0">No errors match this filter.</div>`;
+    return;
+  }
+
+  const sorted = filtered.slice().sort((a,b) => b.w - a.w);
+  document.getElementById("log-body").innerHTML = sorted.map(r => {
+    const bdgs = [];
+    if (isFYI(r))
+      bdgs.push(`<span class="log-badge" style="background:#F59E0B22;color:#B45309;border:1px solid #F59E0B44">FYI — Not Assessed</span>`);
+    if (!isNoErr(r.c1))
+      bdgs.push(`<span class="log-badge" style="background:#0097A722;color:#0097A7;border:1px solid #0097A744">CP1: ${esc(r.c1.split(";")[0].slice(0,30))}</span>`);
+    if (!isNoErr(r.c2))
+      bdgs.push(`<span class="log-badge" style="background:#7C3AED22;color:#7C3AED;border:1px solid #7C3AED44">CP2: ${esc(r.c2.split(";")[0].slice(0,30))}</span>`);
+    if (!isNoErr(r.c3))
+      bdgs.push(`<span class="log-badge" style="background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44">CP3: ${esc(r.c3.split(";")[0].slice(0,30))}</span>`);
+    return `<div class="log-entry">
+      <div class="log-wk">
+        <div class="wk-num">Wk ${r.w}</div>
+        <div class="wk-dt">${r.d && r.d!=="None" ? r.d.slice(5)||"—" : "—"}</div>
+      </div>
+      <div style="flex:1">
+        <div class="log-bdgs">${bdgs.join("")}</div>
+        <div class="log-co">${esc(r.co)}</div>
+        <div class="log-meta"><strong>Cases:</strong> ${esc(r.cases)||"—"} &nbsp;·&nbsp; <strong>Units:</strong> ${esc(r.units)||"—"}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function setFlt(f, btn) {
+  _flt = f;
+  document.querySelectorAll(".flt-btn").forEach(b => b.classList.remove("on"));
+  btn.classList.add("on");
+  renderLog();
+}
+
+// ── THEME REDRAW ─────────────────────────────────────
+function redraw() {
+  if (document.getElementById("v-ov").classList.contains("active"))  renderOverview();
+  if (document.getElementById("v-det").classList.contains("active") && _id) renderDetail(_id);
+}
+
+// ── BOOT ─────────────────────────────────────────────
+autoLoad();
+</script>
+</body>
+</html>
