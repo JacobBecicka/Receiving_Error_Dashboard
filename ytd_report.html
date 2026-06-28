@@ -212,7 +212,7 @@ function parseWorkbook(wb) {
     if (all.length < 6) return; // need header row + at least 1 data row
 
     // Row index 4 = header (matches pandas header=4)
-    const hdr = all[4].map(h => String(h ?? '').trim().replace(/\s+/g,' '));
+    const hdr = all[4].map(h => String(h ?? '').replace(/\xa0/g,'').trim().replace(/:$/,'').replace(/\s+/g,' '));
     const ci = n => hdr.findIndex(h => h.toLowerCase() === n.toLowerCase());
 
     const iShift = ci('Shift');
@@ -228,11 +228,11 @@ function parseWorkbook(wb) {
     all.slice(5).forEach(row => {
       if (!row || row.every(c => c === '' || c == null)) return;
 
-      const shift = String(row[iShift] ?? '').trim().toUpperCase();
+      const shiftRaw = String(row[iShift] ?? '').replace(/\xa0/g,'').trim(); const shift = shiftRaw.replace(/-?shift$/i,'').trim().toUpperCase();
       if (!['A','B','C'].includes(shift)) return;
 
       const parseCP = val => {
-        const s = String(val ?? '').trim();
+        const s = String(val ?? '').replace(/\xa0/g,'').trim();
         if (!s || /^no\s*errors?$/i.test(s)) return [];
         return s.split(';').map(e => e.trim()).filter(e => e && !/^no\s*errors?$/i.test(e));
       };
@@ -248,9 +248,9 @@ function parseWorkbook(wb) {
 
       out[fy].push({
         calWeek, fiscalWeek, fy, shift,
-        lanId:    String(row[iLan]  ?? '').trim(),
-        dept:     String(row[iDept] ?? '').trim(),
-        comments: String(row[iCmt]  ?? '').trim(),
+        lanId:    String(row[iLan]  ?? '').replace(/\xa0/g,'').trim(),
+        dept:     String(row[iDept] ?? '').replace(/\xa0/g,'').trim(),
+        comments: String(row[iCmt]  ?? '').replace(/\xa0/g,'').trim(),
         shipmentErrors: se,
         pieceErrors:    pe,
         cartonErrors:   ce,
