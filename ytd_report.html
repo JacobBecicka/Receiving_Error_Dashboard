@@ -497,9 +497,19 @@ function renderHeader() {
         Receiving Error Report — Year to Date
       </h1>
     </div>
-    <button class="theme-btn" onclick="toggleTheme()">
-      ${darkMode?'☀️ Light':'🌙 Dark'}
-    </button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <a href="index.html" style="display:flex;align-items:center;gap:6px;
+        background:var(--card);border:1px solid var(--border);border-radius:20px;
+        padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);
+        text-decoration:none;box-shadow:var(--shadow);transition:all 0.15s"
+        onmouseover="this.style.color='#0284C7';this.style.borderColor='#0284C7'"
+        onmouseout="this.style.color='';this.style.borderColor=''">
+        ← Hub
+      </a>
+      <button class="theme-btn" onclick="toggleTheme()">
+        ${darkMode?'☀️ Light':'🌙 Dark'}
+      </button>
+    </div>
   </div>`;
 }
 
