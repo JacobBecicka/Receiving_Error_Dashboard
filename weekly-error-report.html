@@ -3,570 +3,631 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Weekly Error Report · MWFC</title>
+  <title>Weekly Error Report · MWFC Receiving</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    :root {
-      --bg: #0f1623; --surface: #1a2235; --surface2: #222d42;
-      --border: #2e3f5c; --accent: #38bdf8; --accent2: #0ea5e9;
-      --text: #e2e8f0; --muted: #94a3b8; --card-hover: #263550;
-      --green: #34d399; --red: #f87171; --amber: #fbbf24;
-      --shift-a: #38bdf8; --shift-b: #818cf8; --shift-c: #fb923c;
-      --cp1: #60a5fa; --cp2: #a78bfa; --cp3: #fb923c;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f1f5f9; }
+    #root { min-height: 100vh; }
+    .drop-zone {
+      border: 1.5px dashed #94a3b8; border-radius: 16px;
+      padding: 4rem 2rem; text-align: center; cursor: pointer; transition: all .3s;
     }
-    [data-theme="light"] {
-      --bg: #f0f4f8; --surface: #ffffff; --surface2: #e8eef5;
-      --border: #cbd5e1; --accent: #0369a1; --accent2: #0284c7;
-      --text: #1e293b; --muted: #64748b; --card-hover: #dbeafe;
-      --green: #059669; --red: #dc2626; --amber: #d97706;
-      --shift-a: #0369a1; --shift-b: #6d28d9; --shift-c: #c2410c;
-      --cp1: #1d4ed8; --cp2: #7c3aed; --cp3: #c2410c;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
-    
-    /* HEADER */
-    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: .75rem 1.25rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; gap: .75rem; }
-    .header-left { display: flex; align-items: center; gap: .75rem; }
-    .back-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; color: var(--text); font-size: .82rem; cursor: pointer; text-decoration: none; white-space: nowrap; }
-    .back-btn:hover { background: var(--card-hover); }
-    .header-title { font-size: 1rem; font-weight: 700; }
-    .header-sub { font-size: .72rem; color: var(--muted); }
-    .header-right { display: flex; gap: .5rem; align-items: center; }
-    .theme-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: .35rem .7rem; color: var(--text); font-size: .82rem; cursor: pointer; white-space: nowrap; }
-
-    /* UPLOAD AREA */
-    #upload-section { max-width: 640px; margin: 4rem auto; padding: 1.5rem; text-align: center; }
-    .upload-box { border: 2px dashed var(--border); border-radius: 16px; padding: 3rem 2rem; cursor: pointer; transition: border-color .2s, background .2s; }
-    .upload-box:hover, .upload-box.drag { border-color: var(--accent); background: var(--surface); }
-    .upload-icon { font-size: 2.5rem; margin-bottom: .75rem; }
-    .upload-title { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
-    .upload-sub { font-size: .85rem; color: var(--muted); margin-bottom: 1.25rem; }
-    .upload-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: .65rem 1.5rem; font-size: .95rem; font-weight: 600; cursor: pointer; }
-    #file-input { display: none; }
-
-    /* WEEK SELECTOR */
-    #week-selector { max-width: 640px; margin: 2rem auto; padding: 1.5rem; display: none; }
-    .selector-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; }
-    .selector-label { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); margin-bottom: .75rem; display: block; }
-    .selector-row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
-    select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: .6rem .9rem; font-size: .95rem; flex: 1; min-width: 160px; }
-    .load-btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: .6rem 1.25rem; font-size: .95rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .load-btn:hover { background: var(--accent2); }
-    .file-name { font-size: .8rem; color: var(--green); margin-top: .5rem; }
-
-    /* DASHBOARD */
-    #dashboard { display: none; max-width: 960px; margin: 0 auto; padding: 1.5rem; }
-    .report-header { margin-bottom: 1.5rem; }
-    .report-title { font-size: 1.3rem; font-weight: 700; }
-    .report-sub { font-size: .82rem; color: var(--muted); margin-top: .2rem; }
-    .section-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: .75rem; margin-top: 1.5rem; }
-
-    /* CARDS */
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
-    .card-title { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .35rem; }
-    .card-value { font-size: 2.2rem; font-weight: 800; line-height: 1; }
-    .card-sub { font-size: .78rem; color: var(--muted); margin-top: .25rem; }
-
-    .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
-    .wow-up { color: var(--red); }
-    .wow-down { color: var(--green); }
-    .wow-flat { color: var(--muted); }
-
-    /* SHIFT BAR */
-    .shift-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .75rem; }
-    .shift-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
-    .shift-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .4rem; }
-    .shift-a .shift-label { color: var(--shift-a); }
-    .shift-b .shift-label { color: var(--shift-b); }
-    .shift-c .shift-label { color: var(--shift-c); }
-    .shift-count { font-size: 1.6rem; font-weight: 800; }
-    .shift-pct { font-size: .78rem; color: var(--muted); }
-    .bar-track { height: 6px; background: var(--surface2); border-radius: 3px; margin-top: .5rem; }
-    .bar-fill { height: 6px; border-radius: 3px; }
-    .shift-a .bar-fill { background: var(--shift-a); }
-    .shift-b .bar-fill { background: var(--shift-b); }
-    .shift-c .bar-fill { background: var(--shift-c); }
-
-    /* CHECKPOINT TABLES */
-    .cp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-    .cp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; }
-    .cp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-    .cp-name { font-weight: 700; font-size: .9rem; }
-    .cp-badge { font-size: .7rem; font-weight: 700; padding: .2rem .55rem; border-radius: 999px; }
-    .cp1-badge { background: rgba(96,165,250,.15); color: var(--cp1); }
-    .cp2-badge { background: rgba(167,139,250,.15); color: var(--cp2); }
-    .cp3-badge { background: rgba(251,146,60,.15); color: var(--cp3); }
-    .cp-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
-    .cp-table th { text-align: left; color: var(--muted); font-weight: 600; padding-bottom: .4rem; border-bottom: 1px solid var(--border); }
-    .cp-table th:last-child, .cp-table td:last-child { text-align: right; }
-    .cp-table td { padding: .35rem 0; border-bottom: 1px solid var(--border); color: var(--text); }
-    .cp-table tr:last-child td { border-bottom: none; font-weight: 700; }
-    .cp-empty { font-size: .82rem; color: var(--muted); font-style: italic; padding: .5rem 0; }
-    .cp-bar { height: 4px; border-radius: 2px; margin-top: 2px; }
-    .cp1 .cp-bar { background: var(--cp1); }
-    .cp2 .cp-bar { background: var(--cp2); }
-    .cp3 .cp-bar { background: var(--cp3); }
-
-    /* PROCESSORS */
-    .proc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .75rem; }
-    .proc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: .75rem; }
-    .proc-id { font-size: 1.1rem; font-weight: 800; color: var(--accent); font-family: monospace; }
-    .proc-count { font-size: 1.4rem; font-weight: 800; }
-    .proc-pct { font-size: .75rem; color: var(--muted); }
-    .proc-none { font-size: .85rem; color: var(--muted); font-style: italic; }
-
-    /* TAKEAWAYS */
-    .takeaway-list { display: flex; flex-direction: column; gap: .75rem; }
-    .takeaway { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; padding: 1rem 1.25rem; font-size: .88rem; line-height: 1.55; }
-
-    /* DEPT */
-    .dept-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-
-    /* DONUT */
-    .donut-wrap { width: 90px; height: 90px; margin: 0 auto .5rem; }
-
-    @media (max-width: 480px) {
-      .shift-grid { grid-template-columns: 1fr; }
-      .summary-grid { grid-template-columns: 1fr 1fr; }
-    }
+    .drop-zone:hover, .drop-zone.active { border-color: #0EA5E9; background: rgba(14,165,233,.06); }
+    .btn-hover:hover { opacity: .85; }
   </style>
 </head>
-<body data-theme="dark">
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useCallback } = React;
+const XLSX = window.XLSX;
 
-<header>
-  <div class="header-left">
-    <a href="index.html" class="back-btn">← Hub</a>
-    <div>
-      <div class="header-title">📊 Weekly Error Report</div>
-      <div class="header-sub">MWFC Receiving Operations</div>
-    </div>
-  </div>
-  <div class="header-right">
-    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️ Light</button>
-  </div>
-</header>
+const SHIFT_COLORS = { A:"#0EA5E9", B:"#8B5CF6", C:"#F59E0B" };
+const DEPT_COLORS  = { Receiving:"#0EA5E9", Transfers:"#94A3B8" };
 
-<!-- UPLOAD -->
-<div id="upload-section">
-  <div class="upload-box" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-    <div class="upload-icon">📂</div>
-    <div class="upload-title">Upload Your Workbook</div>
-    <div class="upload-sub">Drop your weekly error Excel file here, or tap to browse.<br>Data stays in your browser — nothing is uploaded to any server.</div>
-    <button class="upload-btn" onclick="event.stopPropagation(); document.getElementById('file-input').click()">Choose File</button>
-  </div>
-  <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)" />
-</div>
-
-<!-- WEEK SELECTOR -->
-<div id="week-selector">
-  <div class="selector-box">
-    <span class="selector-label">Select Fiscal Week</span>
-    <div class="selector-row">
-      <select id="week-select"></select>
-      <button class="load-btn" onclick="loadWeek()">Load Report</button>
-    </div>
-    <div class="file-name" id="file-name-display"></div>
-  </div>
-</div>
-
-<!-- DASHBOARD -->
-<div id="dashboard">
-  <div class="report-header">
-    <div class="report-title" id="rpt-title">—</div>
-    <div class="report-sub" id="rpt-sub">—</div>
-  </div>
-
-  <div class="section-label">Summary</div>
-  <div class="summary-grid">
-    <div class="card">
-      <div class="card-title">Total Errors</div>
-      <div class="card-value" id="s-total">—</div>
-      <div class="card-sub" id="s-total-sub">—</div>
-    </div>
-    <div class="card" id="wow-card">
-      <div class="card-title">Week-over-Week</div>
-      <div class="card-value" id="s-wow">—</div>
-      <div class="card-sub" id="s-wow-sub">—</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Top Checkpoint</div>
-      <div class="card-value" id="s-top-cp" style="font-size:1.3rem">—</div>
-      <div class="card-sub" id="s-top-cp-sub">—</div>
-    </div>
-    <div class="card">
-      <div class="card-title">Top Shift</div>
-      <div class="card-value" id="s-top-shift" style="font-size:1.3rem">—</div>
-      <div class="card-sub" id="s-top-shift-sub">—</div>
-    </div>
-  </div>
-
-  <div class="section-label">Shift Breakdown</div>
-  <div class="shift-grid">
-    <div class="card shift-card shift-a">
-      <div class="shift-label">A-Shift</div>
-      <div class="shift-count" id="shift-a-count">—</div>
-      <div class="shift-pct" id="shift-a-pct">—</div>
-      <div class="bar-track"><div class="bar-fill" id="shift-a-bar" style="width:0%"></div></div>
-    </div>
-    <div class="card shift-card shift-b">
-      <div class="shift-label">B-Shift</div>
-      <div class="shift-count" id="shift-b-count">—</div>
-      <div class="shift-pct" id="shift-b-pct">—</div>
-      <div class="bar-track"><div class="bar-fill" id="shift-b-bar" style="width:0%"></div></div>
-    </div>
-    <div class="card shift-card shift-c">
-      <div class="shift-label">C-Shift</div>
-      <div class="shift-count" id="shift-c-count">—</div>
-      <div class="shift-pct" id="shift-c-pct">—</div>
-      <div class="bar-track"><div class="bar-fill" id="shift-c-bar" style="width:0%"></div></div>
-    </div>
-  </div>
-
-  <div class="section-label">Department Split</div>
-  <div class="dept-row">
-    <div class="card" style="text-align:center">
-      <div class="card-title">Receiving</div>
-      <div class="card-value" id="dept-recv">—</div>
-      <div class="card-sub" id="dept-recv-pct">—</div>
-    </div>
-    <div class="card" style="text-align:center">
-      <div class="card-title">Transfers</div>
-      <div class="card-value" id="dept-trans">—</div>
-      <div class="card-sub" id="dept-trans-pct">—</div>
-    </div>
-  </div>
-
-  <div class="section-label">Checkpoint Breakdown</div>
-  <div class="cp-grid">
-    <div class="cp-card cp1">
-      <div class="cp-header">
-        <div class="cp-name">Checkpoint 1 — Shipment</div>
-        <span class="cp-badge cp1-badge" id="cp1-badge">—</span>
-      </div>
-      <div id="cp1-content"></div>
-    </div>
-    <div class="cp-card cp2">
-      <div class="cp-header">
-        <div class="cp-name">Checkpoint 2 — Piece</div>
-        <span class="cp-badge cp2-badge" id="cp2-badge">—</span>
-      </div>
-      <div id="cp2-content"></div>
-    </div>
-    <div class="cp-card cp3">
-      <div class="cp-header">
-        <div class="cp-name">Checkpoint 3 — Carton</div>
-        <span class="cp-badge cp3-badge" id="cp3-badge">—</span>
-      </div>
-      <div id="cp3-content"></div>
-    </div>
-  </div>
-
-  <div class="section-label">Processors — 3+ Errors</div>
-  <div class="proc-grid" id="proc-grid"></div>
-
-  <div class="section-label">Key Takeaways</div>
-  <div class="takeaway-list" id="takeaways"></div>
-
-  <div style="height:2rem"></div>
-</div>
-
-<script>
-let workbook = null;
-let allWeeks = [];
-let currentData = null;
-
-// ── THEME ──
-function toggleTheme() {
-  const body = document.body;
-  const btn = document.getElementById('theme-btn');
-  if (body.dataset.theme === 'dark') {
-    body.dataset.theme = 'light';
-    btn.textContent = '🌙 Dark';
-  } else {
-    body.dataset.theme = 'dark';
-    btn.textContent = '☀️ Light';
-  }
-}
-
-// ── DRAG & DROP ──
-function dragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
-function dragLeave(e) { document.getElementById('drop-zone').classList.remove('drag'); }
-function dropFile(e) {
-  e.preventDefault();
-  document.getElementById('drop-zone').classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) processFile(f);
-}
-function handleFile(e) { const f = e.target.files[0]; if (f) processFile(f); }
-
-function processFile(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-    allWeeks = workbook.SheetNames.filter(n => /^Week \d+$/i.test(n));
-
-    // Find last populated week
-    let lastPop = 0;
-    for (let i = 0; i < allWeeks.length; i++) {
-      const ws = workbook.Sheets[allWeeks[i]];
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      const hasData = data.slice(5).some(row => row.some(c => c !== ''));
-      if (hasData) lastPop = i;
-    }
-
-    const sel = document.getElementById('week-select');
-    sel.innerHTML = allWeeks.map((w, i) => `<option value="${i}" ${i === lastPop ? 'selected' : ''}>${w}</option>`).join('');
-    document.getElementById('file-name-display').textContent = `✓ ${file.name} loaded`;
-    document.getElementById('upload-section').style.display = 'none';
-    document.getElementById('week-selector').style.display = 'block';
+/* ── THEME ── */
+function getTheme(mode) {
+  const d = mode === "dark";
+  return {
+    pageBg:      d ? "linear-gradient(160deg,#0f172a,#111827)" : "linear-gradient(160deg,#f1f5f9,#e2e8f0)",
+    card:        d ? "#111827" : "#ffffff",
+    cardBorder:  d ? "#1e293b" : "#e2e8f0",
+    textPrimary: d ? "#f1f5f9" : "#0f172a",
+    textSecond:  d ? "#94a3b8" : "#475569",
+    textMuted:   d ? "#64748b" : "#94a3b8",
+    shadow:      d ? "0 2px 14px rgba(0,0,0,.35)" : "0 2px 12px rgba(0,0,0,.07)",
+    trackBg:     d ? "#1e293b" : "#f1f5f9",
+    rowAlt:      d ? "#0b1220" : "#f8fafc",
+    inputBg:     d ? "#1e293b" : "#f8fafc",
+    inputBorder: d ? "#334155" : "#e2e8f0",
   };
-  reader.readAsArrayBuffer(file);
 }
 
-// ── PARSE SHEET ──
-function parseCheckpoint(val) {
-  if (!val || typeof val === 'object') return [];
-  const s = String(val).trim();
-  if (!s || s.toLowerCase() === 'no errors' || s.toLowerCase() === 'no error') return [];
-  return s.split(';').map(p => p.trim()).filter(p => p && p.toLowerCase() !== 'no errors' && p.toLowerCase() !== 'no error');
+/* ── SVG BAR CHART ── */
+function BarChartSVG({ data, t }) {
+  const max = Math.max(...data.map(d => d.total), 1);
+  const H = 110, W = 360;
+  const barW = 52;
+  const totalUsed = data.length * barW;
+  const totalGap = W - totalUsed;
+  const gap = totalGap / (data.length + 1);
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} 185`} style={{ display:"block", margin:"0 auto" }}>
+      {/* Grid lines */}
+      {[0.25, 0.5, 0.75, 1].map(f => {
+        const y = 20 + H - f * H;
+        return <line key={f} x1={0} y1={y} x2={W} y2={y}
+          stroke={t.cardBorder} strokeWidth={1} strokeDasharray="3 3" />;
+      })}
+      {/* Bars */}
+      {data.map((d, i) => {
+        const x   = gap + i * (barW + gap);
+        const bh  = Math.max((d.total / max) * H, 4);
+        const y   = 20 + H - bh;
+        const fill = i === data.length - 1 ? "#7C3AED" : "#94A3B8";
+        return (
+          <g key={d.week}>
+            <rect x={x} y={y} width={barW} height={bh} fill={fill} rx={5} />
+            <text x={x + barW / 2} y={y - 7} textAnchor="middle" fontSize={13}
+              fill={t.textPrimary} fontWeight="700">{d.total}</text>
+            <text x={x + barW / 2} y={H + 42} textAnchor="middle" fontSize={12}
+              fill={i === data.length - 1 ? "#7C3AED" : t.textSecond}
+              fontWeight={i === data.length - 1 ? "700" : "400"}>{d.week}</text>
+          </g>
+        );
+      })}
+      {/* Baseline */}
+      <line x1={0} y1={H + 20} x2={W} y2={H + 20} stroke={t.cardBorder} strokeWidth={1} />
+    </svg>
+  );
 }
 
-function parseWeek(sheetName) {
-  const ws = workbook.Sheets[sheetName];
-  const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+/* ── SVG DONUT CHART ── */
+function DonutChart({ data, t }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (!total) return null;
+  const cx = 100, cy = 100, outerR = 80, innerR = 50;
+  let angle = -Math.PI / 2;
+  const slices = data.map(d => {
+    const sweep = (d.value / total) * 2 * Math.PI;
+    const end = angle + sweep;
+    const large = sweep > Math.PI ? 1 : 0;
+    const x1 = cx + outerR * Math.cos(angle), y1 = cy + outerR * Math.sin(angle);
+    const x2 = cx + outerR * Math.cos(end),   y2 = cy + outerR * Math.sin(end);
+    const ix1= cx + innerR * Math.cos(end),   iy1= cy + innerR * Math.sin(end);
+    const ix2= cx + innerR * Math.cos(angle), iy2= cy + innerR * Math.sin(angle);
+    const mid = angle + sweep / 2;
+    const lx = cx + (outerR + 18) * Math.cos(mid);
+    const ly = cy + (outerR + 18) * Math.sin(mid);
+    const path = `M${x1},${y1} A${outerR},${outerR},0,${large},1,${x2},${y2} L${ix1},${iy1} A${innerR},${innerR},0,${large},0,${ix2},${iy2}Z`;
+    const result = { path, color: d.color, name: d.name, value: d.value, lx, ly, pct: ((d.value/total)*100).toFixed(1) };
+    angle = end;
+    return result;
+  });
+  return (
+    <svg width="100%" viewBox="0 0 200 200" style={{ display:"block", maxWidth:220, margin:"0 auto" }}>
+      {slices.map((s, i) => (
+        <path key={i} d={s.path} fill={s.color} stroke={t.card} strokeWidth={3} />
+      ))}
+      {slices.map((s, i) => (
+        <text key={i} x={s.lx} y={s.ly} textAnchor="middle" dominantBaseline="middle"
+          fontSize={10} fill={t.textPrimary} fontWeight="700">{s.pct}%</text>
+      ))}
+    </svg>
+  );
+}
 
-  // Header row is index 4 (0-based)
-  const headers = raw[4].map(h => String(h).trim().replace(/:$/, '').trim());
-  const rows = raw.slice(5).filter(r => r.some(c => c !== ''));
+/* ── PARSING ── */
+function isNoError(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return !s || s === "no errors" || s === "no error";
+}
 
-  const colIdx = {};
-  headers.forEach((h, i) => { colIdx[h] = i; });
+function parseWeek(wb, weekNum) {
+  const name = `Week ${weekNum}`;
+  if (!wb.SheetNames.includes(name)) return null;
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:"" });
+  if (!rows || rows.length < 6) return null;
 
-  // Key column positions by keyword match
-  const col = (name) => {
-    const exact = headers.indexOf(name);
-    if (exact >= 0) return exact;
-    return headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+  const dateRange = String(rows[1]?.[1] || "").trim();
+  const dataRows  = rows.slice(5).filter(r => r && String(r[6]||"").trim());
+
+  let total = 0;
+  const shiftC = { A:0, B:0, C:0 };
+  const deptC  = { recv:0, xfer:0 };
+  const sErrs  = {}, pErrs = {}, cErrs = {}, procC = {};
+  let firstId = null, lastId = null;
+
+  dataRows.forEach(row => {
+    const shift = String(row[9] ||"").replace(/\xa0/g,"").trim();
+    const dept  = String(row[10]||"").replace(/\xa0/g,"").trim().toLowerCase();
+    const wm    = String(row[6] ||"").trim();
+    const se    = String(row[11]||"").trim();
+    const pe    = String(row[12]||"").trim();
+    const ce    = String(row[13]||"").trim();
+    const id    = row[0];
+    if (isNoError(se) && isNoError(pe) && isNoError(ce)) return;
+    total++;
+    if (id !== "" && firstId === null) firstId = id;
+    if (id !== "") lastId = id;
+    const sk = shift.toLowerCase().startsWith("a")?"A":shift.toLowerCase().startsWith("b")?"B":shift.toLowerCase().startsWith("c")?"C":null;
+    if (sk) shiftC[sk]++;
+    if (dept.includes("receiv")) deptC.recv++; else deptC.xfer++;
+    if (wm) procC[wm] = (procC[wm]||0)+1;
+    const add = (str, counter) => {
+      if (isNoError(str)) return;
+      str.split(";").forEach(e => { const t=e.trim(); if(t&&!isNoError(t)) counter[t]=(counter[t]||0)+1; });
+    };
+    add(se, sErrs); add(pe, pErrs); add(ce, cErrs);
+  });
+
+  const sortObj = o => Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([name,value])=>({name,value}));
+  return {
+    total, dateRange,
+    idRange: firstId!==null&&lastId!==null ? `IDs ${firstId}–${lastId}` : "",
+    shift: shiftC,
+    deptSplit: [{ name:"Receiving", value:deptC.recv }, { name:"Transfers", value:deptC.xfer }],
+    shipment: sortObj(sErrs), piece: sortObj(pErrs), carton: sortObj(cErrs),
+    topProcessors: Object.entries(procC).filter(([,c])=>c>=3).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count})),
   };
-
-  const iWM = col('WM SIGN ON');
-  const iShift = col('Shift');
-  const iDept = col('Home Department');
-  const iCP1 = col('Shipment Error');
-  const iCP2 = col('Piece Error');
-  const iCP3 = col('Carton Error');
-  const iDate = col('Date Error');
-
-  const records = rows.filter(r => r[iWM] && String(r[iWM]).trim());
-  const total = records.length;
-  if (total === 0) return null;
-
-  // Shifts
-  const shifts = { 'A-Shift': 0, 'B-Shift': 0, 'C-Shift': 0 };
-  records.forEach(r => {
-    const s = String(r[iShift] || '').trim();
-    if (shifts[s] !== undefined) shifts[s]++;
-  });
-
-  // Dept
-  let receiving = 0;
-  records.forEach(r => {
-    const d = String(r[iDept] || '').trim().toLowerCase();
-    if (d === 'receiving') receiving++;
-  });
-
-  // Checkpoints
-  const cp1 = {}, cp2 = {}, cp3 = {};
-  records.forEach(r => {
-    parseCheckpoint(r[iCP1]).forEach(e => { cp1[e] = (cp1[e] || 0) + 1; });
-    parseCheckpoint(r[iCP2]).forEach(e => { cp2[e] = (cp2[e] || 0) + 1; });
-    parseCheckpoint(r[iCP3]).forEach(e => { cp3[e] = (cp3[e] || 0) + 1; });
-  });
-
-  const cpSort = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]).map(([err, cnt]) => ({ err, cnt, pct: +(cnt / total * 100).toFixed(1) }));
-
-  // Processors
-  const wmCounts = {};
-  records.forEach(r => {
-    const id = String(r[iWM] || '').trim();
-    if (id) wmCounts[id] = (wmCounts[id] || 0) + 1;
-  });
-  const topProc = Object.entries(wmCounts).filter(([, v]) => v >= 3).sort((a, b) => b[1] - a[1]).map(([id, cnt]) => ({ id, cnt, pct: +(cnt / total * 100).toFixed(1) }));
-
-  // Date range
-  const dates = records.map(r => r[iDate]).filter(Boolean).sort();
-  const fmtDate = (d) => {
-    if (!d) return '';
-    if (d instanceof Date) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return String(d).slice(0, 10);
-  };
-  const dateRange = dates.length ? `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}` : '';
-
-  return { total, shifts, receiving, transfers: total - receiving, cp1: cpSort(cp1), cp2: cpSort(cp2), cp3: cpSort(cp3), cp1Total: Object.values(cp1).reduce((a, b) => a + b, 0), cp2Total: Object.values(cp2).reduce((a, b) => a + b, 0), cp3Total: Object.values(cp3).reduce((a, b) => a + b, 0), topProc, dateRange };
 }
 
-// ── RENDER ──
-function loadWeek() {
-  const idx = parseInt(document.getElementById('week-select').value);
-  const weekName = allWeeks[idx];
-  const weekNum = parseInt(weekName.replace(/\D/g, ''));
-  const data = parseWeek(weekName);
-  if (!data) { alert('No data found in ' + weekName); return; }
-
-  // Prev week
-  let prevData = null;
-  if (idx > 0) { prevData = parseWeek(allWeeks[idx - 1]); }
-
-  currentData = data;
-
-  // Header
-  document.getElementById('rpt-title').textContent = `${weekName} — Receiving Error Report`;
-  document.getElementById('rpt-sub').textContent = data.dateRange ? `Error date range: ${data.dateRange} · ${data.total} total records` : `${data.total} total records`;
-
-  // Summary cards
-  document.getElementById('s-total').textContent = data.total;
-  document.getElementById('s-total-sub').textContent = `receiving errors logged`;
-
-  // WoW
-  if (prevData) {
-    const delta = data.total - prevData.total;
-    const pct = ((delta / prevData.total) * 100).toFixed(1);
-    const el = document.getElementById('s-wow');
-    const sub = document.getElementById('s-wow-sub');
-    if (delta < 0) {
-      el.innerHTML = `<span class="wow-down">↓ ${Math.abs(delta)}</span>`;
-      sub.textContent = `${Math.abs(pct)}% fewer than ${allWeeks[idx - 1]}`;
-    } else if (delta > 0) {
-      el.innerHTML = `<span class="wow-up">↑ ${delta}</span>`;
-      sub.textContent = `${pct}% more than ${allWeeks[idx - 1]}`;
-    } else {
-      el.innerHTML = `<span class="wow-flat">→ No change</span>`;
-      sub.textContent = `Same as ${allWeeks[idx - 1]}`;
-    }
-    document.getElementById('wow-card').style.display = '';
-  } else {
-    document.getElementById('wow-card').style.display = 'none';
-  }
-
-  // Top checkpoint
-  const cpTotals = [['Shipment (CP1)', data.cp1Total], ['Piece (CP2)', data.cp2Total], ['Carton (CP3)', data.cp3Total]];
-  cpTotals.sort((a, b) => b[1] - a[1]);
-  document.getElementById('s-top-cp').textContent = cpTotals[0][0];
-  document.getElementById('s-top-cp-sub').textContent = `${cpTotals[0][1]} flags (${+(cpTotals[0][1] / data.total * 100).toFixed(1)}% of total)`;
-
-  // Top shift
-  const shiftArr = Object.entries(data.shifts).sort((a, b) => b[1] - a[1]);
-  document.getElementById('s-top-shift').textContent = shiftArr[0][0];
-  document.getElementById('s-top-shift-sub').textContent = `${shiftArr[0][1]} errors (${+(shiftArr[0][1] / data.total * 100).toFixed(1)}%)`;
-
-  // Shift bars
-  ['A-Shift', 'B-Shift', 'C-Shift'].forEach(s => {
-    const key = s.replace('-', '-').toLowerCase().replace('-shift', '');
-    const cnt = data.shifts[s] || 0;
-    const pct = data.total ? +(cnt / data.total * 100).toFixed(1) : 0;
-    document.getElementById(`shift-${key}-count`).textContent = cnt;
-    document.getElementById(`shift-${key}-pct`).textContent = `${pct}% of total`;
-    document.getElementById(`shift-${key}-bar`).style.width = pct + '%';
-  });
-
-  // Dept
-  document.getElementById('dept-recv').textContent = data.receiving;
-  document.getElementById('dept-recv-pct').textContent = `${+(data.receiving / data.total * 100).toFixed(1)}% of total`;
-  document.getElementById('dept-trans').textContent = data.transfers;
-  document.getElementById('dept-trans-pct').textContent = `${+(data.transfers / data.total * 100).toFixed(1)}% of total`;
-
-  // Checkpoints
-  renderCP('cp1', data.cp1, data.cp1Total, data.total);
-  renderCP('cp2', data.cp2, data.cp2Total, data.total);
-  renderCP('cp3', data.cp3, data.cp3Total, data.total);
-
-  // Processors
-  const pg = document.getElementById('proc-grid');
-  if (data.topProc.length === 0) {
-    pg.innerHTML = `<div class="proc-none">No processors with 3+ errors this week.</div>`;
-  } else {
-    pg.innerHTML = data.topProc.map(p => `
-      <div class="proc-card">
-        <div>
-          <div class="proc-id">${p.id}</div>
-        </div>
-        <div>
-          <div class="proc-count">${p.cnt}</div>
-          <div class="proc-pct">${p.pct}% of total</div>
-        </div>
-      </div>`).join('');
-  }
-
-  // Takeaways
-  const ta = generateTakeaways(data, prevData, allWeeks[idx - 1]);
-  document.getElementById('takeaways').innerHTML = ta.map(t => `<div class="takeaway">${t}</div>`).join('');
-
-  document.getElementById('week-selector').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
-}
-
-function renderCP(id, errors, cpTotal, total) {
-  const badge = document.getElementById(`${id}-badge`);
-  const content = document.getElementById(`${id}-content`);
-  badge.textContent = `${cpTotal} flag${cpTotal !== 1 ? 's' : ''}`;
-  if (errors.length === 0) {
-    content.innerHTML = `<div class="cp-empty">No errors this week.</div>`;
-    return;
-  }
-  const rows = errors.map(e => `
-    <tr>
-      <td style="padding-right:.75rem;line-height:1.4">${e.err}
-        <div class="cp-bar" style="width:${Math.min(100, e.cnt / total * 100 * 3)}%"></div>
-      </td>
-      <td style="white-space:nowrap">${e.cnt}</td>
-      <td style="white-space:nowrap">${e.pct}%</td>
-    </tr>`).join('');
-  const subtotal = `<tr><td><strong>Subtotal</strong></td><td><strong>${cpTotal}</strong></td><td><strong>${+(cpTotal / total * 100).toFixed(1)}%</strong></td></tr>`;
-  content.innerHTML = `<table class="cp-table"><thead><tr><th>Error Type</th><th>Count</th><th>% Total</th></tr></thead><tbody>${rows}${subtotal}</tbody></table>`;
-}
-
-function generateTakeaways(d, prev, prevName) {
+function buildRolling(wb, weekNum) {
   const out = [];
-
-  // 1. Top shift
-  const shiftArr = Object.entries(d.shifts).sort((a, b) => b[1] - a[1]);
-  const topShift = shiftArr[0];
-  let shiftNote = `<strong>${topShift[0]}</strong> led all shifts with <strong>${topShift[1]} errors</strong> (${+(topShift[1] / d.total * 100).toFixed(1)}% of total)`;
-  if (prev) {
-    const prevTop = Object.entries(prev.shifts).sort((a, b) => b[1] - a[1])[0];
-    if (prevTop[0] !== topShift[0]) shiftNote += ` — a shift change from ${prevName}, where ${prevTop[0]} led`;
-    else shiftNote += `, consistent with ${prevName}`;
-  }
-  out.push(shiftNote + '.');
-
-  // 2. Top checkpoint + top error within it
-  const cpTotals = [['Shipment (CP1)', d.cp1Total, d.cp1], ['Piece (CP2)', d.cp2Total, d.cp2], ['Carton (CP3)', d.cp3Total, d.cp3]];
-  cpTotals.sort((a, b) => b[1] - a[1]);
-  const topCP = cpTotals[0];
-  let cpNote = `<strong>${topCP[0]}</strong> was the dominant checkpoint with <strong>${topCP[1]} flags</strong> (${+(topCP[1] / d.total * 100).toFixed(1)}% of total)`;
-  if (topCP[2].length > 0) cpNote += `, led by <em>${topCP[2][0].err}</em> (${topCP[2][0].cnt} occurrences)`;
-  out.push(cpNote + '.');
-
-  // 3. WoW
-  if (prev) {
-    const delta = d.total - prev.total;
-    const absPct = Math.abs((delta / prev.total * 100)).toFixed(1);
-    if (delta < 0) out.push(`Total errors dropped from <strong>${prev.total}</strong> in ${prevName} to <strong>${d.total}</strong> this week — a <strong>↓${Math.abs(delta)}</strong> improvement (${absPct}% decrease).`);
-    else if (delta > 0) out.push(`Total errors increased from <strong>${prev.total}</strong> in ${prevName} to <strong>${d.total}</strong> this week — a <strong>↑${delta}</strong> increase (${absPct}%).`);
-    else out.push(`Total errors held flat at <strong>${d.total}</strong>, unchanged from ${prevName}.`);
-  } else {
-    out.push(`Week recorded <strong>${d.total} total errors</strong> across ${Object.values(d.shifts).filter(Boolean).length} shifts — no prior week available for comparison.`);
+  for (let i = Math.max(1, weekNum-3); i <= weekNum; i++) {
+    const d = parseWeek(wb, i);
+    if (d) out.push({ week:`FW${i}`, total:d.total });
   }
   return out;
 }
 
-// Back to selector
-function backToSelector() {
-  document.getElementById('dashboard').style.display = 'none';
-  document.getElementById('week-selector').style.display = 'block';
+function generateTakeaways(data, prevData, rolling) {
+  const fp = n => `${((n/data.total)*100).toFixed(1)}%`;
+  const shiftArr = [["A",data.shift.A],["B",data.shift.B],["C",data.shift.C]].sort((a,b)=>b[1]-a[1]);
+  const topShift = shiftArr[0];
+  const sT = data.shipment.reduce((s,r)=>s+r.value,0);
+  const pT = data.piece.reduce((s,r)=>s+r.value,0);
+  const cT = data.carton.reduce((s,r)=>s+r.value,0);
+  const cpArr = [["Shipment",sT,data.shipment],["Piece",pT,data.piece],["Carton",cT,data.carton]].sort((a,b)=>b[1]-a[1]);
+  const topCP = cpArr[0];
+  const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : null;
+  const takes = [];
+  takes.push({
+    h: `${topShift[0]}-Shift leads with ${fp(topShift[1])} of errors`,
+    b: `${topShift[0]}-Shift contributed ${topShift[1]} of ${data.total} total errors this week (${fp(topShift[1])}). ${shiftArr[1][1]>0?`${shiftArr[1][0]}-Shift follows with ${shiftArr[1][1]} (${fp(shiftArr[1][1])}).`:""}`,
+  });
+  if (prevData) {
+    const delta = data.total - prevData.total;
+    const pct   = ((delta/prevData.total)*100).toFixed(1);
+    const dir   = delta<0?"down":delta>0?"up":"unchanged";
+    takes.push({
+      h: `Total errors ${dir} ${Math.abs(delta)} week over week`,
+      b: `${data.total} errors this week vs. ${prevData.total} last week (${delta>0?"+":""}${delta}, ${pct}%).${rollingAvg!==null?` The ${rolling.length}-week rolling average is ${rollingAvg} errors/week.`:""}`,
+    });
+  } else {
+    takes.push({ h:"First week of data in this window", b:`${data.total} errors logged — no prior week available for comparison.` });
+  }
+  takes.push({
+    h:`${topCP[0]} Check leads all checkpoints`,
+    b:`${topCP[0]} errors account for ${topCP[1]} of ${data.total} entries (${fp(topCP[1])}).${topCP[2][0]?` The leading error type is "${topCP[2][0].name}" with ${topCP[2][0].value} instances.`:""}`,
+  });
+  return takes;
 }
+
+/* ── SMALL COMPONENTS ── */
+function Badge({ children, color, bg }) {
+  return <span style={{ fontSize:10, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase",
+    background:bg, color, padding:"3px 10px", borderRadius:20 }}>{children}</span>;
+}
+
+function Card({ t, children, style }) {
+  return (
+    <div style={{ background:t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16,
+      padding:"24px 26px 22px", marginBottom:20, boxShadow:t.shadow,
+      transition:"background .25s,border-color .25s", ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({ t, eyebrow, eyebrowColor, eyebrowBg, title, subtitle }) {
+  return (
+    <div style={{ marginBottom:18 }}>
+      <Badge color={eyebrowColor} bg={eyebrowBg}>{eyebrow}</Badge>
+      <h2 style={{ margin:"8px 0 4px", fontSize:19, fontWeight:800, color:t.textPrimary, letterSpacing:"-.3px" }}>{title}</h2>
+      {subtitle && <p style={{ margin:0, fontSize:13, color:t.textSecond }}>{subtitle}</p>}
+    </div>
+  );
+}
+
+function CheckpointTable({ t, rows, total, accent, fmtPct }) {
+  if (!rows.length) return (
+    <div style={{ marginTop:10, padding:"14px 10px", textAlign:"center",
+      color:t.textMuted, fontSize:13, fontStyle:"italic" }}>
+      No errors logged at this checkpoint this week.
+    </div>
+  );
+  return (
+    <div style={{ marginTop:10 }}>
+      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13.5 }}>
+        <tbody>
+          {rows.map((r,i) => (
+            <tr key={r.name} style={{ background:i%2?t.rowAlt:"transparent" }}>
+              <td style={{ padding:"8px 10px", color:t.textPrimary }}>{r.name}</td>
+              <td style={{ padding:"8px 10px", textAlign:"right", fontWeight:700, color:t.textPrimary }}>{r.value}</td>
+              <td style={{ padding:"8px 10px", textAlign:"right", color:t.textMuted, width:64 }}>{fmtPct(r.value)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ display:"flex", justifyContent:"space-between", marginTop:10, paddingTop:10,
+        borderTop:`1px solid ${t.cardBorder}` }}>
+        <span style={{ fontSize:12, fontWeight:700, color:t.textSecond, textTransform:"uppercase", letterSpacing:.5 }}>Checkpoint subtotal</span>
+        <span style={{ fontSize:15, fontWeight:800, color:accent }}>{total} <span style={{ color:t.textMuted, fontWeight:600, fontSize:12 }}>({fmtPct(total)})</span></span>
+      </div>
+    </div>
+  );
+}
+
+/* ── NAV BAR ── */
+function NavBar({ t, dark, setMode, onChangeWeek, showChange }) {
+  return (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
+      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+        <a href="./index.html" style={{ display:"inline-flex", alignItems:"center", gap:5,
+          padding:"6px 14px", borderRadius:20, border:`1px solid ${t.cardBorder}`,
+          background:t.card, color:t.textSecond, textDecoration:"none", fontSize:12,
+          fontWeight:700, boxShadow:t.shadow }}>← Hub</a>
+        {showChange && (
+          <button onClick={onChangeWeek} style={{ background:"transparent",
+            border:`1px solid ${t.cardBorder}`, color:t.textMuted, borderRadius:16,
+            padding:"5px 12px", cursor:"pointer", fontSize:11, fontWeight:600 }}>
+            ← Change Week
+          </button>
+        )}
+      </div>
+      <button onClick={()=>setMode(dark?"light":"dark")} style={{
+        display:"flex", alignItems:"center", gap:6, background:t.card,
+        border:`1px solid ${t.cardBorder}`, borderRadius:20, padding:"7px 12px",
+        cursor:"pointer", fontSize:12, fontWeight:700, color:t.textPrimary, boxShadow:t.shadow }}>
+        {dark ? "☀️ Light" : "🌙 Dark"}
+      </button>
+    </div>
+  );
+}
+
+/* ── APP ── */
+function App() {
+  const [mode,    setMode]    = useState("light");
+  const [wb,      setWb]      = useState(null);
+  const [fileName,setFileName]= useState("");
+  const [weekNum, setWeekNum] = useState(null);
+  const [report,  setReport]  = useState(null);
+  const [dragging,setDragging]= useState(false);
+  const inputRef = useRef();
+  const t    = getTheme(mode);
+  const dark = mode === "dark";
+
+  const availableWeeks = wb
+    ? wb.SheetNames.filter(n=>n.startsWith("Week"))
+        .map(n=>parseInt(n.replace("Week","").trim())).filter(Boolean).sort((a,b)=>a-b)
+    : [];
+
+  const loadFile = useCallback(file => {
+    if (!file?.name.endsWith(".xlsx")) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
+      setWb(workbook); setFileName(file.name); setReport(null);
+      const weeks = workbook.SheetNames.filter(n=>n.startsWith("Week"))
+        .map(n=>parseInt(n.replace("Week","").trim())).filter(Boolean).sort((a,b)=>a-b);
+      if (weeks.length) setWeekNum(weeks[weeks.length-1]);
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  const onDrop = e => { e.preventDefault(); setDragging(false); loadFile(e.dataTransfer.files[0]); };
+
+  const runReport = () => {
+    if (!wb || !weekNum) return;
+    const data     = parseWeek(wb, weekNum);
+    const prevData = weekNum > 1 ? parseWeek(wb, weekNum-1) : null;
+    const rolling  = buildRolling(wb, weekNum);
+    if (!data) return;
+    setReport({ data, prevData, rolling, takeaways: generateTakeaways(data, prevData, rolling), weekNum });
+  };
+
+  const reset = () => { setWb(null); setFileName(""); setWeekNum(null); setReport(null); };
+
+  /* ── UPLOAD SCREEN ── */
+  if (!wb) return (
+    <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+      padding:"28px 16px 60px", transition:"background .25s" }}>
+      <div style={{ maxWidth:580, margin:"0 auto" }}>
+        <NavBar t={t} dark={dark} setMode={setMode} showChange={false} />
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>MWFC Receiving Operations</div>
+          <h1 style={{ fontSize:28, fontWeight:800, color:t.textPrimary, letterSpacing:"-.5px" }}>Weekly Error Report</h1>
+          <p style={{ fontSize:13, color:t.textSecond, marginTop:6 }}>Upload your workbook to generate the report</p>
+        </div>
+        <div className={`drop-zone${dragging?" active":""}`}
+          style={{ background:t.card, borderColor:dragging?"#0EA5E9":t.inputBorder }}
+          onDragOver={e=>{e.preventDefault();setDragging(true);}}
+          onDragLeave={()=>setDragging(false)} onDrop={onDrop}
+          onClick={()=>inputRef.current.click()}>
+          <div style={{ fontSize:"2.5rem", marginBottom:12, opacity:.4 }}>📊</div>
+          <p style={{ color:t.textSecond, fontWeight:600, marginBottom:4 }}>Drop AI Safe Weekly Error Data.xlsx here</p>
+          <p style={{ fontSize:12, color:t.textMuted }}>or click to browse · .xlsx only</p>
+          <input ref={inputRef} type="file" accept=".xlsx" style={{ display:"none" }}
+            onChange={e=>loadFile(e.target.files[0])} />
+        </div>
+      </div>
+    </div>
+  );
+
+  /* ── WEEK SELECTOR ── */
+  if (!report) return (
+    <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+      padding:"28px 16px 60px", transition:"background .25s" }}>
+      <div style={{ maxWidth:580, margin:"0 auto" }}>
+        <NavBar t={t} dark={dark} setMode={setMode} showChange={false} />
+        <Card t={t}>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Workbook Loaded</div>
+          <p style={{ fontSize:13, color:"#16A34A", fontWeight:600, marginBottom:18 }}>✓ {fileName}</p>
+          <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond, textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
+          <select value={weekNum||""} onChange={e=>setWeekNum(Number(e.target.value))}
+            style={{ width:"100%", padding:"10px 14px", borderRadius:10, fontSize:14,
+              border:`1px solid ${t.inputBorder}`, background:t.inputBg, color:t.textPrimary,
+              marginBottom:16, cursor:"pointer" }}>
+            {availableWeeks.map(w => <option key={w} value={w}>Week {w}</option>)}
+          </select>
+          <button className="btn-hover" onClick={runReport} style={{
+            width:"100%", padding:12, borderRadius:10, background:"#0EA5E9",
+            color:"#fff", fontWeight:800, fontSize:14, border:"none", cursor:"pointer",
+            boxShadow:"0 2px 10px rgba(14,165,233,.3)" }}>Generate Report →</button>
+          <button onClick={reset} style={{ width:"100%", marginTop:10, padding:9, borderRadius:10,
+            background:"transparent", color:t.textMuted, fontWeight:600, fontSize:13,
+            border:`1px solid ${t.cardBorder}`, cursor:"pointer" }}>↑ Load Different File</button>
+        </Card>
+      </div>
+    </div>
+  );
+
+  /* ── REPORT ── */
+  const { data, prevData, rolling, takeaways } = report;
+  const fmtPct = n => `${((n/data.total)*100).toFixed(1)}%`;
+  const shiftArr= [["A",data.shift.A,SHIFT_COLORS.A],["B",data.shift.B,SHIFT_COLORS.B],["C",data.shift.C,SHIFT_COLORS.C]].sort((a,b)=>b[1]-a[1]);
+  const topShift= shiftArr[0];
+  const sTotal  = data.shipment.reduce((s,r)=>s+r.value,0);
+  const pTotal  = data.piece.reduce((s,r)=>s+r.value,0);
+  const cTotal  = data.carton.reduce((s,r)=>s+r.value,0);
+  const topCP   = [["Shipment",sTotal],["Piece",pTotal],["Carton",cTotal]].sort((a,b)=>b[1]-a[1])[0];
+  const delta   = prevData ? data.total - prevData.total : null;
+  const pct     = prevData ? (delta/prevData.total)*100 : null;
+  const improving = delta !== null && delta < 0;
+  const flat      = delta === 0;
+  const arrowColor= flat ? t.textMuted : improving ? "#16A34A" : "#DC2626";
+  const arrow     = flat ? "→" : improving ? "↓" : "↑";
+  const rollingAvg= rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : 0;
+
+  const shiftPieData = [
+    { name:"A-Shift", value:data.shift.A, color:SHIFT_COLORS.A },
+    { name:"B-Shift", value:data.shift.B, color:SHIFT_COLORS.B },
+    { name:"C-Shift", value:data.shift.C, color:SHIFT_COLORS.C },
+  ];
+  const deptPieData = data.deptSplit.map(d => ({ ...d, color:DEPT_COLORS[d.name] }));
+
+  return (
+    <div style={{ background:t.pageBg, minHeight:"100vh", padding:"28px 16px 50px",
+      fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif", transition:"background .25s" }}>
+      <div style={{ maxWidth:720, margin:"0 auto" }}>
+
+        <NavBar t={t} dark={dark} setMode={setMode} showChange={true} onChangeWeek={()=>setReport(null)} />
+
+        {/* Title */}
+        <div style={{ marginBottom:22 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
+            Receiving Research Error Form
+          </div>
+          <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.textPrimary, letterSpacing:"-.5px" }}>
+            Receiving Error Report — Week {report.weekNum}
+          </h1>
+          {data.dateRange && (
+            <p style={{ margin:"4px 0 0", fontSize:13, color:t.textSecond }}>
+              {data.dateRange}{data.idRange ? ` · ${data.idRange}` : ""}
+            </p>
+          )}
+        </div>
+
+        {/* Summary */}
+        <Card t={t} style={{ padding:"18px 20px" }}>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>Summary</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+            {[
+              { label:"Total Errors",     value:data.total,                                   color:"#16A34A", bg:dark?"#16A34A22":"#dcfce7" },
+              { label:"Busiest Shift",    value:`${topShift[0]} (${fmtPct(topShift[1])})`,    color:"#8B5CF6", bg:dark?"#8B5CF622":"#ede9fe" },
+              { label:"Top Checkpoint",   value:topCP[0],                                     color:"#0284C7", bg:dark?"#0284C722":"#e0f2fe" },
+              { label:"Processors w/ 3+", value:String(data.topProcessors.length),             color:"#B45309", bg:dark?"#B4530922":"#fef3c7" },
+            ].map(s => (
+              <div key={s.label} style={{ background:s.bg, border:`1px solid ${s.color}30`,
+                borderRadius:10, padding:"9px 16px", flex:"1 1 130px" }}>
+                <div style={{ fontSize:10.5, color:t.textSecond, marginBottom:2 }}>{s.label}</div>
+                <div style={{ fontSize:17, fontWeight:800, color:s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Week-over-Week */}
+        {prevData && (
+          <Card t={t}>
+            <SectionHeader t={t} eyebrow="Trend" eyebrowColor="#0D9488" eyebrowBg={dark?"#0D948822":"#ccfbf1"}
+              title="Week-over-Week: Total Errors"
+              subtitle={`Week ${report.weekNum} vs. Week ${report.weekNum-1}`} />
+            <div style={{ display:"flex", alignItems:"center", gap:18, marginTop:4 }}>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:11, color:t.textMuted }}>Week {report.weekNum-1}</div>
+                <div style={{ fontSize:26, fontWeight:800, color:t.textSecond }}>{prevData.total}</div>
+              </div>
+              <div style={{ fontSize:30, fontWeight:800, color:arrowColor }}>{arrow}</div>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:11, color:t.textMuted }}>Week {report.weekNum}</div>
+                <div style={{ fontSize:26, fontWeight:800, color:t.textPrimary }}>{data.total}</div>
+              </div>
+              <div style={{ marginLeft:"auto", textAlign:"right" }}>
+                <div style={{ fontSize:20, fontWeight:800, color:arrowColor }}>
+                  {delta>0?"+":""}{delta} ({pct>0?"+":""}{pct.toFixed(1)}%)
+                </div>
+                <div style={{ fontSize:11, color:t.textMuted }}>
+                  {flat?"no change":improving?"fewer errors":"more errors"}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* 4-Week Rolling Trend */}
+        {rolling.length >= 2 && (
+          <Card t={t}>
+            <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#DC2626" eyebrowBg={dark?"#DC262622":"#fee2e2"}
+              title="4-Week Rolling Review"
+              subtitle={`Total errors, ${rolling[0].week}–${rolling[rolling.length-1].week}`} />
+            <BarChartSVG data={rolling} t={t} />
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13.5, marginTop:14 }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${t.cardBorder}` }}>
+                  <th style={{ textAlign:"left",  padding:"6px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Week</th>
+                  <th style={{ textAlign:"right", padding:"6px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Total</th>
+                  <th style={{ textAlign:"right", padding:"6px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rolling.map((d,i) => {
+                  const prev = i>0?rolling[i-1].total:null;
+                  const delt = prev!==null?d.total-prev:null;
+                  const dpct = prev!==null?(delt/prev)*100:null;
+                  const col  = delt===null?t.textMuted:delt>0?"#DC2626":delt<0?"#16A34A":t.textMuted;
+                  return (
+                    <tr key={d.week} style={{ background:i%2?t.rowAlt:"transparent" }}>
+                      <td style={{ padding:"7px 10px", color:t.textPrimary, fontWeight:i===rolling.length-1?800:600 }}>{d.week}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700, color:t.textPrimary }}>{d.total}</td>
+                      <td style={{ padding:"7px 10px", textAlign:"right", color:col }}>
+                        {delt===null?"—":`${delt>0?"+":""}${delt} (${dpct>0?"+":""}${dpct.toFixed(1)}%)`}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <p style={{ fontSize:12.5, color:t.textSecond, margin:"14px 0 0", lineHeight:1.5 }}>
+              {rolling.length}-week average: <strong>{rollingAvg} errors/week.</strong>{" "}
+              {rolling[rolling.length-1].total < rollingAvg
+                ? "This week is below the rolling average — a positive directional signal."
+                : rolling[rolling.length-1].total > rollingAvg
+                  ? "This week is above the rolling average — worth monitoring."
+                  : "This week is right at the rolling average."}
+            </p>
+          </Card>
+        )}
+
+        {/* Shift */}
+        <Card t={t}>
+          <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#7C3AED" eyebrowBg={dark?"#7C3AED22":"#ede9fe"}
+            title="Error Share by Shift" subtitle="A-Shift, B-Shift, C-Shift — % of total errors" />
+          <DonutChart data={shiftPieData} t={t} />
+          <div style={{ display:"flex", gap:8, marginTop:12 }}>
+            {shiftPieData.map(d => (
+              <div key={d.name} style={{ flex:1, textAlign:"center", padding:"8px 4px", borderRadius:10, background:t.trackBg }}>
+                <div style={{ fontSize:11, color:t.textSecond }}>{d.name}</div>
+                <div style={{ fontSize:16, fontWeight:800, color:d.color }}>{d.value}</div>
+                <div style={{ fontSize:11, color:t.textMuted }}>{fmtPct(d.value)}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Dept */}
+        <Card t={t}>
+          <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#0EA5E9" eyebrowBg={dark?"#0EA5E922":"#e0f2fe"}
+            title="Receiving vs. Transfers" subtitle="Home Department — Receiving vs. all transfer departments combined" />
+          <DonutChart data={deptPieData} t={t} />
+          <div style={{ display:"flex", gap:8, marginTop:12 }}>
+            {deptPieData.map(d => (
+              <div key={d.name} style={{ flex:1, textAlign:"center", padding:"8px 4px", borderRadius:10, background:t.trackBg }}>
+                <div style={{ fontSize:11, color:t.textSecond }}>{d.name}</div>
+                <div style={{ fontSize:16, fontWeight:800, color:d.color }}>{d.value}</div>
+                <div style={{ fontSize:11, color:t.textMuted }}>{fmtPct(d.value)}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Checkpoints */}
+        <Card t={t}>
+          <SectionHeader t={t} eyebrow="Checkpoints" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
+            title="Errors by Checkpoint" subtitle="Shipment, Piece, and Carton checks — error types found at each stage" />
+          <div style={{ fontSize:13, fontWeight:800, color:t.textPrimary, marginTop:4 }}>Shipment Error Check</div>
+          <CheckpointTable t={t} rows={data.shipment} total={sTotal} accent="#0284C7" fmtPct={fmtPct} />
+          <div style={{ fontSize:13, fontWeight:800, color:t.textPrimary, marginTop:18 }}>Piece Error Check</div>
+          <CheckpointTable t={t} rows={data.piece}    total={pTotal} accent="#0284C7" fmtPct={fmtPct} />
+          <div style={{ fontSize:13, fontWeight:800, color:t.textPrimary, marginTop:18 }}>Carton Error Check</div>
+          <CheckpointTable t={t} rows={data.carton}   total={cTotal} accent="#0284C7" fmtPct={fmtPct} />
+        </Card>
+
+        {/* Processors */}
+        {data.topProcessors.length > 0 && (
+          <Card t={t}>
+            <SectionHeader t={t} eyebrow="Processors" eyebrowColor="#B45309" eyebrowBg={dark?"#B4530922":"#fef3c7"}
+              title="Processors with 3+ Errors"
+              subtitle={`${data.topProcessors.length} WM Sign-On ID${data.topProcessors.length!==1?"s":""} — ${data.topProcessors.reduce((s,p)=>s+p.count,0)} of ${data.total} errors (${fmtPct(data.topProcessors.reduce((s,p)=>s+p.count,0))})`} />
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:14, marginTop:4 }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${t.cardBorder}` }}>
+                  <th style={{ textAlign:"left",  padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>WM Sign-On</th>
+                  <th style={{ textAlign:"right", padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Errors</th>
+                  <th style={{ textAlign:"right", padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>% of Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topProcessors.map((p,i) => (
+                  <tr key={p.name} style={{ background:i%2?t.rowAlt:"transparent" }}>
+                    <td style={{ padding:"9px 10px", color:t.textPrimary, fontWeight:600 }}>{p.name}</td>
+                    <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:800, color:"#B45309" }}>{p.count}</td>
+                    <td style={{ padding:"9px 10px", textAlign:"right", color:t.textMuted }}>{fmtPct(p.count)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
+        {/* Takeaways */}
+        <Card t={t}>
+          <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#16A34A" eyebrowBg={dark?"#16A34A22":"#dcfce7"}
+            title="Key Takeaways" />
+          {takeaways.map(item => (
+            <div key={item.h} style={{ marginBottom:14, paddingLeft:14,
+              borderLeft:`3px solid ${dark?"#16A34A55":"#16A34A30"}` }}>
+              <div style={{ fontSize:14, fontWeight:700, color:t.textPrimary, marginBottom:3 }}>{item.h}</div>
+              <div style={{ fontSize:13, color:t.textSecond, lineHeight:1.5 }}>{item.b}</div>
+            </div>
+          ))}
+        </Card>
+
+        <p style={{ fontSize:11, color:t.textMuted, textAlign:"center", marginTop:8 }}>
+          MWFC Receiving Operations · Internal Use Only · Not for distribution
+        </p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
 </body>
 </html>
