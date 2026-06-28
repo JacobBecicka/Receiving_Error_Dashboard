@@ -29,11 +29,42 @@ const XLSX = window.XLSX;
 const SHIFT_COLORS = { A:"#0EA5E9", B:"#8B5CF6", C:"#F59E0B" };
 const DEPT_COLORS  = { Receiving:"#0EA5E9", Transfers:"#94A3B8" };
 
-// Fiscal year starts Feb 1, 2026. Workbook sheets are numbered from the
-// week containing Jan 1 (sheet Week 1). Offset = 5 sheets before fiscal Week 1.
-// Fiscal Week N = Sheet Week (N + 5). Display: toFW(sheetWeek) = sheetWeek - 5.
-const FISCAL_WEEK_OFFSET = 5;
-const toFW = n => n - FISCAL_WEEK_OFFSET;
+/* ── FISCAL WEEK HELPERS ─────────────────────────────────────────────────────
+   Sheet Week 1 starts Dec 28, 2025.
+   Sheets 1–5  → FY2025 (Week 48–52 2025)
+   Sheet 6+    → FY2026 (Week 1+ 2026), offset = sheetNum - 5
+   ────────────────────────────────────────────────────────────────────────── */
+const SHEET_WEEK_1_START = new Date(2025, 11, 28); // Dec 28, 2025
+
+function getSheetWeekStart(n) {
+  const d = new Date(SHEET_WEEK_1_START);
+  d.setDate(d.getDate() + (n - 1) * 7);
+  return d;
+}
+
+function getWeekDisplay(sheetNum) {
+  if (sheetNum <= 5) return { week: 47 + sheetNum, year: 2025 };
+  return { week: sheetNum - 5, year: 2026 };
+}
+
+// Full label: "Week 20 2026"
+function getWeekLabel(sheetNum) {
+  const { week, year } = getWeekDisplay(sheetNum);
+  return `Week ${week} ${year}`;
+}
+
+// Short label for bar chart x-axis: "W20"
+function getWeekShort(sheetNum) {
+  const { week } = getWeekDisplay(sheetNum);
+  return `W${week}`;
+}
+
+// Is this sheet week already started (i.e., not in the future)?
+function isWeekStarted(sheetNum) {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return getSheetWeekStart(sheetNum) <= today;
+}
 
 /* ── THEME ── */
 function getTheme(mode) {
@@ -58,9 +89,7 @@ function BarChartSVG({ data, t }) {
   const max = Math.max(...data.map(d => d.total), 1);
   const H = 110, W = 360;
   const barW = 52;
-  const totalUsed = data.length * barW;
-  const totalGap = W - totalUsed;
-  const gap = totalGap / (data.length + 1);
+  const gap = (W - data.length * barW) / (data.length + 1);
 
   return (
     <svg width="100%" viewBox={`0 0 ${W} 185`} style={{ display:"block", margin:"0 auto" }}>
@@ -70,18 +99,18 @@ function BarChartSVG({ data, t }) {
           stroke={t.cardBorder} strokeWidth={1} strokeDasharray="3 3" />;
       })}
       {data.map((d, i) => {
-        const x   = gap + i * (barW + gap);
-        const bh  = Math.max((d.total / max) * H, 4);
-        const y   = 20 + H - bh;
+        const x    = gap + i * (barW + gap);
+        const bh   = Math.max((d.total / max) * H, 4);
+        const y    = 20 + H - bh;
         const fill = i === data.length - 1 ? "#7C3AED" : "#94A3B8";
         return (
-          <g key={d.week}>
+          <g key={d.short}>
             <rect x={x} y={y} width={barW} height={bh} fill={fill} rx={5} />
             <text x={x + barW / 2} y={y - 7} textAnchor="middle" fontSize={13}
               fill={t.textPrimary} fontWeight="700">{d.total}</text>
-            <text x={x + barW / 2} y={H + 42} textAnchor="middle" fontSize={12}
+            <text x={x + barW / 2} y={H + 38} textAnchor="middle" fontSize={11}
               fill={i === data.length - 1 ? "#7C3AED" : t.textSecond}
-              fontWeight={i === data.length - 1 ? "700" : "400"}>{d.week}</text>
+              fontWeight={i === data.length - 1 ? "700" : "400"}>{d.short}</text>
           </g>
         );
       })}
@@ -98,7 +127,7 @@ function DonutChart({ data, t }) {
   let angle = -Math.PI / 2;
   const slices = data.map(d => {
     const sweep = (d.value / total) * 2 * Math.PI;
-    const end = angle + sweep;
+    const end   = angle + sweep;
     const large = sweep > Math.PI ? 1 : 0;
     const x1  = cx + outerR * Math.cos(angle), y1  = cy + outerR * Math.sin(angle);
     const x2  = cx + outerR * Math.cos(end),   y2  = cy + outerR * Math.sin(end);
@@ -143,7 +172,7 @@ function parseWeek(wb, weekNum) {
   let total = 0;
   const shiftC = { A:0, B:0, C:0 };
   const deptC  = { recv:0, xfer:0 };
-  const sErrs  = {}, pErrs = {}, cErrs = {}, procC = {};
+  const sErrs = {}, pErrs = {}, cErrs = {}, procC = {};
   let firstId = null, lastId = null;
 
   dataRows.forEach(row => {
@@ -182,9 +211,13 @@ function parseWeek(wb, weekNum) {
 
 function buildRolling(wb, weekNum) {
   const out = [];
-  for (let i = Math.max(1, weekNum-3); i <= weekNum; i++) {
+  for (let i = Math.max(1, weekNum - 3); i <= weekNum; i++) {
     const d = parseWeek(wb, i);
-    if (d) out.push({ week:`FW${toFW(i)}`, total:d.total });
+    if (d) out.push({
+      short: getWeekShort(i),   // "W20" — for bar chart x-axis
+      label: getWeekLabel(i),   // "Week 20 2026" — for table
+      total: d.total,
+    });
   }
   return out;
 }
@@ -199,8 +232,8 @@ function generateTakeaways(data, prevData, rolling, weekNum) {
   const cpArr = [["Shipment",sT,data.shipment],["Piece",pT,data.piece],["Carton",cT,data.carton]].sort((a,b)=>b[1]-a[1]);
   const topCP = cpArr[0];
   const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : null;
-  const fw = toFW(weekNum);
-  const fwPrev = toFW(weekNum - 1);
+  const wLabel     = getWeekLabel(weekNum);
+  const wLabelPrev = getWeekLabel(weekNum - 1);
   const takes = [];
   takes.push({
     h: `${topShift[0]}-Shift leads with ${fp(topShift[1])} of errors`,
@@ -212,10 +245,10 @@ function generateTakeaways(data, prevData, rolling, weekNum) {
     const dir   = delta<0?"down":delta>0?"up":"unchanged";
     takes.push({
       h: `Total errors ${dir} ${Math.abs(delta)} week over week`,
-      b: `${data.total} errors in FW${fw} vs. ${prevData.total} in FW${fwPrev} (${delta>0?"+":""}${delta}, ${pct}%).${rollingAvg!==null?` The ${rolling.length}-week rolling average is ${rollingAvg} errors/week.`:""}`,
+      b: `${data.total} errors in ${wLabel} vs. ${prevData.total} in ${wLabelPrev} (${delta>0?"+":""}${delta}, ${pct}%).${rollingAvg!==null?` The ${rolling.length}-week rolling average is ${rollingAvg} errors/week.`:""}`,
     });
   } else {
-    takes.push({ h:"First week of data in this window", b:`${data.total} errors logged in FW${fw} — no prior week available for comparison.` });
+    takes.push({ h:"First week of data in this window", b:`${data.total} errors logged in ${wLabel} — no prior week available for comparison.` });
   }
   takes.push({
     h:`${topCP[0]} Check leads all checkpoints`,
@@ -317,9 +350,13 @@ function App() {
   const t    = getTheme(mode);
   const dark = mode === "dark";
 
+  // Only show sheet weeks that have already started — no future weeks
   const availableWeeks = wb
-    ? wb.SheetNames.filter(n=>n.startsWith("Week"))
-        .map(n=>parseInt(n.replace("Week","").trim())).filter(Boolean).sort((a,b)=>a-b)
+    ? wb.SheetNames
+        .filter(n => n.startsWith("Week"))
+        .map(n => parseInt(n.replace("Week","").trim()))
+        .filter(n => !isNaN(n) && n > 0 && isWeekStarted(n))
+        .sort((a,b) => a - b)
     : [];
 
   const loadFile = useCallback(file => {
@@ -328,9 +365,13 @@ function App() {
     reader.onload = e => {
       const workbook = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
       setWb(workbook); setFileName(file.name); setReport(null);
-      const weeks = workbook.SheetNames.filter(n=>n.startsWith("Week"))
-        .map(n=>parseInt(n.replace("Week","").trim())).filter(Boolean).sort((a,b)=>a-b);
-      if (weeks.length) setWeekNum(weeks[weeks.length-1]);
+      // Auto-select the most recent non-future week
+      const weeks = workbook.SheetNames
+        .filter(n => n.startsWith("Week"))
+        .map(n => parseInt(n.replace("Week","").trim()))
+        .filter(n => !isNaN(n) && n > 0 && isWeekStarted(n))
+        .sort((a,b) => a - b);
+      if (weeks.length) setWeekNum(weeks[weeks.length - 1]);
     };
     reader.readAsArrayBuffer(file);
   }, []);
@@ -340,7 +381,7 @@ function App() {
   const runReport = () => {
     if (!wb || !weekNum) return;
     const data     = parseWeek(wb, weekNum);
-    const prevData = weekNum > 1 ? parseWeek(wb, weekNum-1) : null;
+    const prevData = weekNum > 1 ? parseWeek(wb, weekNum - 1) : null;
     const rolling  = buildRolling(wb, weekNum);
     if (!data) return;
     setReport({ data, prevData, rolling, takeaways: generateTakeaways(data, prevData, rolling, weekNum), weekNum });
@@ -348,6 +389,7 @@ function App() {
 
   const reset = () => { setWb(null); setFileName(""); setWeekNum(null); setReport(null); };
 
+  /* ── UPLOAD ── */
   if (!wb) return (
     <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
       padding:"28px 16px 60px", transition:"background .25s" }}>
@@ -373,6 +415,7 @@ function App() {
     </div>
   );
 
+  /* ── WEEK SELECTOR ── */
   if (!report) return (
     <div style={{ minHeight:"100vh", background:t.pageBg, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
       padding:"28px 16px 60px", transition:"background .25s" }}>
@@ -381,13 +424,14 @@ function App() {
         <Card t={t}>
           <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Workbook Loaded</div>
           <p style={{ fontSize:13, color:"#16A34A", fontWeight:600, marginBottom:18 }}>✓ {fileName}</p>
-          <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond, textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
+          <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond,
+            textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
           <select value={weekNum||""} onChange={e=>setWeekNum(Number(e.target.value))}
             style={{ width:"100%", padding:"10px 14px", borderRadius:10, fontSize:14,
               border:`1px solid ${t.inputBorder}`, background:t.inputBg, color:t.textPrimary,
               marginBottom:16, cursor:"pointer" }}>
             {availableWeeks.map(w => (
-              <option key={w} value={w}>Fiscal Week {toFW(w)}</option>
+              <option key={w} value={w}>{getWeekLabel(w)}</option>
             ))}
           </select>
           <button className="btn-hover" onClick={runReport} style={{
@@ -402,23 +446,24 @@ function App() {
     </div>
   );
 
+  /* ── REPORT ── */
   const { data, prevData, rolling, takeaways } = report;
-  const fw      = toFW(report.weekNum);
-  const fwPrev  = toFW(report.weekNum - 1);
-  const fmtPct  = n => `${((n/data.total)*100).toFixed(1)}%`;
-  const shiftArr= [["A",data.shift.A,SHIFT_COLORS.A],["B",data.shift.B,SHIFT_COLORS.B],["C",data.shift.C,SHIFT_COLORS.C]].sort((a,b)=>b[1]-a[1]);
-  const topShift= shiftArr[0];
-  const sTotal  = data.shipment.reduce((s,r)=>s+r.value,0);
-  const pTotal  = data.piece.reduce((s,r)=>s+r.value,0);
-  const cTotal  = data.carton.reduce((s,r)=>s+r.value,0);
-  const topCP   = [["Shipment",sTotal],["Piece",pTotal],["Carton",cTotal]].sort((a,b)=>b[1]-a[1])[0];
-  const delta   = prevData ? data.total - prevData.total : null;
-  const pct     = prevData ? (delta/prevData.total)*100 : null;
-  const improving = delta !== null && delta < 0;
-  const flat      = delta === 0;
-  const arrowColor= flat ? t.textMuted : improving ? "#16A34A" : "#DC2626";
-  const arrow     = flat ? "→" : improving ? "↓" : "↑";
-  const rollingAvg= rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : 0;
+  const wLabel     = getWeekLabel(report.weekNum);
+  const wLabelPrev = getWeekLabel(report.weekNum - 1);
+  const fmtPct     = n => `${((n/data.total)*100).toFixed(1)}%`;
+  const shiftArr   = [["A",data.shift.A,SHIFT_COLORS.A],["B",data.shift.B,SHIFT_COLORS.B],["C",data.shift.C,SHIFT_COLORS.C]].sort((a,b)=>b[1]-a[1]);
+  const topShift   = shiftArr[0];
+  const sTotal     = data.shipment.reduce((s,r)=>s+r.value,0);
+  const pTotal     = data.piece.reduce((s,r)=>s+r.value,0);
+  const cTotal     = data.carton.reduce((s,r)=>s+r.value,0);
+  const topCP      = [["Shipment",sTotal],["Piece",pTotal],["Carton",cTotal]].sort((a,b)=>b[1]-a[1])[0];
+  const delta      = prevData ? data.total - prevData.total : null;
+  const pct        = prevData ? (delta/prevData.total)*100 : null;
+  const improving  = delta !== null && delta < 0;
+  const flat       = delta === 0;
+  const arrowColor = flat ? t.textMuted : improving ? "#16A34A" : "#DC2626";
+  const arrow      = flat ? "→" : improving ? "↓" : "↑";
+  const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : 0;
 
   const shiftPieData = [
     { name:"A-Shift", value:data.shift.A, color:SHIFT_COLORS.A },
@@ -434,12 +479,12 @@ function App() {
 
         <NavBar t={t} dark={dark} setMode={setMode} showChange={true} onChangeWeek={()=>setReport(null)} />
 
+        {/* Title */}
         <div style={{ marginBottom:22 }}>
-          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:6 }}>
-            Receiving Research Error Form
-          </div>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
+            textTransform:"uppercase", marginBottom:6 }}>Receiving Research Error Form</div>
           <h1 style={{ margin:0, fontSize:26, fontWeight:800, color:t.textPrimary, letterSpacing:"-.5px" }}>
-            Receiving Error Report — Fiscal Week {fw}
+            Receiving Error Report — {wLabel}
           </h1>
           {data.dateRange && (
             <p style={{ margin:"4px 0 0", fontSize:13, color:t.textSecond }}>
@@ -448,8 +493,10 @@ function App() {
           )}
         </div>
 
+        {/* Summary */}
         <Card t={t} style={{ padding:"18px 20px" }}>
-          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>Summary</div>
+          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
+            textTransform:"uppercase", marginBottom:10 }}>Summary</div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
             {[
               { label:"Total Errors",     value:data.total,                                  color:"#16A34A", bg:dark?"#16A34A22":"#dcfce7" },
@@ -466,19 +513,20 @@ function App() {
           </div>
         </Card>
 
+        {/* Week-over-Week */}
         {prevData && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Trend" eyebrowColor="#0D9488" eyebrowBg={dark?"#0D948822":"#ccfbf1"}
               title="Week-over-Week: Total Errors"
-              subtitle={`FW${fw} vs. FW${fwPrev}`} />
+              subtitle={`${wLabel} vs. ${wLabelPrev}`} />
             <div style={{ display:"flex", alignItems:"center", gap:18, marginTop:4 }}>
               <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:11, color:t.textMuted }}>FW{fwPrev}</div>
+                <div style={{ fontSize:11, color:t.textMuted }}>{wLabelPrev}</div>
                 <div style={{ fontSize:26, fontWeight:800, color:t.textSecond }}>{prevData.total}</div>
               </div>
               <div style={{ fontSize:30, fontWeight:800, color:arrowColor }}>{arrow}</div>
               <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:11, color:t.textMuted }}>FW{fw}</div>
+                <div style={{ fontSize:11, color:t.textMuted }}>{wLabel}</div>
                 <div style={{ fontSize:26, fontWeight:800, color:t.textPrimary }}>{data.total}</div>
               </div>
               <div style={{ marginLeft:"auto", textAlign:"right" }}>
@@ -493,11 +541,12 @@ function App() {
           </Card>
         )}
 
+        {/* 4-Week Rolling Trend */}
         {rolling.length >= 2 && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#DC2626" eyebrowBg={dark?"#DC262622":"#fee2e2"}
               title="4-Week Rolling Review"
-              subtitle={`Total errors, ${rolling[0].week}–${rolling[rolling.length-1].week}`} />
+              subtitle={`${rolling[0].label} – ${rolling[rolling.length-1].label}`} />
             <BarChartSVG data={rolling} t={t} />
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13.5, marginTop:14 }}>
               <thead>
@@ -514,8 +563,8 @@ function App() {
                   const dpct = prev!==null?(delt/prev)*100:null;
                   const col  = delt===null?t.textMuted:delt>0?"#DC2626":delt<0?"#16A34A":t.textMuted;
                   return (
-                    <tr key={d.week} style={{ background:i%2?t.rowAlt:"transparent" }}>
-                      <td style={{ padding:"7px 10px", color:t.textPrimary, fontWeight:i===rolling.length-1?800:600 }}>{d.week}</td>
+                    <tr key={d.label} style={{ background:i%2?t.rowAlt:"transparent" }}>
+                      <td style={{ padding:"7px 10px", color:t.textPrimary, fontWeight:i===rolling.length-1?800:600 }}>{d.label}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700, color:t.textPrimary }}>{d.total}</td>
                       <td style={{ padding:"7px 10px", textAlign:"right", color:col }}>
                         {delt===null?"—":`${delt>0?"+":""}${delt} (${dpct>0?"+":""}${dpct.toFixed(1)}%)`}
@@ -536,6 +585,7 @@ function App() {
           </Card>
         )}
 
+        {/* Shift */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#7C3AED" eyebrowBg={dark?"#7C3AED22":"#ede9fe"}
             title="Error Share by Shift" subtitle="A-Shift, B-Shift, C-Shift — % of total errors" />
@@ -551,6 +601,7 @@ function App() {
           </div>
         </Card>
 
+        {/* Dept */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#0EA5E9" eyebrowBg={dark?"#0EA5E922":"#e0f2fe"}
             title="Receiving vs. Transfers" subtitle="Home Department — Receiving vs. all transfer departments combined" />
@@ -566,6 +617,7 @@ function App() {
           </div>
         </Card>
 
+        {/* Checkpoints */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="Checkpoints" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
             title="Errors by Checkpoint" subtitle="Shipment, Piece, and Carton checks — error types found at each stage" />
@@ -577,6 +629,7 @@ function App() {
           <CheckpointTable t={t} rows={data.carton}   total={cTotal} accent="#0284C7" fmtPct={fmtPct} />
         </Card>
 
+        {/* Processors */}
         {data.topProcessors.length > 0 && (
           <Card t={t}>
             <SectionHeader t={t} eyebrow="Processors" eyebrowColor="#B45309" eyebrowBg={dark?"#B4530922":"#fef3c7"}
@@ -603,6 +656,7 @@ function App() {
           </Card>
         )}
 
+        {/* Takeaways */}
         <Card t={t}>
           <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#16A34A" eyebrowBg={dark?"#16A34A22":"#dcfce7"}
             title="Key Takeaways" />
