@@ -1,819 +1,1095 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Processor Error Card — Receiving Research</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Processor Error Card · MWFC Receiving</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-/* ── TOKENS ────────────────────────────────────────── */
+/* ── CSS VARS — matches hub index.html exactly ──────────────────────── */
 :root {
-  --bg:     #f1f5f9;
-  --card:   #ffffff;
-  --border: #e2e8f0;
-  --text:   #1e293b;
-  --muted:  #64748b;
-  --navy:   #003087;
-  --accent: #0097A7;
-  --cp1:    #0097A7;
-  --cp2:    #7C3AED;
-  --cp3:    #F59E0B;
+  --bg:#0f1623; --surface:#1a2235; --surface2:#222d42; --border:#2e3f5c;
+  --accent:#38bdf8; --accent2:#0ea5e9; --text:#e2e8f0; --muted:#94a3b8;
+  --card-hover:#263550; --badge-bg:#1e3a5f; --badge-text:#7dd3fc;
+  /* CP colors */
+  --cp1:#0097A7; --cp2:#7C3AED; --cp3:#F59E0B;
+  /* shift colors */
+  --shift-a:#38BDF8; --shift-b:#A78BFA; --shift-c:#34D399;
 }
-[data-dark] {
-  --bg:     #0f172a;
-  --card:   #1e293b;
-  --border: #334155;
-  --text:   #e2e8f0;
-  --muted:  #94a3b8;
-  --navy:   #4D8EE8;
+[data-theme="light"] {
+  --bg:#f0f4f8; --surface:#ffffff; --surface2:#e8eef5; --border:#cbd5e1;
+  --accent:#0369a1; --accent2:#0284c7; --text:#1e293b; --muted:#64748b;
+  --card-hover:#dbeafe; --badge-bg:#dbeafe; --badge-text:#1d4ed8;
 }
 
-/* ── RESET ─────────────────────────────────────────── */
-*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
 body {
-  font-family: 'Inter','Segoe UI',system-ui,sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  transition: background .2s, color .2s;
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:var(--bg); color:var(--text);
+  min-height:100vh; transition:background .2s,color .2s;
 }
 
-/* ── LOADING ───────────────────────────────────────── */
-#v-load {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  gap: 14px;
+/* ── LOADING ────────────────────────────────────────────────────────── */
+#v-loading {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; min-height:100vh; gap:14px;
 }
 .spin {
-  width: 40px; height: 40px;
-  border: 4px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .8s linear infinite;
+  width:40px; height:40px; border:4px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%;
+  animation:spin .8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin { to { transform:rotate(360deg); } }
 
-/* ── FALLBACK ──────────────────────────────────────── */
+/* ── FALLBACK ───────────────────────────────────────────────────────── */
 #v-fallback {
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 24px;
+  display:none; flex-direction:column; align-items:center;
+  justify-content:center; min-height:100vh; padding:24px; gap:20px;
 }
 .drop-zone {
-  border: 2px dashed var(--border);
-  border-radius: 16px;
-  padding: 48px 32px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color .15s;
-  background: var(--card);
-  max-width: 420px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  border:2px dashed var(--border); border-radius:16px; padding:40px 32px;
+  text-align:center; cursor:pointer; background:var(--surface);
+  max-width:400px; width:100%; display:flex;
+  flex-direction:column; align-items:center; gap:8px;
+  transition:border-color .15s;
 }
-.drop-zone:hover { border-color: var(--navy); }
+.drop-zone:hover { border-color:var(--accent); }
 
-/* ── VIEWS ─────────────────────────────────────────── */
-.view { display: none; padding: 20px 16px; max-width: 1200px; margin: 0 auto; }
-.view.active { display: block; }
-
-/* ── HEADER ────────────────────────────────────────── */
-.hdr {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 20px;
+/* ── HEADER — matches hub exactly ──────────────────────────────────── */
+header {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:.9rem 1.5rem; display:flex; align-items:center;
+  justify-content:space-between; position:sticky; top:0; z-index:10;
+  gap:12px; flex-wrap:wrap;
 }
-.eyebrow { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
-.hdr h1  { font-size: 22px; font-weight: 800; color: var(--text); }
-.hdr-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-.hdr-r   { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-
-/* ── BUTTONS ───────────────────────────────────────── */
+.header-left { display:flex; align-items:center; gap:.75rem; }
+.header-icon { font-size:1.4rem; }
+.header-title { font-size:1rem; font-weight:700; color:var(--text); line-height:1.2; }
+.header-sub   { font-size:.72rem; color:var(--muted); }
 .btn {
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s;
-  font-family: inherit;
-  white-space: nowrap;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:.4rem .8rem; color:var(--text); font-size:.82rem; font-weight:600;
+  cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s;
+  white-space:nowrap;
 }
-.btn-outline { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
-.btn-outline:hover { border-color: var(--accent); color: var(--text); }
-.btn-accent  { background: var(--accent); color: #fff; }
-.btn-navy    { background: var(--navy); color: #fff; }
-.btn-theme   { background: var(--border); color: var(--text); }
-.btn:disabled { opacity: .45; cursor: default; }
+.btn:hover { background:var(--card-hover); border-color:var(--accent); }
+.btn-accent { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn-accent:hover { background:var(--accent2); }
 
-/* ── PROC SELECT ───────────────────────────────────── */
+/* ── PROC SELECTOR ─────────────────────────────────────────────────── */
 .proc-sel {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  min-width: 140px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:.4rem .8rem; color:var(--text); font-size:.85rem; font-weight:700;
+  cursor:pointer; font-family:inherit; min-width:180px;
 }
 
-/* ── STAT GRID ─────────────────────────────────────── */
-.stat-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+/* ── VIEWS ─────────────────────────────────────────────────────────── */
+.view { display:none; }
+.view.active { display:block; }
+
+main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
+
+/* ── SECTION LABEL ─────────────────────────────────────────────────── */
+.sec-lbl {
+  font-size:11px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.08em; color:var(--muted); margin-bottom:12px;
+}
+
+/* ── CARDS ─────────────────────────────────────────────────────────── */
+.card-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:20px 22px; margin-bottom:22px;
+}
+.card-box-sm { padding:16px 18px; margin-bottom:0; }
+
+/* ── STAT GRIDS ─────────────────────────────────────────────────────── */
+.stats-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
 .stat-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 18px;
-  flex: 1; min-width: 110px;
+  flex:1 1 130px; min-width:120px; background:var(--surface);
+  border:1px solid var(--border); border-radius:12px; padding:14px 16px;
 }
-.s-lbl { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
-.s-val { font-size: 26px; font-weight: 900; line-height: 1; }
-.s-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.stat-lbl { font-size:10px; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
+.stat-val { font-size:22px; font-weight:900; line-height:1; }
+.stat-sub { font-size:11px; color:var(--muted); margin-top:5px; }
+.impact-card {
+  flex:1 1 130px; min-width:120px; background:var(--surface);
+  border-top:1px solid var(--border); border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border); border-left:4px solid #D97706;
+  border-radius:12px; padding:14px 16px;
+}
+.impact-lbl { font-size:10px; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
 
-/* ── CHART CARD ────────────────────────────────────── */
-.chart-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 18px;
-}
-.ct { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
-.cs { font-size: 10px; color: var(--muted); margin-bottom: 12px; }
-.ch-wrap { position: relative; }
+/* ── CHART CONTAINERS ──────────────────────────────────────────────── */
+.chart-wrap { position:relative; }
 
-/* ── IDENTITY CARD ─────────────────────────────────── */
-.id-card {
-  background: var(--card);
-  border: 2px solid var(--accent);
-  border-radius: 12px;
-  padding: 12px 18px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.id-avatar {
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  background: var(--accent);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 900; color: #fff;
-  flex-shrink: 0;
-}
-.id-stats { margin-left: auto; display: flex; gap: 20px; text-align: right; flex-wrap: wrap; }
-.id-slbl  { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
-.id-sval  { font-size: 32px; font-weight: 900; line-height: 1; }
-.id-ssub  { font-size: 10px; color: var(--muted); }
-.id-div   { border-left: 1px solid var(--border); padding-left: 20px; }
+/* ── SIDE-BY-SIDE CHART ROW ────────────────────────────────────────── */
+.chart-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+.chart-col-sm { flex:1 1 220px; min-width:200px; }
+.chart-col-lg { flex:1 1 300px; min-width:280px; }
 
-/* ── SELECT BANNER ─────────────────────────────────── */
-.sel-banner {
-  background: var(--card);
-  border: 2px solid var(--accent);
-  border-radius: 12px;
-  padding: 14px 18px;
-  margin-bottom: 20px;
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+/* ── PROCESSOR HEADER ──────────────────────────────────────────────── */
+.proc-hdr {
+  display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap;
 }
-.sel-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
-
-/* ── ERROR LOG ─────────────────────────────────────── */
-.log-entry {
-  border-bottom: 1px solid var(--border);
-  padding: 10px 0;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+.proc-avatar {
+  width:52px; height:52px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; font-weight:900; color:#0f172a;
 }
-.log-wk  { min-width: 52px; }
-.log-wk  .wk-num { font-size: 11px; font-weight: 800; color: var(--accent); }
-.log-wk  .wk-dt  { font-size: 10px; color: var(--muted); }
-.log-bdgs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-.log-badge{ font-size: 10px; border-radius: 4px; padding: 2px 6px; font-weight: 600; }
-.log-co   { font-size: 12px; color: var(--text); line-height: 1.4; }
-.log-meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.proc-meta-name { font-size:22px; font-weight:900; line-height:1.1; margin-bottom:4px; }
+.proc-meta-sub  { font-size:12px; color:var(--muted); }
 
-/* ── FILTER BUTTONS ────────────────────────────────── */
-.flt-wrap { display: flex; gap: 6px; }
+/* ── CP LEGEND ─────────────────────────────────────────────────────── */
+.cp-legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+.cp-legend-item { display:flex; align-items:center; gap:5px; }
+.cp-legend-dot  { width:10px; height:10px; border-radius:2px; display:inline-block; }
+
+/* ── CHECKPOINT SUMMARY CARDS ──────────────────────────────────────── */
+.cp-cards { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
+.cp-card  { flex:1 1 210px; min-width:200px; background:var(--surface);
+  border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+.cp-card-hdr { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.cp-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.cp-card-name  { font-weight:700; font-size:14px; }
+.cp-card-count { margin-left:auto; font-size:22px; font-weight:900; }
+.cp-trend-row {
+  display:flex; justify-content:space-between; font-size:12px;
+  color:var(--muted); padding-bottom:10px;
+  border-bottom:1px solid var(--border); margin-bottom:6px;
+}
+
+/* ── SUB-TYPE TABLE ────────────────────────────────────────────────── */
+.subtype-lbl { font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.subtype-tbl { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.subtype-tbl th { text-align:left; color:var(--muted); font-weight:600;
+  padding-bottom:5px; border-bottom:1px solid var(--border); font-size:11px; }
+.subtype-tbl th.r { text-align:right; min-width:44px; }
+.subtype-tbl td { padding:5px 8px 5px 0; color:var(--text); line-height:1.4; }
+.subtype-tbl td.r { text-align:right; padding:5px 0; color:var(--muted); min-width:44px; }
+.subtype-tbl td.c { text-align:right; padding:5px 0; color:var(--text); min-width:44px; }
+.subtype-tbl tr { border-bottom:1px solid var(--border); }
+.subtype-tbl tr:last-child { border-bottom:none; }
+.no-data-italic { font-size:12px; color:var(--muted); font-style:italic; padding:6px 0; }
+
+/* ── ERROR LOG ─────────────────────────────────────────────────────── */
+.log-hdr { display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+.log-hdr-title { font-size:13px; font-weight:700; }
+.flt-row { display:flex; gap:6px; }
 .flt-btn {
-  padding: 4px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font-size: 11px; font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
+  padding:5px 13px; border-radius:7px; border:1px solid var(--border);
+  background:transparent; color:var(--muted); font-size:11px; font-weight:700;
+  cursor:pointer; font-family:inherit; transition:all .15s;
 }
-.flt-btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.flt-btn.on { color:#0f172a; }
+.log-scroll { max-height:460px; overflow-y:auto; }
+.log-entry { border-bottom:1px solid var(--border); padding:11px 0;
+  display:flex; gap:14px; align-items:flex-start; }
+.log-wk { min-width:50px; flex-shrink:0; }
+.log-wk-num { font-size:12px; font-weight:800; }
+.log-wk-dt  { font-size:10px; color:var(--muted); margin-top:1px; }
+.log-body   { flex:1; min-width:0; }
+.log-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+.cp-badge {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:10px; font-weight:700; border-radius:5px; padding:3px 8px;
+  white-space:nowrap; letter-spacing:.02em;
+}
+.log-comment { font-size:12px; line-height:1.55; margin-bottom:5px; }
+.log-meta { font-size:10px; color:var(--muted); }
+.log-meta b { color:var(--muted); font-weight:600; }
 
-/* ── UTILS ─────────────────────────────────────────── */
-.sec-lbl { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
-.row     { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-.mb20    { margin-bottom: 20px; }
-.cp-legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 12px; }
-.cp-dot  { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+/* ── OVERVIEW PROCESSOR GRID ───────────────────────────────────────── */
+.ov-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+.ov-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+.ov-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:16px 18px; cursor:pointer; transition:background .15s,border-color .15s,transform .15s;
+  display:flex; flex-direction:column; gap:10px;
+}
+.ov-card:hover { background:var(--card-hover); border-color:var(--accent); transform:translateY(-2px); }
+.ov-card-top { display:flex; align-items:center; gap:10px; }
+.ov-avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px; font-weight:900; color:#0f172a; }
+.ov-lanid { font-size:14px; font-weight:800; font-family:monospace; }
+.ov-name  { font-size:11px; color:var(--muted); margin-top:1px; }
+.ov-stats { display:flex; gap:12px; font-size:12px; }
+.ov-stat  { display:flex; flex-direction:column; gap:2px; }
+.ov-stat-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:600; letter-spacing:.05em; }
+.ov-stat-val { font-size:16px; font-weight:800; }
+.ov-footer { font-size:12px; font-weight:700; color:var(--accent); }
+
+/* ── OVERALL DEPT STATS ─────────────────────────────────────────────── */
+.dept-stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px; }
+.dept-stat { flex:1 1 120px; background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:12px 16px; }
+
+/* ── RESPONSIVE ────────────────────────────────────────────────────── */
+@media(max-width:560px) {
+  .chart-row { flex-direction:column; }
+  .cp-cards   { flex-direction:column; }
+  .proc-hdr   { gap:10px; }
+  main { padding:1.25rem 1rem 3rem; }
+}
+
+footer { text-align:center; padding:1.5rem; font-size:.75rem;
+  color:var(--muted); border-top:1px solid var(--border); }
 </style>
 </head>
-<body>
+<body data-theme="dark">
 
-<!-- ══ LOADING ══════════════════════════════════════════ -->
-<div id="v-load">
+<!-- ══ LOADING ══════════════════════════════════════════════════════════ -->
+<div id="v-loading">
   <div class="spin"></div>
   <div style="font-size:14px;font-weight:600;color:var(--muted)">Loading error data…</div>
   <div id="load-msg" style="font-size:12px;color:var(--muted)">Fetching from GitHub…</div>
 </div>
 
-<!-- ══ FALLBACK (auto-load failed) ══════════════════════ -->
+<!-- ══ FALLBACK ══════════════════════════════════════════════════════════ -->
 <div id="v-fallback">
-  <div style="margin-bottom:32px;display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px">
-    <div>
-      <div class="eyebrow">Receiving Research</div>
-      <div style="font-size:22px;font-weight:800;color:var(--text)">Processor Error Card</div>
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-outline" onclick="goHub()">⌂ Hub</button>
-      <button class="btn btn-theme" onclick="toggleDark()">◑ Dark</button>
-    </div>
-  </div>
-  <div style="font-size:48px;margin-bottom:16px">📊</div>
-  <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">Auto-load failed</div>
-  <div id="fallback-msg" style="font-size:12px;color:var(--muted);margin-bottom:28px;text-align:center;max-width:380px"></div>
+  <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">Auto-load failed</div>
+  <div id="fallback-msg" style="font-size:12px;color:var(--muted);text-align:center;max-width:360px"></div>
   <label class="drop-zone">
     <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
-    <div style="font-size:36px;margin-bottom:12px">📁</div>
-    <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">Drop .xlsx file here</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:20px">AI_Safe_Weekly_Error_Data.xlsx</div>
-    <div class="btn btn-navy">Browse Files</div>
+    <div style="font-size:32px">📁</div>
+    <div style="font-size:14px;font-weight:700">Drop AI_Safe_Weekly_Error_Data.xlsx here</div>
+    <div class="btn btn-accent" style="margin-top:8px">Browse Files</div>
   </label>
+  <button class="btn" onclick="goHub()">⌂ Back to Hub</button>
 </div>
 
-<!-- ══ OVERVIEW VIEW ════════════════════════════════════ -->
+<!-- ══ HEADER (always visible after load) ══════════════════════════════ -->
+<header id="app-header" style="display:none">
+  <div class="header-left">
+    <span class="header-icon">📦</span>
+    <div>
+      <div class="header-title">MWFC Receiving Error Dashboard</div>
+      <div class="header-sub" id="hdr-sub">Processor Error Cards</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <button class="btn" onclick="goHub()">⌂ Hub</button>
+    <button class="btn" id="btn-ov" onclick="showView('ov')" style="display:none">← Overview</button>
+    <select class="proc-sel" id="proc-sel" style="display:none" onchange="onSelChange(this.value)"></select>
+    <label style="cursor:pointer">
+      <span class="btn">📂 Load File</span>
+      <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
+    </label>
+    <button class="btn" id="theme-btn" onclick="toggleTheme()">☀️ Light</button>
+  </div>
+</header>
+
+<!-- ══ OVERVIEW VIEW ═════════════════════════════════════════════════════ -->
 <div id="v-ov" class="view">
-  <div class="hdr">
-    <div>
-      <div class="eyebrow">Receiving Research</div>
-      <h1>Department Overview</h1>
-      <div class="hdr-sub" id="ov-sub"></div>
-    </div>
-    <div class="hdr-r">
-      <button class="btn btn-outline" onclick="goHub()">⌂ Hub</button>
-      <label style="cursor:pointer">
-        <span class="btn btn-outline">📂 Load File</span>
-        <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
-      </label>
-      <button class="btn btn-theme" onclick="toggleDark()">◑ Dark</button>
-    </div>
-  </div>
+  <main>
+    <div class="sec-lbl" style="margin-top:4px">Department Overview — Fiscal Weeks 1–20 · Feb 1 – Jun 20, 2026</div>
 
-  <div class="stat-grid" id="ov-stats"></div>
+    <!-- Dept-wide stats -->
+    <div class="dept-stats" id="dept-stats"></div>
 
-  <div class="sel-banner">
-    <span class="sel-lbl">View Processor Card</span>
-    <select class="proc-sel" id="ov-sel"><option value="">— Select a LanID —</option></select>
-    <button class="btn btn-accent" onclick="gotoDetail()">View Card →</button>
-  </div>
+    <!-- Shift filter -->
+    <div class="ov-controls" id="shift-filters">
+      <button class="flt-btn on" data-shift="All"     onclick="filterOv('All',this)">All Shifts</button>
+      <button class="flt-btn"   data-shift="A-Shift"  onclick="filterOv('A-Shift',this)">A-Shift</button>
+      <button class="flt-btn"   data-shift="B-Shift"  onclick="filterOv('B-Shift',this)">B-Shift</button>
+      <button class="flt-btn"   data-shift="C-Shift"  onclick="filterOv('C-Shift',this)">C-Shift</button>
+    </div>
 
-  <div class="chart-card mb20">
-    <div class="ct">Checkpoint Errors by Week — All Processors</div>
-    <div class="cs">Stacked by CP1 · CP2 · CP3</div>
-    <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-weekly"></canvas></div>
-  </div>
-
-  <div class="sec-lbl">Top Error Types by Checkpoint</div>
-  <div class="row">
-    <div class="chart-card" style="flex:1;min-width:240px">
-      <div class="ct" style="color:var(--cp1)">CP1 — Shipment</div>
-      <div class="cs">Top error types · dept-wide</div>
-      <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-cp1"></canvas></div>
-    </div>
-    <div class="chart-card" style="flex:1;min-width:240px">
-      <div class="ct" style="color:var(--cp2)">CP2 — Piece</div>
-      <div class="cs">Top error types · dept-wide</div>
-      <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-cp2"></canvas></div>
-    </div>
-    <div class="chart-card" style="flex:1;min-width:240px">
-      <div class="ct" style="color:var(--cp3)">CP3 — Carton</div>
-      <div class="cs">Top error types · dept-wide</div>
-      <div class="ch-wrap" style="height:180px"><canvas id="ch-ov-cp3"></canvas></div>
-    </div>
-  </div>
+    <div class="ov-grid" id="ov-grid"></div>
+  </main>
 </div>
 
-<!-- ══ DETAIL VIEW ═══════════════════════════════════════ -->
+<!-- ══ DETAIL VIEW ════════════════════════════════════════════════════════ -->
 <div id="v-det" class="view">
-  <div class="hdr">
-    <div>
-      <div class="eyebrow">Receiving Research</div>
-      <h1>Processor Error Card</h1>
-    </div>
-    <div class="hdr-r">
-      <button class="btn btn-outline" onclick="goHub()">⌂ Hub</button>
-      <button class="btn btn-outline" onclick="showView('ov')">← Overview</button>
-      <select class="proc-sel" id="det-sel" onchange="renderDetail(this.value)"></select>
-      <label style="cursor:pointer">
-        <span class="btn btn-outline">📂 Update</span>
-        <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
-      </label>
-      <button class="btn btn-theme" onclick="toggleDark()">◑ Dark</button>
-    </div>
-  </div>
+  <main>
 
-  <div class="id-card" id="det-id"></div>
-  <div class="stat-grid" id="det-stats"></div>
+    <!-- Processor Identity Header -->
+    <div class="proc-hdr" id="det-hdr"></div>
 
-  <div class="row">
-    <div class="chart-card" style="flex:2;min-width:280px">
-      <div class="ct">Assessed Errors by Week</div>
-      <div class="cs">Each bar = 1 incident assessed · color = severity</div>
-      <div class="ch-wrap" style="height:160px"><canvas id="ch-det-weekly"></canvas></div>
-    </div>
-    <div class="chart-card" style="flex:1;min-width:200px">
-      <div class="ct">Checkpoint Flags</div>
-      <div class="cs">Total flags per checkpoint</div>
-      <div class="ch-wrap" style="height:160px"><canvas id="ch-det-cp"></canvas></div>
-    </div>
-  </div>
+    <!-- Summary stat cards -->
+    <div class="stats-row" id="det-stats"></div>
 
-  <div class="chart-card mb20">
-    <div class="ct">Top Error Types by Checkpoint Flag</div>
-    <div class="cp-legend">
-      <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:#0097A7"></span><span style="font-size:10px;color:var(--muted);font-weight:600">CP1</span></div>
-      <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:#7C3AED"></span><span style="font-size:10px;color:var(--muted);font-weight:600">CP2</span></div>
-      <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:#F59E0B"></span><span style="font-size:10px;color:var(--muted);font-weight:600">CP3</span></div>
-    </div>
-    <div class="ch-wrap" style="height:220px"><canvas id="ch-det-errs"></canvas></div>
-  </div>
+    <!-- Impact stat cards -->
+    <div class="stats-row" id="det-impact" style="margin-bottom:24px"></div>
 
-  <div class="chart-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <div class="ct" id="log-title">Assessed Error Log</div>
-      <div class="flt-wrap">
-        <button class="flt-btn on"  onclick="setFlt('All',this)">All</button>
-        <button class="flt-btn"     onclick="setFlt('CP1',this)">CP1</button>
-        <button class="flt-btn"     onclick="setFlt('CP2',this)">CP2</button>
-        <button class="flt-btn"     onclick="setFlt('CP3',this)">CP3</button>
+    <!-- Weekly Stacked Bar -->
+    <div class="sec-lbl">Weekly Error Frequency (by Checkpoint)</div>
+    <div class="card-box">
+      <div class="chart-wrap" style="height:240px"><canvas id="ch-weekly"></canvas></div>
+    </div>
+
+    <!-- Trend Line -->
+    <div class="sec-lbl">Overall Trend Line</div>
+    <div class="card-box">
+      <div id="trend-sub" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+      <div class="chart-wrap" style="height:170px"><canvas id="ch-trend"></canvas></div>
+    </div>
+
+    <!-- Checkpoint Flags + Top Error Types -->
+    <div class="chart-row">
+      <div class="chart-col-sm">
+        <div class="sec-lbl">Checkpoint Flags</div>
+        <div class="card-box card-box-sm">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Total flags per checkpoint</div>
+          <div class="chart-wrap" style="height:200px"><canvas id="ch-cpflags"></canvas></div>
+        </div>
+      </div>
+      <div class="chart-col-lg">
+        <div class="sec-lbl">Top Error Types by Checkpoint Flag</div>
+        <div class="card-box card-box-sm">
+          <div class="cp-legend">
+            <div class="cp-legend-item"><span class="cp-legend-dot" style="background:var(--cp1)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP1</span></div>
+            <div class="cp-legend-item"><span class="cp-legend-dot" style="background:var(--cp2)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP2</span></div>
+            <div class="cp-legend-item"><span class="cp-legend-dot" style="background:var(--cp3)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP3</span></div>
+          </div>
+          <div class="chart-wrap" id="ch-toperr-wrap"><canvas id="ch-toperr"></canvas></div>
+        </div>
       </div>
     </div>
-    <div id="log-body" style="max-height:360px;overflow-y:auto"></div>
-  </div>
+
+    <!-- Checkpoint Summary + Sub-type tables -->
+    <div class="sec-lbl">Checkpoint Summary &amp; Error Sub-Classifications</div>
+    <div class="cp-cards" id="cp-cards"></div>
+
+    <!-- Error Log -->
+    <div class="sec-lbl">Assessed Error Log</div>
+    <div class="card-box" style="margin-bottom:0">
+      <div class="log-hdr">
+        <div class="log-hdr-title" id="log-title">Loading…</div>
+        <div class="flt-row" id="log-filters">
+          <button class="flt-btn on" onclick="setLogFlt('All',this)">All</button>
+          <button class="flt-btn"    onclick="setLogFlt('CP1',this)">CP1</button>
+          <button class="flt-btn"    onclick="setLogFlt('CP2',this)">CP2</button>
+          <button class="flt-btn"    onclick="setLogFlt('CP3',this)">CP3</button>
+        </div>
+      </div>
+      <div class="log-scroll" id="log-body"></div>
+    </div>
+
+  </main>
+  <footer>
+    Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; Fiscal Weeks 1–20 &nbsp;·&nbsp; Nordstrom
+  </footer>
 </div>
 
-<!-- ══ SCRIPT ════════════════════════════════════════════ -->
 <script>
-// ── CONFIG ──────────────────────────────────────────
+// =============================================================================
+// CONSTANTS
+// =============================================================================
 const XLSX_URL = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
-const CP_CLR   = { CP1:"#0097A7", CP2:"#7C3AED", CP3:"#F59E0B" };
-const CORAL    = "#FF6B6B";
-const GOLD     = "#F5A623";
+const HUB_URL  = "index.html";
+const FW_OFFSET = 5; // Tool FW N = XLSX Week (N + 5)  →  FW1 = XLSX Week 6
 
-// ── STATE ────────────────────────────────────────────
-let _data = {};
-let _file = "";
-let _id   = "";
-let _flt  = "All";
-let _dark = false;
-const _ch = {};   // chart instances
-
-// ── HELPERS ──────────────────────────────────────────
-const isNoErr = v => {
-  const s = String(v||"").trim().toLowerCase();
-  return !s || s === "no errors" || s === "no error";
+const FW_DATE_RANGES = {
+  1:"Feb 1–7",2:"Feb 8–14",3:"Feb 15–20",4:"Feb 22–28",5:"Mar 1–6",
+  6:"Mar 8–14",7:"Mar 15–21",8:"Mar 23–28",9:"Mar 29–Apr 4",10:"Apr 5–11",
+  11:"Apr 12–18",12:"Apr 21–25",13:"Apr 26–May 2",14:"May 3–9",15:"May 10–16",
+  16:"May 17–23",17:"May 24–30",18:"Jun 1–6",19:"Jun 8–13",20:"Jun 14–20"
 };
-const isFYI = r => /\bfyi\b|fyi only|not an error/i.test(r.co || "");
-const pNum  = v  => { const m = String(v||"").match(/\d+/); return m ? +m[0] : 0; };
-const pCase = (c,u) => String(c||"").toLowerCase().includes("tote") && pNum(u) > 1 ? pNum(u) : pNum(c);
-const esc   = s  => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-function classErr(recs) {
-  const c1={},c2={},c3={}; let t1=0,t2=0,t3=0;
-  recs.forEach(r => {
-    if (!isNoErr(r.c1)) { const k=r.c1.split(";")[0].trim(); c1[k]=(c1[k]||0)+1; t1++; }
-    if (!isNoErr(r.c2)) { const k=r.c2.split(";")[0].trim(); c2[k]=(c2[k]||0)+1; t2++; }
-    if (!isNoErr(r.c3)) { const k=r.c3.split(";")[0].trim(); c3[k]=(c3[k]||0)+1; t3++; }
-  });
-  return { c1,c2,c3, t1,t2,t3 };
+const SHIFT_COLORS = { "A-Shift":"#38BDF8","B-Shift":"#A78BFA","C-Shift":"#34D399" };
+const CP_VIZ = { CP1:"#0097A7",CP2:"#7C3AED",CP3:"#F59E0B" };
+
+const CP_BADGE_CSS = {
+  CP1: "background:rgba(0,151,167,.15);color:#0097A7;border:1px solid rgba(0,151,167,.35)",
+  CP2: "background:rgba(124,58,237,.15);color:#A78BFA;border:1px solid rgba(124,58,237,.35)",
+  CP3: "background:rgba(245,158,11,.15);color:#D97706;border:1px solid rgba(245,158,11,.35)",
+};
+
+// =============================================================================
+// STATE
+// =============================================================================
+let _data = {};    // { [lanid]: ProcessorData }
+let _cur  = null;  // current LanID
+let _logFlt = "All";
+let _shiftFlt = "All";
+let _dark = true;
+let _ch = {};      // chart instances
+
+// =============================================================================
+// HELPERS
+// =============================================================================
+const goHub = () => window.location.href = HUB_URL;
+
+function isNoErr(v) {
+  const s = String(v||"").trim().toLowerCase().replace(/\xa0/g,"");
+  return !s || s==="no errors"||s==="no error"||s==="none";
 }
+function isFYI(c) { return /\bfyi\b|fyi only|not an error/i.test(c||""); }
+function clean(v) {
+  if(v==null) return "";
+  let s=String(v).trim().replace(/\xa0/g,"");
+  if(/^no\s+errors?$/i.test(s)) s="";
+  return s;
+}
+function parseNum(v){const m=String(v||"").match(/\d+/);return m?+m[0]:0;}
+function trunc(s,n=24){return s.length>n?s.slice(0,n-1)+"…":s;}
 
-// ── PARSE WORKBOOK ───────────────────────────────────
+function linSlope(weekly,key){
+  const n=weekly.length;
+  const xs=weekly.map(w=>w.fw), ys=weekly.map(w=>w[key]||0);
+  const xm=xs.reduce((a,b)=>a+b,0)/n, ym=ys.reduce((a,b)=>a+b,0)/n;
+  let num=0,den=0;
+  for(let i=0;i<n;i++){num+=(xs[i]-xm)*(ys[i]-ym);den+=(xs[i]-xm)**2;}
+  return den===0?0:num/den;
+}
+function trendLabel(s){
+  if(s<-0.03) return{text:"Declining ↓",color:"#10b981"};
+  if(s> 0.03) return{text:"Increasing ↑",color:"#ef4444"};
+  return{text:"Flat →",color:"#94a3b8"};
+}
+function shiftColor(shift){ return SHIFT_COLORS[shift]||"#38BDF8"; }
+function shiftLetter(shift){ return(shift||"A").charAt(0); }
+
+const gc=()=>_dark?"#8b949e":"#64748b";  // muted text
+const gb=()=>_dark?"#30363d":"#e2e8f0";  // border
+const gt=()=>_dark?"#e6edf3":"#0f172a";  // text
+
+// =============================================================================
+// XLSX PARSING
+// =============================================================================
 function parseWB(wb) {
-  const res = {};
-  const cl = v => {
-    if (v == null) return "";
-    let s = String(v).trim().replace(/\xa0/g, "");
-    if (/^no\s+errors?$/i.test(s)) s = "No Errors";
-    return s;
-  };
+  const records = [];
   for (const sn of wb.SheetNames) {
     const m = sn.match(/^Week\s*(\d+)$/i);
     if (!m) continue;
-    const wn = +m[1];
-    const ws = wb.Sheets[sn];
-    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:"" });
-    let hi = -1;
-    for (let i=0;i<rows.length;i++) { if (String(rows[i][0]).trim()==="Id") { hi=i; break; } }
-    if (hi === -1) continue;
-    for (let i=hi+1; i<rows.length; i++) {
-      const row = rows[i];
-      if (!row[0]) continue;
-      const wm = String(row[6]||"").trim().replace(/\xa0/g,"");
-      if (!wm || wm==="None") continue;
-      const dv = row[8];
-      let ds = "";
-      if (dv instanceof Date) ds = dv.toISOString().slice(0,10);
-      else if (dv) ds = String(dv).slice(0,10);
-      if (!res[wm]) res[wm] = [];
-      res[wm].push({
-        w: wn, d: ds,
-        s:    cl(row[9]).replace(/-?Shift/i,"").trim(),
-        dept: cl(row[10]),
-        c1:   cl(row[11]), c2: cl(row[12]), c3: cl(row[13]),
-        co:   cl(row[18]).slice(0,200),
-        cases:cl(row[16]), units:cl(row[17]),
+    const xlsxWk = +m[1];
+    const fw = xlsxWk - FW_OFFSET;
+    if (fw < 1 || fw > 20) continue; // Only FW1-20
+
+    const ws   = wb.Sheets[sn];
+    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+
+    // Find Id header row
+    let hi=-1;
+    for(let i=0;i<rows.length;i++){if(String(rows[i][0]).trim()==="Id"){hi=i;break;}}
+    if(hi===-1) continue;
+
+    for(let i=hi+1;i<rows.length;i++){
+      const row=rows[i];
+      if(!row[0]) continue;
+      const lanid=clean(row[6]).replace(/\xa0/g,"");
+      if(!lanid||lanid.toLowerCase()==="none") continue;
+
+      const cp1Raw=clean(row[11]), cp2Raw=clean(row[12]), cp3Raw=clean(row[13]);
+      const comment=clean(row[18]).slice(0,300);
+
+      // Split on semicolons — each sub-type = 1 separate CP flag
+      const cp1Parts = (!cp1Raw||isNoErr(cp1Raw))? [] : cp1Raw.split(";").map(s=>s.trim()).filter(Boolean);
+      const cp2Parts = (!cp2Raw||isNoErr(cp2Raw))? [] : cp2Raw.split(";").map(s=>s.trim()).filter(Boolean);
+      const cp3Parts = (!cp3Raw||isNoErr(cp3Raw))? [] : cp3Raw.split(";").map(s=>s.trim()).filter(Boolean);
+
+      const allCPs = [
+        ...cp1Parts.map(type=>({cp:"CP1",type})),
+        ...cp2Parts.map(type=>({cp:"CP2",type})),
+        ...cp3Parts.map(type=>({cp:"CP3",type})),
+      ];
+
+      // Date — handle Date objects and Excel serial numbers
+      const dv=row[8]; let dateStr="";
+      if(dv instanceof Date) dateStr=dv.toISOString().slice(0,10);
+      else if(dv){
+        const s=String(dv).trim();
+        if(/^\d{4}-\d{2}-\d{2}/.test(s)) dateStr=s.slice(0,10);
+        else if(/^\d{5}$/.test(s)){
+          const d=new Date((+s-25569)*86400000);
+          dateStr=d.toISOString().slice(0,10);
+        }
+      }
+
+      // Shift normalization
+      const sr=clean(row[9]);
+      let shift="A-Shift";
+      if(/\bB\b/i.test(sr)||/B-?Shift/i.test(sr)) shift="B-Shift";
+      else if(/\bC\b/i.test(sr)||/C-?Shift/i.test(sr)) shift="C-Shift";
+
+      records.push({
+        fw, xlsxWk, lanid,
+        name: clean(row[5])||lanid,
+        shift, dept: clean(row[10])||"Receiving",
+        dateStr, comment,
+        cp1Parts,cp2Parts,cp3Parts,allCPs,
+        casesRaw:clean(row[16]), unitsRaw:clean(row[17]),
+        units:parseNum(row[17]), cases:parseNum(row[16]),
+        fyi:isFYI(comment),
       });
     }
   }
-  return res;
+  return records;
 }
 
-// ── FILE LOAD ────────────────────────────────────────
-async function loadFile(file) {
-  if (!file) return;
-  _file = file.name;
-  setLoading("Parsing file…");
-  try {
-    const buf = await file.arrayBuffer();
-    const wb  = XLSX.read(buf, { type:"array", cellDates:true });
-    const d   = parseWB(wb);
-    if (!Object.keys(d).length) throw new Error("No data found. Check sheet names follow 'Week N' format.");
-    _data = d;
-    renderOverview();
-    showView("ov");
-  } catch(e) {
-    document.getElementById("load-msg").textContent = "Error: " + e.message;
+function buildProcessorData(allRecords) {
+  // Group by LanID
+  const byLanid={};
+  for(const r of allRecords){
+    if(!byLanid[r.lanid]) byLanid[r.lanid]=[];
+    byLanid[r.lanid].push(r);
   }
+
+  const result={};
+  for(const[lanid,records] of Object.entries(byLanid)){
+    // 20-week skeleton
+    const weekly=Array.from({length:20},(_,i)=>{
+      const fw=i+1;
+      return{fw,dateRange:FW_DATE_RANGES[fw]||"",
+        shipment:0,piece:0,carton:0,total:0,
+        shipTypes:{},pieceTypes:{},cartonTypes:{}};
+    });
+
+    const rawLog=[];
+    let incidents=0,totalUnits=0,totalCases=0;
+
+    for(const r of records){
+      const w=weekly[r.fw-1];
+      // CP flags — ALL records (FYI included per user spec)
+      r.cp1Parts.forEach(t=>{w.shipment++;w.shipTypes[t]=(w.shipTypes[t]||0)+1;});
+      r.cp2Parts.forEach(t=>{w.piece++;   w.pieceTypes[t]=(w.pieceTypes[t]||0)+1;});
+      r.cp3Parts.forEach(t=>{w.carton++;  w.cartonTypes[t]=(w.cartonTypes[t]||0)+1;});
+      w.total=w.shipment+w.piece+w.carton;
+
+      // Incidents — non-FYI only
+      if(!r.fyi){
+        incidents++;
+        totalUnits+=r.units;
+        totalCases+=r.cases;
+        rawLog.push({fw:r.fw,date:r.dateStr,cps:r.allCPs,
+          comment:r.comment,casesRaw:r.casesRaw,unitsRaw:r.unitsRaw});
+      }
+    }
+
+    // Sort log newest → oldest
+    rawLog.sort((a,b)=>b.fw-a.fw||b.date.localeCompare(a.date));
+
+    // Aggregate totals
+    const tot={shipment:0,piece:0,carton:0,shipTypes:{},pieceTypes:{},cartonTypes:{}};
+    for(const w of weekly){
+      tot.shipment+=w.shipment; tot.piece+=w.piece; tot.carton+=w.carton;
+      for(const[k,v] of Object.entries(w.shipTypes))   tot.shipTypes[k]  =(tot.shipTypes[k]  ||0)+v;
+      for(const[k,v] of Object.entries(w.pieceTypes))  tot.pieceTypes[k] =(tot.pieceTypes[k] ||0)+v;
+      for(const[k,v] of Object.entries(w.cartonTypes)) tot.cartonTypes[k]=(tot.cartonTypes[k]||0)+v;
+    }
+    tot.overall=tot.shipment+tot.piece+tot.carton;
+
+    // Most common shift/name/dept
+    const vote=(key)=>{
+      const m={};records.forEach(r=>{m[r[key]]=(m[r[key]]||0)+1;});
+      return Object.entries(m).sort((a,b)=>b[1]-a[1])[0]?.[0]||"";
+    };
+    const shift=vote("shift")||"A-Shift";
+    const name =vote("name") ||lanid;
+    const dept =vote("dept") ||"Receiving";
+    const activeWeeks=weekly.filter(w=>w.total>0).length;
+
+    result[lanid]={lanid,name,shift,dept,incidents,activeWeeks,
+      totalUnits,totalCases,weekly,rawLog,totals:tot};
+  }
+  return result;
 }
 
-async function autoLoad() {
+// =============================================================================
+// FILE LOADING
+// =============================================================================
+function setLoading(msg){
+  document.getElementById("v-loading").style.display="flex";
+  document.getElementById("v-fallback").style.display="none";
+  document.getElementById("app-header").style.display="none";
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("load-msg").textContent=msg||"";
+}
+
+async function autoLoad(){
   setLoading("Fetching from GitHub…");
-  try {
-    const res = await fetch(XLSX_URL);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    document.getElementById("load-msg").textContent = "Parsing workbook…";
-    const wb  = XLSX.read(buf, { type:"array", cellDates:true });
-    const d   = parseWB(wb);
-    if (!Object.keys(d).length) throw new Error("No data found in workbook.");
-    _data = d;
-    _file = "AI_Safe_Weekly_Error_Data.xlsx";
-    renderOverview();
-    showView("ov");
-  } catch(e) {
-    showFallback(e.message);
+  try{
+    const res=await fetch(XLSX_URL);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById("load-msg").textContent="Parsing workbook…";
+    const buf=await res.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    const recs=parseWB(wb);
+    if(!recs.length) throw new Error("No data found for FW1–20.");
+    _data=buildProcessorData(recs);
+    init();
+  }catch(e){
+    document.getElementById("v-loading").style.display="none";
+    document.getElementById("v-fallback").style.display="flex";
+    document.getElementById("fallback-msg").textContent=e.message;
   }
 }
 
-// ── VIEW CONTROL ─────────────────────────────────────
-function setLoading(msg) {
-  document.getElementById("v-load").style.display = "flex";
-  document.getElementById("v-fallback").style.display = "none";
-  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  document.getElementById("load-msg").textContent = msg || "";
+async function loadFile(file){
+  if(!file) return;
+  setLoading("Parsing file…");
+  try{
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    const recs=parseWB(wb);
+    if(!recs.length) throw new Error("No FW1–20 data found.");
+    _data=buildProcessorData(recs);
+    init();
+  }catch(e){
+    document.getElementById("v-loading").style.display="none";
+    document.getElementById("v-fallback").style.display="flex";
+    document.getElementById("fallback-msg").textContent=e.message;
+  }
 }
 
-function showView(name) {
-  document.getElementById("v-load").style.display = "none";
-  document.getElementById("v-fallback").style.display = "none";
-  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  const el = document.getElementById("v-" + name);
-  if (el) el.classList.add("active");
+// =============================================================================
+// INIT AFTER DATA LOADS
+// =============================================================================
+function init(){
+  document.getElementById("v-loading").style.display="none";
+  document.getElementById("app-header").style.display="flex";
+
+  // Populate proc selector
+  const sel=document.getElementById("proc-sel");
+  const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
+  sel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid} — ${p.name}</option>`).join("");
+
+  renderOverview();
+  showView("ov");
 }
 
-function showFallback(msg) {
-  document.getElementById("v-load").style.display = "none";
-  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  document.getElementById("v-fallback").style.display = "flex";
-  document.getElementById("fallback-msg").textContent = msg;
+// =============================================================================
+// VIEW CONTROL
+// =============================================================================
+function showView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("v-"+name).classList.add("active");
+  const isDetail=(name==="det");
+  document.getElementById("btn-ov").style.display=isDetail?"":"none";
+  document.getElementById("proc-sel").style.display=isDetail?"":"none";
+  document.getElementById("hdr-sub").textContent=isDetail&&_cur
+    ?`Processor Error Card · ${_data[_cur]?.name||_cur}`
+    :"Processor Error Cards";
 }
 
-function goHub() { window.location.href = "index.html"; }
-
-function gotoDetail() {
-  const v = document.getElementById("ov-sel").value;
-  if (v) { _id = v; renderDetail(v); showView("det"); }
+function onSelChange(lanid){
+  if(lanid&&_data[lanid]) renderDetail(lanid);
 }
 
-// ── THEME ────────────────────────────────────────────
-function toggleDark() {
-  _dark = !_dark;
-  if (_dark) document.body.setAttribute("data-dark","");
-  else       document.body.removeAttribute("data-dark");
-  document.querySelectorAll(".btn-theme").forEach(b => b.textContent = _dark ? "☀ Light" : "◑ Dark");
-  redraw();
-}
-const gCard   = () => _dark ? "#1e293b" : "#ffffff";
-const gBorder = () => _dark ? "#334155" : "#e2e8f0";
-const gMuted  = () => _dark ? "#94a3b8" : "#64748b";
-const gText   = () => _dark ? "#e2e8f0" : "#1e293b";
-const gNavy   = () => _dark ? "#4D8EE8" : "#003087";
-
-// ── CHART UTILS ──────────────────────────────────────
-function killChart(id) {
-  if (_ch[id]) { _ch[id].destroy(); delete _ch[id]; }
+// =============================================================================
+// OVERVIEW RENDERING
+// =============================================================================
+function filterOv(shift,btn){
+  _shiftFlt=shift;
+  document.querySelectorAll("#shift-filters .flt-btn").forEach(b=>{
+    b.classList.toggle("on",b.dataset.shift===shift);
+    b.style.background=b.dataset.shift===shift?shiftColor(shift==="All"?"A-Shift":shift):"transparent";
+    b.style.color=b.dataset.shift===shift?"#0f172a":gc();
+    b.style.borderColor=b.dataset.shift===shift?shiftColor(shift==="All"?"A-Shift":shift):gb();
+  });
+  renderOvGrid();
 }
 
-function mkBar(id, labels, datasets, opts={}) {
-  killChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  const { stacked=false, horizontal=false, legend=false } = opts;
-  _ch[id] = new Chart(ctx, {
-    type: "bar",
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      indexAxis: horizontal ? "y" : "x",
-      plugins: {
-        legend: {
-          display: legend,
-          labels: { color: gMuted(), font: { size: 11 }, boxWidth: 12, padding: 12 }
-        },
-        tooltip: {
-          backgroundColor: gCard(),
-          titleColor: gText(),
-          bodyColor: gMuted(),
-          borderColor: gBorder(),
-          borderWidth: 1,
-          cornerRadius: 8,
+function renderOverview(){
+  const procs=Object.values(_data);
+
+  // Dept-wide stats
+  const deptStats=document.getElementById("dept-stats");
+  const totalInc=procs.reduce((s,p)=>s+p.incidents,0);
+  const totalFlags=procs.reduce((s,p)=>s+p.totals.overall,0);
+  const totalCP1=procs.reduce((s,p)=>s+p.totals.shipment,0);
+  const totalCP2=procs.reduce((s,p)=>s+p.totals.piece,0);
+  const totalCP3=procs.reduce((s,p)=>s+p.totals.carton,0);
+  deptStats.innerHTML=[
+    {l:"Processors",v:procs.length,c:"var(--accent)"},
+    {l:"Total Incidents",v:totalInc,c:"var(--accent)"},
+    {l:"Total CP Flags",v:totalFlags,c:"var(--accent)"},
+    {l:"CP1 Flags",v:totalCP1,c:CP_VIZ.CP1},
+    {l:"CP2 Flags",v:totalCP2,c:CP_VIZ.CP2},
+    {l:"CP3 Flags",v:totalCP3,c:CP_VIZ.CP3},
+  ].map(s=>`<div class="dept-stat">
+    <div class="stat-lbl">${s.l}</div>
+    <div class="stat-val" style="color:${s.c}">${s.v}</div>
+  </div>`).join("");
+
+  renderOvGrid();
+}
+
+function renderOvGrid(){
+  const procs=Object.values(_data)
+    .filter(p=>_shiftFlt==="All"||p.shift===_shiftFlt)
+    .sort((a,b)=>b.totals.overall-a.totals.overall);
+
+  const grid=document.getElementById("ov-grid");
+  if(!procs.length){grid.innerHTML=`<div style="color:var(--muted);font-size:13px">No processors found for this filter.</div>`;return;}
+
+  grid.innerHTML=procs.map(p=>{
+    const sc=shiftColor(p.shift);
+    const sl=shiftLetter(p.shift);
+    const topCP=["shipment","piece","carton"].reduce((b,k)=>p.totals[k]>p.totals[b]?k:b,"shipment");
+    const topCPLabel={shipment:"CP1",piece:"CP2",carton:"CP3"}[topCP];
+    return `<div class="ov-card" onclick="goDetail('${p.lanid}')">
+      <div class="ov-card-top">
+        <div class="ov-avatar" style="background:${sc}">${sl}</div>
+        <div>
+          <div class="ov-lanid" style="color:${sc}">${p.lanid}</div>
+          <div class="ov-name">${p.name}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">${p.shift} · ${p.dept}</div>
+        </div>
+      </div>
+      <div class="ov-stats">
+        <div class="ov-stat"><div class="ov-stat-lbl">Incidents</div><div class="ov-stat-val">${p.incidents}</div></div>
+        <div class="ov-stat"><div class="ov-stat-lbl">CP Flags</div><div class="ov-stat-val" style="color:${sc}">${p.totals.overall}</div></div>
+        <div class="ov-stat"><div class="ov-stat-lbl">Active Wks</div><div class="ov-stat-val">${p.activeWeeks}/20</div></div>
+        <div class="ov-stat"><div class="ov-stat-lbl">Top CP</div><div class="ov-stat-val">${topCPLabel}</div></div>
+      </div>
+      <div class="ov-footer">View Error Card →</div>
+    </div>`;
+  }).join("");
+}
+
+function goDetail(lanid){ renderDetail(lanid); showView("det"); }
+
+// =============================================================================
+// DETAIL RENDERING
+// =============================================================================
+function renderDetail(lanid){
+  const proc=_data[lanid];
+  if(!proc) return;
+  _cur=lanid;
+  document.getElementById("proc-sel").value=lanid;
+  _logFlt="All";
+  document.querySelectorAll("#log-filters .flt-btn").forEach(b=>{
+    b.classList.toggle("on",b.textContent==="All");
+    b.style.background=b.textContent==="All"?shiftColor(proc.shift):"transparent";
+    b.style.color=b.textContent==="All"?"#0f172a":gc();
+    b.style.borderColor=b.textContent==="All"?shiftColor(proc.shift):gb();
+  });
+
+  const sc=shiftColor(proc.shift);
+  const sl=shiftLetter(proc.shift);
+
+  // Compute trends
+  const trends={
+    shipment:linSlope(proc.weekly,"shipment"),
+    piece:   linSlope(proc.weekly,"piece"),
+    carton:  linSlope(proc.weekly,"carton"),
+    overall: linSlope(proc.weekly,"total"),
+  };
+  const ot=trendLabel(trends.overall);
+
+  // Top checkpoint
+  const topCP=["shipment","piece","carton"].reduce((b,k)=>proc.totals[k]>proc.totals[b]?k:b,"shipment");
+  const topCPLabel={shipment:"Shipment",piece:"Piece",carton:"Carton"}[topCP];
+
+  // ── Identity header
+  document.getElementById("det-hdr").innerHTML=`
+    <div class="proc-avatar" style="background:${sc};box-shadow:0 0 0 3px var(--bg),0 0 0 5px ${sc}44">${sl}</div>
+    <div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${sc};display:inline-block"></span>
+        <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase">${proc.shift}&nbsp;&nbsp;${proc.dept}&nbsp;&nbsp;</span>
+        <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--muted)">${proc.lanid}</span>
+      </div>
+      <div class="proc-meta-name" style="color:${sc}">${proc.name} &#8212; Error Frequency Trend</div>
+      <div class="proc-meta-sub">Fiscal Weeks 1&#8211;20 &nbsp;&#183;&nbsp; Feb 1 &#8211; Jun 20, 2026</div>
+    </div>`;
+
+  // ── Summary stat cards
+  document.getElementById("det-stats").innerHTML=[
+    {l:"Total Errors",   v:proc.totals.overall, s:`${proc.incidents} incidents`,          c:sc},
+    {l:"Active Weeks",   v:`${proc.activeWeeks}/20`,s:"weeks with ≥1 flag",              c:gt()},
+    {l:"Overall Trend",  v:ot.text,              s:`slope ${trends.overall.toFixed(3)}/wk`,c:ot.color},
+    {l:"Top Checkpoint", v:topCPLabel,           s:`${proc.totals[topCP]} flags`,          c:gt()},
+  ].map(s=>`<div class="stat-card">
+    <div class="stat-lbl">${s.l}</div>
+    <div class="stat-val" style="color:${s.c}">${s.v}</div>
+    <div class="stat-sub">${s.s}</div>
+  </div>`).join("");
+
+  // ── Impact cards
+  document.getElementById("det-impact").innerHTML=[
+    {l:"Total Units Impacted",v:proc.totalUnits.toLocaleString()},
+    {l:"Total Cases Impacted",v:proc.totalCases.toLocaleString()},
+  ].map(s=>`<div class="impact-card">
+    <div class="impact-lbl">${s.l}</div>
+    <div class="stat-val" style="color:#D97706">${s.v}</div>
+    <div class="stat-sub">across all incidents</div>
+  </div>`).join("");
+
+  // ── Trend line subtitle
+  document.getElementById("trend-sub").innerHTML=
+    `Slope: ${trends.overall.toFixed(3)} flags/wk &nbsp;&#183;&nbsp; <span style="color:${ot.color};font-weight:700">${ot.text}</span>`;
+
+  // ── Checkpoint summary cards
+  const cpRows=[
+    {label:"Shipment (CP1)",key:"shipment",typeKey:"shipTypes",  color:CP_VIZ.CP1},
+    {label:"Piece (CP2)",   key:"piece",   typeKey:"pieceTypes", color:CP_VIZ.CP2},
+    {label:"Carton (CP3)",  key:"carton",  typeKey:"cartonTypes",color:CP_VIZ.CP3},
+  ];
+  document.getElementById("cp-cards").innerHTML=cpRows.map(r=>{
+    const tot=proc.totals[r.key];
+    const tr=trendLabel(trends[r.key]);
+    const entries=Object.entries(proc.totals[r.typeKey]||{}).sort((a,b)=>b[1]-a[1]);
+    const rows=entries.length
+      ? entries.map((([t,c],i)=>`<tr${i===entries.length-1?' style="border-bottom:none"':""}>
+          <td>${t}</td><td class="c">${c}</td>
+          <td class="r">${tot>0?Math.round(c/tot*100):0}%</td>
+        </tr>`)).join("")
+      : `<tr><td colspan="3" class="no-data-italic">No errors recorded</td></tr>`;
+    return `<div class="cp-card">
+      <div class="cp-card-hdr">
+        <span class="cp-dot" style="background:${r.color}"></span>
+        <span class="cp-card-name">${r.label}</span>
+        <span class="cp-card-count" style="color:${r.color}">${tot}</span>
+      </div>
+      <div class="cp-trend-row">
+        <span>Slope: ${trends[r.key].toFixed(3)}/wk</span>
+        <span style="color:${tr.color};font-weight:700">${tr.text}</span>
+      </div>
+      <div class="subtype-lbl">Error Sub-Types (All-Time)</div>
+      <table class="subtype-tbl">
+        <thead><tr>
+          <th>Error Sub-Type</th><th class="r">Count</th><th class="r">% CP</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join("");
+
+  // ── Charts
+  renderCharts(proc, trends, sc);
+
+  // ── Log
+  renderLog(proc);
+}
+
+// =============================================================================
+// CHART RENDERING
+// =============================================================================
+function killChart(id){ if(_ch[id]){_ch[id].destroy();delete _ch[id];} }
+
+function chartDefaults(){
+  return{
+    plugins:{ legend:{labels:{color:gc(),font:{size:11},boxWidth:12,padding:12}},
+               tooltip:{backgroundColor:_dark?"#161b22":"#ffffff",titleColor:gt(),
+                        bodyColor:gc(),borderColor:gb(),borderWidth:1,cornerRadius:8}},
+    scales:{
+      x:{ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
+      y:{ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
+    }
+  };
+}
+
+function renderCharts(proc, trends, sc){
+  const fw_labels=proc.weekly.map(w=>`FW${w.fw}`);
+  const def=chartDefaults();
+
+  // Value label inline plugin (for checkpoint flags bar)
+  const valueLabels={
+    id:"valueLabels",
+    afterDatasetsDraw(chart){
+      const{ctx}=chart;
+      chart.data.datasets[0].data.forEach((_,i)=>{
+        const bar=chart.getDatasetMeta(0).data[i];
+        const val=chart.data.datasets[0].data[i];
+        ctx.save();
+        ctx.fillStyle=gt();
+        ctx.font="bold 13px Segoe UI, system-ui, sans-serif";
+        ctx.textAlign="center";
+        ctx.textBaseline="bottom";
+        ctx.fillText(val, bar.x, bar.y-4);
+        ctx.restore();
+      });
+    }
+  };
+
+  // ── Weekly stacked bar
+  killChart("weekly");
+  _ch.weekly=new Chart(document.getElementById("ch-weekly").getContext("2d"),{
+    type:"bar",
+    data:{
+      labels:fw_labels,
+      datasets:[
+        {label:"Shipment (CP1)",data:proc.weekly.map(w=>w.shipment),backgroundColor:CP_VIZ.CP1,stack:"s"},
+        {label:"Piece (CP2)",   data:proc.weekly.map(w=>w.piece),   backgroundColor:CP_VIZ.CP2,stack:"s"},
+        {label:"Carton (CP3)",  data:proc.weekly.map(w=>w.carton),  backgroundColor:CP_VIZ.CP3,stack:"s",borderRadius:{topLeft:4,topRight:4}},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{...def.plugins,
+        tooltip:{...def.plugins.tooltip,
+          callbacks:{
+            title:([{dataIndex}])=>{const w=proc.weekly[dataIndex];return`Fiscal Week ${w.fw} (${w.dateRange})`;}
+          }
         }
       },
-      scales: {
-        x: {
-          stacked,
-          ticks: { color: gMuted(), font: { size: 10 } },
-          grid: { display: horizontal, color: gBorder() },
-          border: { display: false },
-        },
-        y: {
-          stacked,
-          ticks: { color: gMuted(), font: { size: 10 } },
-          grid: { display: !horizontal, color: gBorder() },
-          border: { display: false },
-        }
+      scales:{
+        x:{...def.scales.x,stacked:true},
+        y:{...def.scales.y,stacked:true,ticks:{...def.scales.y.ticks,precision:0}},
+      }
+    }
+  });
+
+  // ── Trend line
+  killChart("trend");
+  _ch.trend=new Chart(document.getElementById("ch-trend").getContext("2d"),{
+    type:"line",
+    data:{
+      labels:fw_labels,
+      datasets:[{
+        label:"Total CP Flags",data:proc.weekly.map(w=>w.total),
+        borderColor:sc,backgroundColor:sc+"22",pointBackgroundColor:sc,
+        pointRadius:4,borderWidth:2.5,tension:0.1,fill:false,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{...def.plugins,legend:{display:false}},
+      scales:def.scales
+    }
+  });
+
+  // ── Checkpoint flags vertical bar
+  killChart("cpflags");
+  _ch.cpflags=new Chart(document.getElementById("ch-cpflags").getContext("2d"),{
+    type:"bar",
+    plugins:[valueLabels],
+    data:{
+      labels:["CP1","CP2","CP3"],
+      datasets:[{
+        label:"Flags",
+        data:[proc.totals.shipment,proc.totals.piece,proc.totals.carton],
+        backgroundColor:[CP_VIZ.CP1,CP_VIZ.CP2,CP_VIZ.CP3],
+        borderRadius:6,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{...def.plugins,legend:{display:false}},
+      scales:{
+        x:{...def.scales.x,ticks:{color:gc(),font:{size:12,weight:"bold"}}},
+        y:{...def.scales.y,ticks:{...def.scales.y.ticks,precision:0},
+           max:Math.max(proc.totals.shipment,proc.totals.piece,proc.totals.carton)+2},
+      }
+    }
+  });
+
+  // ── Top error types horizontal bar
+  const topTypes=[
+    ...Object.entries(proc.totals.shipTypes).map(([type,count])=>({type,count,cp:"CP1"})),
+    ...Object.entries(proc.totals.pieceTypes).map(([type,count])=>({type,count,cp:"CP2"})),
+    ...Object.entries(proc.totals.cartonTypes).map(([type,count])=>({type,count,cp:"CP3"})),
+  ].sort((a,b)=>b.count-a.count);
+
+  // Dynamic height for top errors chart
+  const topErrWrap=document.getElementById("ch-toperr-wrap");
+  topErrWrap.style.height=Math.max(120,topTypes.length*34+16)+"px";
+
+  killChart("toperr");
+  _ch.toperr=new Chart(document.getElementById("ch-toperr").getContext("2d"),{
+    type:"bar",
+    data:{
+      labels:topTypes.map(e=>trunc(e.type,24)),
+      datasets:[{
+        label:"Flags",
+        data:topTypes.map(e=>e.count),
+        backgroundColor:topTypes.map(e=>CP_VIZ[e.cp]),
+        borderRadius:4,
+      }]
+    },
+    options:{
+      indexAxis:"y",
+      responsive:true, maintainAspectRatio:false,
+      plugins:{...def.plugins,legend:{display:false}},
+      scales:{
+        x:{...def.scales.x,ticks:{...def.scales.x.ticks,precision:0},
+           grid:{color:gb(),display:true}},
+        y:{...def.scales.y,grid:{display:false},
+           ticks:{color:gc(),font:{size:11}}},
       }
     }
   });
 }
 
-// ── STAT CARD HTML ───────────────────────────────────
-function statCard(label, value, sub, color) {
-  return `<div class="stat-card" style="border-left:4px solid ${color}">
-    <div class="s-lbl">${label}</div>
-    <div class="s-val" style="color:${color}">${value}</div>
-    <div class="s-sub">${sub}</div>
-  </div>`;
-}
+// =============================================================================
+// LOG RENDERING
+// =============================================================================
+function renderLog(proc){
+  proc=proc||(_cur&&_data[_cur]);
+  if(!proc) return;
+  const sc=shiftColor(proc.shift);
 
-// ── OVERVIEW RENDER ──────────────────────────────────
-function renderOverview() {
-  const allRecs  = Object.values(_data).flat();
-  const assessed = allRecs.filter(r => !isFYI(r));
-  const { t1,t2,t3 } = classErr(allRecs);
-  const procs = Object.keys(_data).sort();
-  const weeks = [...new Set(assessed.map(r => r.w))].sort((a,b)=>a-b);
-  const navy  = gNavy();
-
-  document.getElementById("ov-sub").textContent =
-    `All processors · all shifts · ${_file}`;
-
-  document.getElementById("ov-stats").innerHTML = [
-    { l:"Processors",      v:procs.length,    s:"LanIDs on record",    c:navy      },
-    { l:"Total Incidents", v:assessed.length, s:"assessed dept-wide",  c:navy      },
-    { l:"Active Weeks",    v:weeks.length,    s:"weeks with errors",   c:navy      },
-    { l:"CP1 Flags",       v:t1,              s:"Shipment checkpoint", c:"#0097A7" },
-    { l:"CP2 Flags",       v:t2,              s:"Piece checkpoint",    c:"#7C3AED" },
-    { l:"CP3 Flags",       v:t3,              s:"Carton checkpoint",   c:"#F59E0B" },
-  ].map(x => statCard(x.l, x.v, x.s, x.c)).join("");
-
-  // Populate processor select
-  const sel = document.getElementById("ov-sel");
-  sel.innerHTML = '<option value="">— Select a LanID —</option>' +
-    procs.map(p => `<option value="${p}">${p}</option>`).join("");
-
-  // Weekly stacked chart
-  const wm = {};
-  assessed.forEach(r => {
-    if (!wm[r.w]) wm[r.w] = { cp1:0, cp2:0, cp3:0 };
-    if (!isNoErr(r.c1)) wm[r.w].cp1++;
-    if (!isNoErr(r.c2)) wm[r.w].cp2++;
-    if (!isNoErr(r.c3)) wm[r.w].cp3++;
+  const filtered=proc.rawLog.filter(r=>{
+    if(_logFlt==="CP1") return r.cps.some(c=>c.cp==="CP1");
+    if(_logFlt==="CP2") return r.cps.some(c=>c.cp==="CP2");
+    if(_logFlt==="CP3") return r.cps.some(c=>c.cp==="CP3");
+    return true;
   });
-  const wks = Object.keys(wm).map(Number).sort((a,b)=>a-b);
-  mkBar("ch-ov-weekly", wks.map(w=>`Wk ${w}`), [
-    { label:"CP1 — Shipment", data:wks.map(w=>wm[w].cp1), backgroundColor:"#0097A7", stack:"s" },
-    { label:"CP2 — Piece",    data:wks.map(w=>wm[w].cp2), backgroundColor:"#7C3AED", stack:"s" },
-    { label:"CP3 — Carton",   data:wks.map(w=>wm[w].cp3), backgroundColor:"#F59E0B", stack:"s", borderRadius:4 },
-  ], { stacked:true, legend:true });
+  const assessed=filtered.length;
 
-  // Top errors per CP (horizontal)
-  const TR = 28;
-  const tk = s => s.length > TR ? s.slice(0,TR-1)+"…" : s;
-  ["c1","c2","c3"].forEach((fld, i) => {
-    const color = Object.values(CP_CLR)[i];
-    const cnt   = {};
-    allRecs.forEach(r => {
-      if (!isNoErr(r[fld])) {
-        const k = tk(r[fld].split(";")[0].trim());
-        cnt[k] = (cnt[k]||0)+1;
-      }
-    });
-    const sorted = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6);
-    mkBar(`ch-ov-cp${i+1}`,
-      sorted.map(e=>e[0]),
-      [{ data:sorted.map(e=>e[1]), backgroundColor:color, borderRadius:4 }],
-      { horizontal:true }
-    );
-  });
-}
+  document.getElementById("log-title").innerHTML=
+    `${assessed} Assessed${_logFlt!=="All"?` &nbsp;&#183;&nbsp; ${_logFlt} filter`:""}`;
 
-// ── DETAIL RENDER ────────────────────────────────────
-function renderDetail(id) {
-  if (!id) return;
-  _id = id;
-
-  const recs  = _data[id] || [];
-  const { c1,c2,c3, t1,t2,t3 } = classErr(recs);
-  const total = recs.filter(r=>!isFYI(r)).length;
-  const flags = t1+t2+t3;
-  const units = recs.filter(r=>!isFYI(r)).reduce((s,r)=>s+pNum(r.units),0);
-  const cases = recs.filter(r=>!isFYI(r)).reduce((s,r)=>s+pCase(r.cases,r.units),0);
-  const awks  = new Set(recs.filter(r=>!isFYI(r)).map(r=>r.w)).size;
-
-  const sc={}, dc={};
-  recs.forEach(r => {
-    sc[r.s] = (sc[r.s]||0)+1;
-    if (r.dept) dc[r.dept] = (dc[r.dept]||0)+1;
-  });
-  const pShift = Object.entries(sc).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-  const pDept  = Object.entries(dc).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";
-  const aColor = total>=20 ? CORAL : total>=10 ? GOLD : "#0097A7";
-
-  // Identity card
-  document.getElementById("det-id").innerHTML = `
-    <div class="id-avatar">${esc(id.slice(0,2))}</div>
-    <div>
-      <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(id)}</div>
-      <div style="font-size:12px;color:var(--muted)">${esc(pShift)}-Shift · ${esc(pDept)}</div>
-    </div>
-    <div class="id-stats">
-      <div>
-        <div class="id-slbl">Assessed Errors</div>
-        <div class="id-sval" style="color:${aColor}">${total}</div>
-        <div class="id-ssub">incidents on record</div>
-      </div>
-      <div class="id-div">
-        <div class="id-slbl">Checkpoint Flags</div>
-        <div class="id-sval" style="color:${gText()}">${flags}</div>
-        <div class="id-ssub">across CP1 · CP2 · CP3</div>
-      </div>
-    </div>`;
-
-  // Stat cards
-  const navy = gNavy();
-  document.getElementById("det-stats").innerHTML = [
-    { l:"Assessed Errors",   v:total,                  s:"incidents on record",  c:navy      },
-    { l:"Active Weeks",      v:awks,                   s:"weeks with errors",    c:navy      },
-    { l:"Units Impacted",    v:units.toLocaleString(), s:"across all incidents", c:"#B5651D" },
-    { l:"Cases Impacted",    v:cases.toLocaleString(), s:"across all incidents", c:"#B5651D" },
-    { l:"Checkpoint Flags",  v:flags, s:`avg ${total>0?(flags/total).toFixed(1):0} per incident`, c:"#607D8B" },
-    { l:"CP1 Flags",         v:t1,                     s:"Shipment checkpoint",  c:"#607D8B" },
-    { l:"CP2 Flags",         v:t2,                     s:"Piece checkpoint",     c:"#607D8B" },
-    { l:"CP3 Flags",         v:t3,                     s:"Carton checkpoint",    c:"#607D8B" },
-  ].map(x => statCard(x.l, x.v, x.s, x.c)).join("");
-
-  // Weekly errors chart
-  const wc = {};
-  recs.filter(r=>!isFYI(r)).forEach(r => { wc[r.w]=(wc[r.w]||0)+1; });
-  const wks = Object.keys(wc).map(Number).sort((a,b)=>a-b);
-  mkBar("ch-det-weekly", wks.map(w=>`Wk${w}`), [{
-    data: wks.map(w=>wc[w]),
-    backgroundColor: wks.map(w => wc[w]>=4?CORAL : wc[w]>=2?GOLD : "#0097A7"),
-    borderRadius: 4,
-  }]);
-
-  // CP flags chart
-  mkBar("ch-det-cp", ["CP1","CP2","CP3"], [{
-    data: [t1,t2,t3],
-    backgroundColor: ["#0097A7","#7C3AED","#F59E0B"],
-    borderRadius: 6,
-  }]);
-
-  // Top error types (horizontal)
-  const all={}, src={};
-  const addC = (cnt, cpk) => Object.entries(cnt).forEach(([k,v]) => {
-    all[k] = (all[k]||0)+v;
-    if (!src[k]) src[k]={};
-    src[k][cpk] = (src[k][cpk]||0)+v;
-  });
-  addC(c1,"CP1"); addC(c2,"CP2"); addC(c3,"CP3");
-  const top = Object.entries(all)
-    .sort((a,b)=>b[1]-a[1]).slice(0,7)
-    .map(([name,val]) => {
-      const dom = Object.entries(src[name]||{}).sort((a,b)=>b[1]-a[1])[0]?.[0]||"CP1";
-      return { name: name.length>22 ? name.slice(0,20)+"…" : name, val, color: CP_CLR[dom] };
-    });
-  mkBar("ch-det-errs", top.map(e=>e.name), [{
-    data: top.map(e=>e.val),
-    backgroundColor: top.map(e=>e.color),
-    borderRadius: 4,
-  }], { horizontal:true });
-
-  // Populate proc select
-  const procs = Object.keys(_data).sort();
-  document.getElementById("det-sel").innerHTML =
-    procs.map(p => `<option value="${p}"${p===id?" selected":""}>${p} (${_data[p].length})</option>`).join("");
-
-  renderLog();
-}
-
-// ── LOG RENDER ───────────────────────────────────────
-function renderLog() {
-  const recs = _data[_id] || [];
-  const filtered =
-    _flt==="CP1" ? recs.filter(r=>!isNoErr(r.c1)) :
-    _flt==="CP2" ? recs.filter(r=>!isNoErr(r.c2)) :
-    _flt==="CP3" ? recs.filter(r=>!isNoErr(r.c3)) :
-    recs;
-
-  const aCount = filtered.filter(r=>!isFYI(r)).length;
-  const fCount = filtered.filter(r=>isFYI(r)).length;
-  document.getElementById("log-title").textContent =
-    `Assessed Error Log (${aCount} assessed${fCount>0?` · ${fCount} FYI`:""})`;
-
-  if (!filtered.length) {
-    document.getElementById("log-body").innerHTML =
-      `<div style="color:var(--muted);font-size:13px;padding:12px 0">No errors match this filter.</div>`;
+  if(!filtered.length){
+    document.getElementById("log-body").innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px 0">No errors match this filter.</div>`;
     return;
   }
 
-  const sorted = filtered.slice().sort((a,b) => b.w - a.w);
-  document.getElementById("log-body").innerHTML = sorted.map(r => {
-    const bdgs = [];
-    if (isFYI(r))
-      bdgs.push(`<span class="log-badge" style="background:#F59E0B22;color:#B45309;border:1px solid #F59E0B44">FYI — Not Assessed</span>`);
-    if (!isNoErr(r.c1))
-      bdgs.push(`<span class="log-badge" style="background:#0097A722;color:#0097A7;border:1px solid #0097A744">CP1: ${esc(r.c1.split(";")[0].slice(0,30))}</span>`);
-    if (!isNoErr(r.c2))
-      bdgs.push(`<span class="log-badge" style="background:#7C3AED22;color:#7C3AED;border:1px solid #7C3AED44">CP2: ${esc(r.c2.split(";")[0].slice(0,30))}</span>`);
-    if (!isNoErr(r.c3))
-      bdgs.push(`<span class="log-badge" style="background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44">CP3: ${esc(r.c3.split(";")[0].slice(0,30))}</span>`);
+  document.getElementById("log-body").innerHTML=filtered.map(r=>{
+    const dateStr=r.date?r.date.slice(5).replace("-","/"):"—";
+    const badges=r.cps.map(c=>`<span class="cp-badge" style="${CP_BADGE_CSS[c.cp]||""}">${c.cp}: ${c.type}</span>`).join("");
     return `<div class="log-entry">
       <div class="log-wk">
-        <div class="wk-num">Wk ${r.w}</div>
-        <div class="wk-dt">${r.d && r.d!=="None" ? r.d.slice(5)||"—" : "—"}</div>
+        <div class="log-wk-num" style="color:${sc}">FW ${r.fw}</div>
+        <div class="log-wk-dt">${dateStr}</div>
       </div>
-      <div style="flex:1">
-        <div class="log-bdgs">${bdgs.join("")}</div>
-        <div class="log-co">${esc(r.co)}</div>
-        <div class="log-meta"><strong>Cases:</strong> ${esc(r.cases)||"—"} &nbsp;·&nbsp; <strong>Units:</strong> ${esc(r.units)||"—"}</div>
+      <div class="log-body">
+        <div class="log-badges">${badges}</div>
+        <div class="log-comment">${r.comment||""}</div>
+        <div class="log-meta"><b>Cases:</b> ${r.casesRaw||"—"} &nbsp;·&nbsp; <b>Units:</b> ${r.unitsRaw||"—"}</div>
       </div>
     </div>`;
   }).join("");
 }
 
-function setFlt(f, btn) {
-  _flt = f;
-  document.querySelectorAll(".flt-btn").forEach(b => b.classList.remove("on"));
-  btn.classList.add("on");
+function setLogFlt(f,btn){
+  _logFlt=f;
+  const proc=_cur&&_data[_cur];
+  const sc=proc?shiftColor(proc.shift):"var(--accent)";
+  document.querySelectorAll("#log-filters .flt-btn").forEach(b=>{
+    const on=b.textContent===f;
+    b.classList.toggle("on",on);
+    b.style.background=on?sc:"transparent";
+    b.style.color=on?"#0f172a":gc();
+    b.style.borderColor=on?sc:gb();
+  });
   renderLog();
 }
 
-// ── THEME REDRAW ─────────────────────────────────────
-function redraw() {
-  if (document.getElementById("v-ov").classList.contains("active"))  renderOverview();
-  if (document.getElementById("v-det").classList.contains("active") && _id) renderDetail(_id);
+// =============================================================================
+// THEME
+// =============================================================================
+function toggleTheme(){
+  _dark=!_dark;
+  document.body.dataset.theme=_dark?"dark":"light";
+  document.getElementById("theme-btn").textContent=_dark?"☀️ Light":"🌙 Dark";
+  if(_cur&&_data[_cur]){
+    const proc=_data[_cur];
+    const trends={
+      shipment:linSlope(proc.weekly,"shipment"),piece:linSlope(proc.weekly,"piece"),
+      carton:linSlope(proc.weekly,"carton"),overall:linSlope(proc.weekly,"total"),
+    };
+    renderCharts(proc,trends,shiftColor(proc.shift));
+  }
 }
 
-// ── BOOT ─────────────────────────────────────────────
-autoLoad();
+// =============================================================================
+// BOOT — auth check first
+// =============================================================================
+if(sessionStorage.getItem("mwfc_auth")!=="1"){
+  window.location.href=HUB_URL;
+}else{
+  autoLoad();
+}
 </script>
 </body>
 </html>
