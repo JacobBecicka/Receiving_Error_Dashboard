@@ -344,7 +344,12 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
         <div class="ch-wrap" style="height:190px"><canvas id="ch-ov-cp3"></canvas></div>
       </div>
     </div>
+
+    <!-- Dept-wide checkpoint summary cards (same style as individual processor cards) -->
+    <div class="sec-lbl">Checkpoint Summary &amp; Error Sub-Classifications — All Processors</div>
+    <div class="cp-cards" id="ov-cp-cards"></div>
   </main>
+</div>
 </div>
 
 <!-- ══ DETAIL VIEW ════════════════════════════════════════ -->
@@ -652,7 +657,7 @@ function init(){
   // Populate header selector
   const hSel=document.getElementById("hdr-proc-sel");
   const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
-  hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid} — ${p.name}</option>`).join("");
+  hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
   renderOverview();
   showView("ov");
 }
@@ -708,7 +713,7 @@ function renderOverview(){
   const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
   const sel=document.getElementById("ov-sel");
   sel.innerHTML=`<option value="">&#8212; Select a LanID &#8212;</option>`+
-    sorted.map(p=>`<option value="${p.lanid}">${p.lanid} — ${p.name} (${p.totals.overall} flags)</option>`).join("");
+    sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
 
   // Weekly stacked chart — all processors, FW1-20
   const weeklyAgg=Array.from({length:20},(_,i)=>({fw:i+1,cp1:0,cp2:0,cp3:0}));
@@ -732,6 +737,58 @@ function renderOverview(){
     const s=Object.entries(types).sort((a,b)=>b[1]-a[1]).slice(0,6);
     if(s.length) mkBar(id,s.map(([k])=>trunc(k,26)),[{data:s.map(([,v])=>v),backgroundColor:color,borderRadius:4}],{horizontal:true});
   });
+
+  // ── Dept-wide CP summary cards (same layout as individual processor cards)
+  // Build dept-wide weekly array for slope calculation
+  const deptWeekly=Array.from({length:20},(_,i)=>({fw:i+1,shipment:0,piece:0,carton:0,total:0}));
+  for(const p of procs){
+    p.weekly.forEach((w,i)=>{
+      deptWeekly[i].shipment+=w.shipment;
+      deptWeekly[i].piece+=w.piece;
+      deptWeekly[i].carton+=w.carton;
+      deptWeekly[i].total+=w.total;
+    });
+  }
+  const deptTrends={
+    shipment:linSlope(deptWeekly,"shipment"),
+    piece:   linSlope(deptWeekly,"piece"),
+    carton:  linSlope(deptWeekly,"carton"),
+  };
+  const deptTotals={ shipment:totalCP1, piece:totalCP2, carton:totalCP3 };
+
+  const ovCpRows=[
+    {label:"Shipment (CP1)",key:"shipment",types:cp1T,color:CP_VIZ.CP1},
+    {label:"Piece (CP2)",   key:"piece",   types:cp2T,color:CP_VIZ.CP2},
+    {label:"Carton (CP3)",  key:"carton",  types:cp3T,color:CP_VIZ.CP3},
+  ];
+  document.getElementById("ov-cp-cards").innerHTML=ovCpRows.map(r=>{
+    const tot=deptTotals[r.key], tr=trendLabel(deptTrends[r.key]);
+    const entries=Object.entries(r.types).sort((a,b)=>b[1]-a[1]);
+    const rows=entries.length
+      ?entries.map(([t,c],i)=>`<tr${i===entries.length-1?' style="border-bottom:none"':""}>
+          <td>${esc(t)}</td><td class="c">${c}</td>
+          <td class="r">${tot>0?Math.round(c/tot*100):0}%</td>
+        </tr>`).join("")
+      :`<tr><td colspan="3" class="no-data-italic">No errors recorded</td></tr>`;
+    return`<div class="cp-card">
+      <div class="cp-card-hdr">
+        <span class="cp-dot-lg" style="background:${r.color}"></span>
+        <span class="cp-card-name">${r.label}</span>
+        <span class="cp-card-count" style="color:${r.color}">${tot}</span>
+      </div>
+      <div class="cp-trend-row">
+        <span>Slope: ${deptTrends[r.key].toFixed(3)}/wk</span>
+        <span style="color:${tr.color};font-weight:700">${tr.text}</span>
+      </div>
+      <div class="subtype-lbl">Error Sub-Types (All-Time)</div>
+      <table class="subtype-tbl">
+        <thead><tr>
+          <th>Error Sub-Type</th><th class="r">Count</th><th class="r">% CP</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join("");
 }
 
 // =============================================================================
