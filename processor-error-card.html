@@ -7,14 +7,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-/* ── CSS VARS — matches hub index.html exactly ──────────────────────── */
+/* ── CSS VARS — matches hub index.html exactly ───── */
 :root {
   --bg:#0f1623; --surface:#1a2235; --surface2:#222d42; --border:#2e3f5c;
   --accent:#38bdf8; --accent2:#0ea5e9; --text:#e2e8f0; --muted:#94a3b8;
   --card-hover:#263550; --badge-bg:#1e3a5f; --badge-text:#7dd3fc;
-  /* CP colors */
   --cp1:#0097A7; --cp2:#7C3AED; --cp3:#F59E0B;
-  /* shift colors */
   --shift-a:#38BDF8; --shift-b:#A78BFA; --shift-c:#34D399;
 }
 [data-theme="light"] {
@@ -22,16 +20,14 @@
   --accent:#0369a1; --accent2:#0284c7; --text:#1e293b; --muted:#64748b;
   --card-hover:#dbeafe; --badge-bg:#dbeafe; --badge-text:#1d4ed8;
 }
-
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-
 body {
   font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
   background:var(--bg); color:var(--text);
   min-height:100vh; transition:background .2s,color .2s;
 }
 
-/* ── LOADING ────────────────────────────────────────────────────────── */
+/* ── LOADING / FALLBACK ─────────────────────────── */
 #v-loading {
   display:flex; flex-direction:column; align-items:center;
   justify-content:center; min-height:100vh; gap:14px;
@@ -42,22 +38,19 @@ body {
   animation:spin .8s linear infinite;
 }
 @keyframes spin { to { transform:rotate(360deg); } }
-
-/* ── FALLBACK ───────────────────────────────────────────────────────── */
 #v-fallback {
   display:none; flex-direction:column; align-items:center;
-  justify-content:center; min-height:100vh; padding:24px; gap:20px;
+  justify-content:center; min-height:100vh; padding:24px; gap:16px;
 }
 .drop-zone {
-  border:2px dashed var(--border); border-radius:16px; padding:40px 32px;
+  border:2px dashed var(--border); border-radius:16px; padding:40px 28px;
   text-align:center; cursor:pointer; background:var(--surface);
-  max-width:400px; width:100%; display:flex;
-  flex-direction:column; align-items:center; gap:8px;
-  transition:border-color .15s;
+  max-width:400px; width:100%; display:flex; flex-direction:column;
+  align-items:center; gap:8px; transition:border-color .15s;
 }
 .drop-zone:hover { border-color:var(--accent); }
 
-/* ── HEADER — matches hub exactly ──────────────────────────────────── */
+/* ── HEADER — matches hub ───────────────────────── */
 header {
   background:var(--surface); border-bottom:1px solid var(--border);
   padding:.9rem 1.5rem; display:flex; align-items:center;
@@ -65,9 +58,11 @@ header {
   gap:12px; flex-wrap:wrap;
 }
 .header-left { display:flex; align-items:center; gap:.75rem; }
-.header-icon { font-size:1.4rem; }
-.header-title { font-size:1rem; font-weight:700; color:var(--text); line-height:1.2; }
+.header-icon  { font-size:1.4rem; }
+.header-title { font-size:1rem; font-weight:700; line-height:1.2; }
 .header-sub   { font-size:.72rem; color:var(--muted); }
+
+/* ── BUTTONS ────────────────────────────────────── */
 .btn {
   background:var(--surface2); border:1px solid var(--border); border-radius:8px;
   padding:.4rem .8rem; color:var(--text); font-size:.82rem; font-weight:600;
@@ -75,36 +70,79 @@ header {
   white-space:nowrap;
 }
 .btn:hover { background:var(--card-hover); border-color:var(--accent); }
-.btn-accent { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn-accent  { background:var(--accent); color:#fff; border-color:var(--accent); }
 .btn-accent:hover { background:var(--accent2); }
 
-/* ── PROC SELECTOR ─────────────────────────────────────────────────── */
+/* ── PROC SELECTOR ──────────────────────────────── */
 .proc-sel {
   background:var(--surface2); border:1px solid var(--border); border-radius:8px;
   padding:.4rem .8rem; color:var(--text); font-size:.85rem; font-weight:700;
-  cursor:pointer; font-family:inherit; min-width:180px;
+  cursor:pointer; font-family:inherit; min-width:200px;
 }
 
-/* ── VIEWS ─────────────────────────────────────────────────────────── */
+/* ── VIEWS ──────────────────────────────────────── */
 .view { display:none; }
 .view.active { display:block; }
+main { max-width:960px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 
-main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
-
-/* ── SECTION LABEL ─────────────────────────────────────────────────── */
+/* ── SHARED SECTION LABEL ───────────────────────── */
 .sec-lbl {
   font-size:11px; font-weight:700; text-transform:uppercase;
-  letter-spacing:.08em; color:var(--muted); margin-bottom:12px;
+  letter-spacing:.08em; color:var(--muted); margin-bottom:12px; margin-top:4px;
 }
 
-/* ── CARDS ─────────────────────────────────────────────────────────── */
+/* ── OVERVIEW-SPECIFIC STYLES (from original) ───── */
+.eyebrow {
+  font-size:11px; color:var(--muted); font-weight:700;
+  text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;
+}
+.ov-hdr {
+  display:flex; justify-content:space-between; align-items:flex-start;
+  flex-wrap:wrap; gap:12px; margin-bottom:20px;
+}
+.ov-hdr h1 { font-size:22px; font-weight:800; }
+.ov-hdr-sub { font-size:12px; color:var(--muted); margin-top:3px; }
+
+/* Stat grid (overview) */
+.stat-grid { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.s-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:14px 18px; flex:1; min-width:110px;
+}
+.s-lbl { font-size:10px; color:var(--muted); font-weight:700;
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+.s-val { font-size:26px; font-weight:900; line-height:1; }
+.s-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+
+/* Select banner */
+.sel-banner {
+  background:var(--surface); border:2px solid var(--accent);
+  border-radius:12px; padding:14px 18px; margin-bottom:20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.sel-lbl {
+  font-size:12px; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.05em; white-space:nowrap;
+}
+
+/* Chart cards (overview) */
+.chart-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:16px 18px;
+}
+.ct { font-size:12px; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px; }
+.cs { font-size:10px; color:var(--muted); margin-bottom:12px; }
+.ch-wrap { position:relative; }
+.row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+.mb20 { margin-bottom:20px; }
+
+/* ── DETAIL-SPECIFIC STYLES ─────────────────────── */
 .card-box {
-  background:var(--surface); border:1px solid var(--border); border-radius:14px;
-  padding:20px 22px; margin-bottom:22px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; padding:20px 22px; margin-bottom:22px;
 }
 .card-box-sm { padding:16px 18px; margin-bottom:0; }
-
-/* ── STAT GRIDS ─────────────────────────────────────────────────────── */
 .stats-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
 .stat-card {
   flex:1 1 130px; min-width:120px; background:var(--surface);
@@ -120,21 +158,12 @@ main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
   border-bottom:1px solid var(--border); border-left:4px solid #D97706;
   border-radius:12px; padding:14px 16px;
 }
-.impact-lbl { font-size:10px; font-weight:700; color:var(--muted);
-  text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
-
-/* ── CHART CONTAINERS ──────────────────────────────────────────────── */
-.chart-wrap { position:relative; }
-
-/* ── SIDE-BY-SIDE CHART ROW ────────────────────────────────────────── */
 .chart-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
 .chart-col-sm { flex:1 1 220px; min-width:200px; }
 .chart-col-lg { flex:1 1 300px; min-width:280px; }
 
-/* ── PROCESSOR HEADER ──────────────────────────────────────────────── */
-.proc-hdr {
-  display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap;
-}
+/* Processor identity header */
+.proc-hdr { display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
 .proc-avatar {
   width:52px; height:52px; border-radius:50%; flex-shrink:0;
   display:flex; align-items:center; justify-content:center;
@@ -143,26 +172,24 @@ main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 .proc-meta-name { font-size:22px; font-weight:900; line-height:1.1; margin-bottom:4px; }
 .proc-meta-sub  { font-size:12px; color:var(--muted); }
 
-/* ── CP LEGEND ─────────────────────────────────────────────────────── */
+/* CP legend */
 .cp-legend { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
-.cp-legend-item { display:flex; align-items:center; gap:5px; }
-.cp-legend-dot  { width:10px; height:10px; border-radius:2px; display:inline-block; }
+.cp-dot { width:10px; height:10px; border-radius:2px; display:inline-block; }
 
-/* ── CHECKPOINT SUMMARY CARDS ──────────────────────────────────────── */
+/* Checkpoint summary cards */
 .cp-cards { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px; }
-.cp-card  { flex:1 1 210px; min-width:200px; background:var(--surface);
-  border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+.cp-card {
+  flex:1 1 210px; min-width:200px; background:var(--surface);
+  border:1px solid var(--border); border-radius:14px; padding:16px 18px;
+}
 .cp-card-hdr { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-.cp-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.cp-dot-lg { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
 .cp-card-name  { font-weight:700; font-size:14px; }
 .cp-card-count { margin-left:auto; font-size:22px; font-weight:900; }
 .cp-trend-row {
-  display:flex; justify-content:space-between; font-size:12px;
-  color:var(--muted); padding-bottom:10px;
-  border-bottom:1px solid var(--border); margin-bottom:6px;
+  display:flex; justify-content:space-between; font-size:12px; color:var(--muted);
+  padding-bottom:10px; border-bottom:1px solid var(--border); margin-bottom:6px;
 }
-
-/* ── SUB-TYPE TABLE ────────────────────────────────────────────────── */
 .subtype-lbl { font-size:10px; font-weight:700; letter-spacing:.06em;
   text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
 .subtype-tbl { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
@@ -176,7 +203,7 @@ main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 .subtype-tbl tr:last-child { border-bottom:none; }
 .no-data-italic { font-size:12px; color:var(--muted); font-style:italic; padding:6px 0; }
 
-/* ── ERROR LOG ─────────────────────────────────────────────────────── */
+/* Error log */
 .log-hdr { display:flex; justify-content:space-between; align-items:center;
   margin-bottom:14px; flex-wrap:wrap; gap:8px; }
 .log-hdr-title { font-size:13px; font-weight:700; }
@@ -186,14 +213,13 @@ main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
   background:transparent; color:var(--muted); font-size:11px; font-weight:700;
   cursor:pointer; font-family:inherit; transition:all .15s;
 }
-.flt-btn.on { color:#0f172a; }
 .log-scroll { max-height:460px; overflow-y:auto; }
 .log-entry { border-bottom:1px solid var(--border); padding:11px 0;
   display:flex; gap:14px; align-items:flex-start; }
 .log-wk { min-width:50px; flex-shrink:0; }
 .log-wk-num { font-size:12px; font-weight:800; }
 .log-wk-dt  { font-size:10px; color:var(--muted); margin-top:1px; }
-.log-body   { flex:1; min-width:0; }
+.log-body-inner { flex:1; min-width:0; }
 .log-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
 .cp-badge {
   display:inline-flex; align-items:center; gap:3px;
@@ -204,67 +230,51 @@ main { max-width:840px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 .log-meta { font-size:10px; color:var(--muted); }
 .log-meta b { color:var(--muted); font-weight:600; }
 
-/* ── OVERVIEW PROCESSOR GRID ───────────────────────────────────────── */
-.ov-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
-.ov-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
-.ov-card {
-  background:var(--surface); border:1px solid var(--border); border-radius:14px;
-  padding:16px 18px; cursor:pointer; transition:background .15s,border-color .15s,transform .15s;
-  display:flex; flex-direction:column; gap:10px;
-}
-.ov-card:hover { background:var(--card-hover); border-color:var(--accent); transform:translateY(-2px); }
-.ov-card-top { display:flex; align-items:center; gap:10px; }
-.ov-avatar { width:40px; height:40px; border-radius:50%; flex-shrink:0;
-  display:flex; align-items:center; justify-content:center;
-  font-size:16px; font-weight:900; color:#0f172a; }
-.ov-lanid { font-size:14px; font-weight:800; font-family:monospace; }
-.ov-name  { font-size:11px; color:var(--muted); margin-top:1px; }
-.ov-stats { display:flex; gap:12px; font-size:12px; }
-.ov-stat  { display:flex; flex-direction:column; gap:2px; }
-.ov-stat-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; font-weight:600; letter-spacing:.05em; }
-.ov-stat-val { font-size:16px; font-weight:800; }
-.ov-footer { font-size:12px; font-weight:700; color:var(--accent); }
-
-/* ── OVERALL DEPT STATS ─────────────────────────────────────────────── */
-.dept-stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px; }
-.dept-stat { flex:1 1 120px; background:var(--surface); border:1px solid var(--border);
-  border-radius:12px; padding:12px 16px; }
-
-/* ── RESPONSIVE ────────────────────────────────────────────────────── */
-@media(max-width:560px) {
-  .chart-row { flex-direction:column; }
-  .cp-cards   { flex-direction:column; }
-  .proc-hdr   { gap:10px; }
+/* Responsive */
+@media(max-width:560px){
+  .chart-row,.cp-cards,.row { flex-direction:column; }
+  .proc-hdr { gap:10px; }
   main { padding:1.25rem 1rem 3rem; }
 }
-
 footer { text-align:center; padding:1.5rem; font-size:.75rem;
   color:var(--muted); border-top:1px solid var(--border); }
 </style>
 </head>
 <body data-theme="dark">
 
-<!-- ══ LOADING ══════════════════════════════════════════════════════════ -->
+<!-- ══ LOADING ═══════════════════════════════════════════ -->
 <div id="v-loading">
   <div class="spin"></div>
   <div style="font-size:14px;font-weight:600;color:var(--muted)">Loading error data…</div>
   <div id="load-msg" style="font-size:12px;color:var(--muted)">Fetching from GitHub…</div>
 </div>
 
-<!-- ══ FALLBACK ══════════════════════════════════════════════════════════ -->
+<!-- ══ FALLBACK ═══════════════════════════════════════════ -->
 <div id="v-fallback">
-  <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px">Auto-load failed</div>
-  <div id="fallback-msg" style="font-size:12px;color:var(--muted);text-align:center;max-width:360px"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px;margin-bottom:24px">
+    <div>
+      <div class="eyebrow">Receiving Research</div>
+      <div style="font-size:22px;font-weight:800">Processor Error Card</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="goHub()">⌂ Hub</button>
+      <button class="btn" onclick="toggleTheme()" id="fb-theme-btn">☀️ Light</button>
+    </div>
+  </div>
+  <div style="font-size:40px;margin-bottom:8px">📊</div>
+  <div style="font-size:15px;font-weight:700;margin-bottom:6px">Auto-load failed</div>
+  <div id="fallback-msg" style="font-size:12px;color:var(--muted);margin-bottom:24px;text-align:center;max-width:380px"></div>
   <label class="drop-zone">
     <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
-    <div style="font-size:32px">📁</div>
-    <div style="font-size:14px;font-weight:700">Drop AI_Safe_Weekly_Error_Data.xlsx here</div>
-    <div class="btn btn-accent" style="margin-top:8px">Browse Files</div>
+    <div style="font-size:32px;margin-bottom:4px">📁</div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px">Drop .xlsx file here</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">AI_Safe_Weekly_Error_Data.xlsx</div>
+    <div class="btn btn-accent">Browse Files</div>
   </label>
-  <button class="btn" onclick="goHub()">⌂ Back to Hub</button>
+  <button class="btn" onclick="goHub()" style="margin-top:8px">⌂ Back to Hub</button>
 </div>
 
-<!-- ══ HEADER (always visible after load) ══════════════════════════════ -->
+<!-- ══ HEADER ═════════════════════════════════════════════ -->
 <header id="app-header" style="display:none">
   <div class="header-left">
     <span class="header-icon">📦</span>
@@ -276,7 +286,7 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <button class="btn" onclick="goHub()">⌂ Hub</button>
     <button class="btn" id="btn-ov" onclick="showView('ov')" style="display:none">← Overview</button>
-    <select class="proc-sel" id="proc-sel" style="display:none" onchange="onSelChange(this.value)"></select>
+    <select class="proc-sel" id="hdr-proc-sel" style="display:none" onchange="onSelChange(this.value)"></select>
     <label style="cursor:pointer">
       <span class="btn">📂 Load File</span>
       <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
@@ -285,27 +295,59 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
   </div>
 </header>
 
-<!-- ══ OVERVIEW VIEW ═════════════════════════════════════════════════════ -->
+<!-- ══ OVERVIEW VIEW ══════════════════════════════════════ -->
 <div id="v-ov" class="view">
   <main>
-    <div class="sec-lbl" style="margin-top:4px">Department Overview — Fiscal Weeks 1–20 · Feb 1 – Jun 20, 2026</div>
-
-    <!-- Dept-wide stats -->
-    <div class="dept-stats" id="dept-stats"></div>
-
-    <!-- Shift filter -->
-    <div class="ov-controls" id="shift-filters">
-      <button class="flt-btn on" data-shift="All"     onclick="filterOv('All',this)">All Shifts</button>
-      <button class="flt-btn"   data-shift="A-Shift"  onclick="filterOv('A-Shift',this)">A-Shift</button>
-      <button class="flt-btn"   data-shift="B-Shift"  onclick="filterOv('B-Shift',this)">B-Shift</button>
-      <button class="flt-btn"   data-shift="C-Shift"  onclick="filterOv('C-Shift',this)">C-Shift</button>
+    <div class="ov-hdr">
+      <div>
+        <div class="eyebrow">Receiving Research</div>
+        <h1>Department Overview</h1>
+        <div class="ov-hdr-sub" id="ov-sub"></div>
+      </div>
     </div>
 
-    <div class="ov-grid" id="ov-grid"></div>
+    <!-- Dept-wide stat cards -->
+    <div class="stat-grid" id="ov-stats"></div>
+
+    <!-- LanID selector banner — no processor data shown until clicked -->
+    <div class="sel-banner">
+      <span class="sel-lbl">View Processor Card</span>
+      <select class="proc-sel" id="ov-sel">
+        <option value="">&#8212; Select a LanID &#8212;</option>
+      </select>
+      <button class="btn btn-accent" onclick="gotoDetail()">View Card &#8594;</button>
+    </div>
+
+    <!-- Weekly stacked chart — all processors combined -->
+    <div class="chart-card mb20">
+      <div class="ct">Checkpoint Errors by Week — All Processors</div>
+      <div class="cs">Fiscal Weeks 1–20 · Feb 1 – Jun 20, 2026 · Stacked by CP1 · CP2 · CP3</div>
+      <div class="ch-wrap" style="height:190px"><canvas id="ch-ov-weekly"></canvas></div>
+    </div>
+
+    <!-- Top error types per checkpoint (3 charts) -->
+    <div class="sec-lbl">Top Error Types by Checkpoint — Dept-Wide</div>
+    <div class="row">
+      <div class="chart-card" style="flex:1;min-width:220px">
+        <div class="ct" style="color:var(--cp1)">CP1 — Shipment</div>
+        <div class="cs">Top error types · dept-wide</div>
+        <div class="ch-wrap" style="height:190px"><canvas id="ch-ov-cp1"></canvas></div>
+      </div>
+      <div class="chart-card" style="flex:1;min-width:220px">
+        <div class="ct" style="color:var(--cp2)">CP2 — Piece</div>
+        <div class="cs">Top error types · dept-wide</div>
+        <div class="ch-wrap" style="height:190px"><canvas id="ch-ov-cp2"></canvas></div>
+      </div>
+      <div class="chart-card" style="flex:1;min-width:220px">
+        <div class="ct" style="color:var(--cp3)">CP3 — Carton</div>
+        <div class="cs">Top error types · dept-wide</div>
+        <div class="ch-wrap" style="height:190px"><canvas id="ch-ov-cp3"></canvas></div>
+      </div>
+    </div>
   </main>
 </div>
 
-<!-- ══ DETAIL VIEW ════════════════════════════════════════════════════════ -->
+<!-- ══ DETAIL VIEW ════════════════════════════════════════ -->
 <div id="v-det" class="view">
   <main>
 
@@ -321,14 +363,14 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     <!-- Weekly Stacked Bar -->
     <div class="sec-lbl">Weekly Error Frequency (by Checkpoint)</div>
     <div class="card-box">
-      <div class="chart-wrap" style="height:240px"><canvas id="ch-weekly"></canvas></div>
+      <div class="ch-wrap" style="height:240px"><canvas id="ch-weekly"></canvas></div>
     </div>
 
     <!-- Trend Line -->
     <div class="sec-lbl">Overall Trend Line</div>
     <div class="card-box">
       <div id="trend-sub" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
-      <div class="chart-wrap" style="height:170px"><canvas id="ch-trend"></canvas></div>
+      <div class="ch-wrap" style="height:170px"><canvas id="ch-trend"></canvas></div>
     </div>
 
     <!-- Checkpoint Flags + Top Error Types -->
@@ -337,18 +379,18 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
         <div class="sec-lbl">Checkpoint Flags</div>
         <div class="card-box card-box-sm">
           <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Total flags per checkpoint</div>
-          <div class="chart-wrap" style="height:200px"><canvas id="ch-cpflags"></canvas></div>
+          <div class="ch-wrap" style="height:200px"><canvas id="ch-cpflags"></canvas></div>
         </div>
       </div>
       <div class="chart-col-lg">
         <div class="sec-lbl">Top Error Types by Checkpoint Flag</div>
         <div class="card-box card-box-sm">
           <div class="cp-legend">
-            <div class="cp-legend-item"><span class="cp-legend-dot" style="background:var(--cp1)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP1</span></div>
-            <div class="cp-legend-item"><span class="cp-legend-dot" style="background:var(--cp2)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP2</span></div>
-            <div class="cp-legend-item"><span class="cp-legend-dot" style="background:var(--cp3)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP3</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:var(--cp1)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP1</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:var(--cp2)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP2</span></div>
+            <div style="display:flex;align-items:center;gap:5px"><span class="cp-dot" style="background:var(--cp3)"></span><span style="font-size:10px;font-weight:700;color:var(--muted)">CP3</span></div>
           </div>
-          <div class="chart-wrap" id="ch-toperr-wrap"><canvas id="ch-toperr"></canvas></div>
+          <div class="ch-wrap" id="ch-toperr-wrap"><canvas id="ch-toperr"></canvas></div>
         </div>
       </div>
     </div>
@@ -382,9 +424,9 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
 // =============================================================================
 // CONSTANTS
 // =============================================================================
-const XLSX_URL = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
-const HUB_URL  = "index.html";
-const FW_OFFSET = 5; // Tool FW N = XLSX Week (N + 5)  →  FW1 = XLSX Week 6
+const XLSX_URL  = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
+const HUB_URL   = "index.html";
+const FW_OFFSET = 5; // Tool FW N = XLSX Sheet "Week N+5"  →  FW1 = XLSX Week 6
 
 const FW_DATE_RANGES = {
   1:"Feb 1–7",2:"Feb 8–14",3:"Feb 15–20",4:"Feb 22–28",5:"Mar 1–6",
@@ -395,78 +437,71 @@ const FW_DATE_RANGES = {
 
 const SHIFT_COLORS = { "A-Shift":"#38BDF8","B-Shift":"#A78BFA","C-Shift":"#34D399" };
 const CP_VIZ = { CP1:"#0097A7",CP2:"#7C3AED",CP3:"#F59E0B" };
-
 const CP_BADGE_CSS = {
-  CP1: "background:rgba(0,151,167,.15);color:#0097A7;border:1px solid rgba(0,151,167,.35)",
-  CP2: "background:rgba(124,58,237,.15);color:#A78BFA;border:1px solid rgba(124,58,237,.35)",
-  CP3: "background:rgba(245,158,11,.15);color:#D97706;border:1px solid rgba(245,158,11,.35)",
+  CP1:"background:rgba(0,151,167,.15);color:#0097A7;border:1px solid rgba(0,151,167,.35)",
+  CP2:"background:rgba(124,58,237,.15);color:#A78BFA;border:1px solid rgba(124,58,237,.35)",
+  CP3:"background:rgba(245,158,11,.15);color:#D97706;border:1px solid rgba(245,158,11,.35)",
 };
 
 // =============================================================================
 // STATE
 // =============================================================================
-let _data = {};    // { [lanid]: ProcessorData }
-let _cur  = null;  // current LanID
-let _logFlt = "All";
-let _shiftFlt = "All";
-let _dark = true;
-let _ch = {};      // chart instances
+let _data={}, _cur=null, _logFlt="All", _dark=true, _ch={};
 
 // =============================================================================
 // HELPERS
 // =============================================================================
-const goHub = () => window.location.href = HUB_URL;
-
-function isNoErr(v) {
-  const s = String(v||"").trim().toLowerCase().replace(/\xa0/g,"");
-  return !s || s==="no errors"||s==="no error"||s==="none";
-}
-function isFYI(c) { return /\bfyi\b|fyi only|not an error/i.test(c||""); }
-function clean(v) {
-  if(v==null) return "";
-  let s=String(v).trim().replace(/\xa0/g,"");
-  if(/^no\s+errors?$/i.test(s)) s="";
-  return s;
-}
+const goHub = ()=>window.location.href=HUB_URL;
+const isNoErr=v=>{const s=String(v||"").trim().toLowerCase().replace(/\xa0/g,"");return!s||s==="no errors"||s==="no error"||s==="none";};
+const isFYI  =c=>/\bfyi\b|fyi only|not an error/i.test(c||"");
+function clean(v){if(v==null)return"";let s=String(v).trim().replace(/\xa0/g,"");if(/^no\s+errors?$/i.test(s))s="";return s;}
 function parseNum(v){const m=String(v||"").match(/\d+/);return m?+m[0]:0;}
-function trunc(s,n=24){return s.length>n?s.slice(0,n-1)+"…":s;}
+function trunc(s,n=25){return s.length>n?s.slice(0,n-1)+"…":s;}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
 function linSlope(weekly,key){
-  const n=weekly.length;
-  const xs=weekly.map(w=>w.fw), ys=weekly.map(w=>w[key]||0);
-  const xm=xs.reduce((a,b)=>a+b,0)/n, ym=ys.reduce((a,b)=>a+b,0)/n;
+  const n=weekly.length,xs=weekly.map(w=>w.fw),ys=weekly.map(w=>w[key]||0);
+  const xm=xs.reduce((a,b)=>a+b,0)/n,ym=ys.reduce((a,b)=>a+b,0)/n;
   let num=0,den=0;
   for(let i=0;i<n;i++){num+=(xs[i]-xm)*(ys[i]-ym);den+=(xs[i]-xm)**2;}
   return den===0?0:num/den;
 }
 function trendLabel(s){
-  if(s<-0.03) return{text:"Declining ↓",color:"#10b981"};
-  if(s> 0.03) return{text:"Increasing ↑",color:"#ef4444"};
+  if(s<-0.03)return{text:"Declining ↓",color:"#10b981"};
+  if(s> 0.03)return{text:"Increasing ↑",color:"#ef4444"};
   return{text:"Flat →",color:"#94a3b8"};
 }
-function shiftColor(shift){ return SHIFT_COLORS[shift]||"#38BDF8"; }
-function shiftLetter(shift){ return(shift||"A").charAt(0); }
+const shiftColor =sh=>SHIFT_COLORS[sh]||"#38BDF8";
+const shiftLetter=sh=>(sh||"A").charAt(0);
 
-const gc=()=>_dark?"#8b949e":"#64748b";  // muted text
-const gb=()=>_dark?"#30363d":"#e2e8f0";  // border
-const gt=()=>_dark?"#e6edf3":"#0f172a";  // text
+// Theme-aware color getters
+const gc=()=>_dark?"#8b949e":"#64748b";
+const gb=()=>_dark?"#2e3f5c":"#cbd5e1";
+const gt=()=>_dark?"#e2e8f0":"#1e293b";
+const gAccent=()=>_dark?"#38bdf8":"#0369a1";
+
+// HTML helper for overview stat cards (with left-border accent)
+function statCard(label,value,sub,color){
+  return`<div class="s-card" style="border-left:4px solid ${color}">
+    <div class="s-lbl">${label}</div>
+    <div class="s-val" style="color:${color}">${value}</div>
+    <div class="s-sub">${sub}</div>
+  </div>`;
+}
 
 // =============================================================================
-// XLSX PARSING
+// XLSX PARSING  (FW offset applied: XLSX Week N → Tool FW N-5)
 // =============================================================================
-function parseWB(wb) {
-  const records = [];
-  for (const sn of wb.SheetNames) {
-    const m = sn.match(/^Week\s*(\d+)$/i);
-    if (!m) continue;
-    const xlsxWk = +m[1];
-    const fw = xlsxWk - FW_OFFSET;
-    if (fw < 1 || fw > 20) continue; // Only FW1-20
+function parseWB(wb){
+  const records=[];
+  for(const sn of wb.SheetNames){
+    const m=sn.match(/^Week\s*(\d+)$/i);
+    if(!m) continue;
+    const xlsxWk=+m[1], fw=xlsxWk-FW_OFFSET;
+    if(fw<1||fw>20) continue;
 
-    const ws   = wb.Sheets[sn];
-    const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
-
-    // Find Id header row
+    const ws=wb.Sheets[sn];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     let hi=-1;
     for(let i=0;i<rows.length;i++){if(String(rows[i][0]).trim()==="Id"){hi=i;break;}}
     if(hi===-1) continue;
@@ -477,15 +512,15 @@ function parseWB(wb) {
       const lanid=clean(row[6]).replace(/\xa0/g,"");
       if(!lanid||lanid.toLowerCase()==="none") continue;
 
-      const cp1Raw=clean(row[11]), cp2Raw=clean(row[12]), cp3Raw=clean(row[13]);
+      const cp1Raw=clean(row[11]),cp2Raw=clean(row[12]),cp3Raw=clean(row[13]);
       const comment=clean(row[18]).slice(0,300);
 
       // Split on semicolons — each sub-type = 1 separate CP flag
-      const cp1Parts = (!cp1Raw||isNoErr(cp1Raw))? [] : cp1Raw.split(";").map(s=>s.trim()).filter(Boolean);
-      const cp2Parts = (!cp2Raw||isNoErr(cp2Raw))? [] : cp2Raw.split(";").map(s=>s.trim()).filter(Boolean);
-      const cp3Parts = (!cp3Raw||isNoErr(cp3Raw))? [] : cp3Raw.split(";").map(s=>s.trim()).filter(Boolean);
+      const cp1Parts=(!cp1Raw||isNoErr(cp1Raw))?[]:cp1Raw.split(";").map(s=>s.trim()).filter(Boolean);
+      const cp2Parts=(!cp2Raw||isNoErr(cp2Raw))?[]:cp2Raw.split(";").map(s=>s.trim()).filter(Boolean);
+      const cp3Parts=(!cp3Raw||isNoErr(cp3Raw))?[]:cp3Raw.split(";").map(s=>s.trim()).filter(Boolean);
 
-      const allCPs = [
+      const allCPs=[
         ...cp1Parts.map(type=>({cp:"CP1",type})),
         ...cp2Parts.map(type=>({cp:"CP2",type})),
         ...cp3Parts.map(type=>({cp:"CP3",type})),
@@ -497,10 +532,7 @@ function parseWB(wb) {
       else if(dv){
         const s=String(dv).trim();
         if(/^\d{4}-\d{2}-\d{2}/.test(s)) dateStr=s.slice(0,10);
-        else if(/^\d{5}$/.test(s)){
-          const d=new Date((+s-25569)*86400000);
-          dateStr=d.toISOString().slice(0,10);
-        }
+        else if(/^\d{5}$/.test(s)){dateStr=new Date((+s-25569)*86400000).toISOString().slice(0,10);}
       }
 
       // Shift normalization
@@ -510,13 +542,11 @@ function parseWB(wb) {
       else if(/\bC\b/i.test(sr)||/C-?Shift/i.test(sr)) shift="C-Shift";
 
       records.push({
-        fw, xlsxWk, lanid,
-        name: clean(row[5])||lanid,
-        shift, dept: clean(row[10])||"Receiving",
-        dateStr, comment,
+        fw,xlsxWk,lanid,name:clean(row[5])||lanid,
+        shift,dept:clean(row[10])||"Receiving",dateStr,comment,
         cp1Parts,cp2Parts,cp3Parts,allCPs,
-        casesRaw:clean(row[16]), unitsRaw:clean(row[17]),
-        units:parseNum(row[17]), cases:parseNum(row[16]),
+        casesRaw:clean(row[16]),unitsRaw:clean(row[17]),
+        units:parseNum(row[17]),cases:parseNum(row[16]),
         fyi:isFYI(comment),
       });
     }
@@ -524,30 +554,26 @@ function parseWB(wb) {
   return records;
 }
 
-function buildProcessorData(allRecords) {
-  // Group by LanID
+function buildProcessorData(allRecords){
   const byLanid={};
   for(const r of allRecords){
     if(!byLanid[r.lanid]) byLanid[r.lanid]=[];
     byLanid[r.lanid].push(r);
   }
-
   const result={};
   for(const[lanid,records] of Object.entries(byLanid)){
-    // 20-week skeleton
     const weekly=Array.from({length:20},(_,i)=>{
       const fw=i+1;
       return{fw,dateRange:FW_DATE_RANGES[fw]||"",
         shipment:0,piece:0,carton:0,total:0,
         shipTypes:{},pieceTypes:{},cartonTypes:{}};
     });
-
     const rawLog=[];
     let incidents=0,totalUnits=0,totalCases=0;
 
     for(const r of records){
       const w=weekly[r.fw-1];
-      // CP flags — ALL records (FYI included per user spec)
+      // CP flags — ALL records (FYI included per spec)
       r.cp1Parts.forEach(t=>{w.shipment++;w.shipTypes[t]=(w.shipTypes[t]||0)+1;});
       r.cp2Parts.forEach(t=>{w.piece++;   w.pieceTypes[t]=(w.pieceTypes[t]||0)+1;});
       r.cp3Parts.forEach(t=>{w.carton++;  w.cartonTypes[t]=(w.cartonTypes[t]||0)+1;});
@@ -555,18 +581,13 @@ function buildProcessorData(allRecords) {
 
       // Incidents — non-FYI only
       if(!r.fyi){
-        incidents++;
-        totalUnits+=r.units;
-        totalCases+=r.cases;
+        incidents++; totalUnits+=r.units; totalCases+=r.cases;
         rawLog.push({fw:r.fw,date:r.dateStr,cps:r.allCPs,
           comment:r.comment,casesRaw:r.casesRaw,unitsRaw:r.unitsRaw});
       }
     }
-
-    // Sort log newest → oldest
     rawLog.sort((a,b)=>b.fw-a.fw||b.date.localeCompare(a.date));
 
-    // Aggregate totals
     const tot={shipment:0,piece:0,carton:0,shipTypes:{},pieceTypes:{},cartonTypes:{}};
     for(const w of weekly){
       tot.shipment+=w.shipment; tot.piece+=w.piece; tot.carton+=w.carton;
@@ -576,24 +597,17 @@ function buildProcessorData(allRecords) {
     }
     tot.overall=tot.shipment+tot.piece+tot.carton;
 
-    // Most common shift/name/dept
-    const vote=(key)=>{
-      const m={};records.forEach(r=>{m[r[key]]=(m[r[key]]||0)+1;});
-      return Object.entries(m).sort((a,b)=>b[1]-a[1])[0]?.[0]||"";
-    };
-    const shift=vote("shift")||"A-Shift";
-    const name =vote("name") ||lanid;
-    const dept =vote("dept") ||"Receiving";
+    const vote=key=>{const m={};records.forEach(r=>{m[r[key]]=(m[r[key]]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1])[0]?.[0]||"";};
+    const shift=vote("shift")||"A-Shift", name=vote("name")||lanid, dept=vote("dept")||"Receiving";
     const activeWeeks=weekly.filter(w=>w.total>0).length;
 
-    result[lanid]={lanid,name,shift,dept,incidents,activeWeeks,
-      totalUnits,totalCases,weekly,rawLog,totals:tot};
+    result[lanid]={lanid,name,shift,dept,incidents,activeWeeks,totalUnits,totalCases,weekly,rawLog,totals:tot};
   }
   return result;
 }
 
 // =============================================================================
-// FILE LOADING
+// LOADING
 // =============================================================================
 function setLoading(msg){
   document.getElementById("v-loading").style.display="flex";
@@ -602,55 +616,43 @@ function setLoading(msg){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("load-msg").textContent=msg||"";
 }
-
+function showFallback(msg){
+  document.getElementById("v-loading").style.display="none";
+  document.getElementById("v-fallback").style.display="flex";
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("fallback-msg").textContent=msg;
+}
 async function autoLoad(){
   setLoading("Fetching from GitHub…");
   try{
     const res=await fetch(XLSX_URL);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     document.getElementById("load-msg").textContent="Parsing workbook…";
-    const buf=await res.arrayBuffer();
-    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    const wb=XLSX.read(await res.arrayBuffer(),{type:"array",cellDates:true});
     const recs=parseWB(wb);
-    if(!recs.length) throw new Error("No data found for FW1–20.");
+    if(!recs.length) throw new Error("No FW1–20 data found in workbook.");
     _data=buildProcessorData(recs);
     init();
-  }catch(e){
-    document.getElementById("v-loading").style.display="none";
-    document.getElementById("v-fallback").style.display="flex";
-    document.getElementById("fallback-msg").textContent=e.message;
-  }
+  }catch(e){ showFallback(e.message); }
 }
-
 async function loadFile(file){
   if(!file) return;
   setLoading("Parsing file…");
   try{
-    const buf=await file.arrayBuffer();
-    const wb=XLSX.read(buf,{type:"array",cellDates:true});
+    const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
     const recs=parseWB(wb);
-    if(!recs.length) throw new Error("No FW1–20 data found.");
+    if(!recs.length) throw new Error("No FW1–20 data found. Verify sheet names are 'Week N'.");
     _data=buildProcessorData(recs);
     init();
-  }catch(e){
-    document.getElementById("v-loading").style.display="none";
-    document.getElementById("v-fallback").style.display="flex";
-    document.getElementById("fallback-msg").textContent=e.message;
-  }
+  }catch(e){ showFallback(e.message); }
 }
-
-// =============================================================================
-// INIT AFTER DATA LOADS
-// =============================================================================
 function init(){
   document.getElementById("v-loading").style.display="none";
   document.getElementById("app-header").style.display="flex";
-
-  // Populate proc selector
-  const sel=document.getElementById("proc-sel");
+  // Populate header selector
+  const hSel=document.getElementById("hdr-proc-sel");
   const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
-  sel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid} — ${p.name}</option>`).join("");
-
+  hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid} — ${p.name}</option>`).join("");
   renderOverview();
   showView("ov");
 }
@@ -661,125 +663,138 @@ function init(){
 function showView(name){
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("v-"+name).classList.add("active");
-  const isDetail=(name==="det");
-  document.getElementById("btn-ov").style.display=isDetail?"":"none";
-  document.getElementById("proc-sel").style.display=isDetail?"":"none";
-  document.getElementById("hdr-sub").textContent=isDetail&&_cur
+  const isDet=name==="det";
+  document.getElementById("btn-ov").style.display=isDet?"":"none";
+  document.getElementById("hdr-proc-sel").style.display=isDet?"":"none";
+  document.getElementById("hdr-sub").textContent=isDet&&_cur
     ?`Processor Error Card · ${_data[_cur]?.name||_cur}`
     :"Processor Error Cards";
 }
-
-function onSelChange(lanid){
-  if(lanid&&_data[lanid]) renderDetail(lanid);
+function onSelChange(lanid){ if(lanid&&_data[lanid]) renderDetail(lanid); }
+function gotoDetail(){
+  const v=document.getElementById("ov-sel").value;
+  if(v&&_data[v]){ renderDetail(v); showView("det"); }
 }
 
 // =============================================================================
-// OVERVIEW RENDERING
+// OVERVIEW RENDERING  (original layout — no processor data until clicked)
 // =============================================================================
-function filterOv(shift,btn){
-  _shiftFlt=shift;
-  document.querySelectorAll("#shift-filters .flt-btn").forEach(b=>{
-    b.classList.toggle("on",b.dataset.shift===shift);
-    b.style.background=b.dataset.shift===shift?shiftColor(shift==="All"?"A-Shift":shift):"transparent";
-    b.style.color=b.dataset.shift===shift?"#0f172a":gc();
-    b.style.borderColor=b.dataset.shift===shift?shiftColor(shift==="All"?"A-Shift":shift):gb();
-  });
-  renderOvGrid();
-}
-
 function renderOverview(){
   const procs=Object.values(_data);
 
-  // Dept-wide stats
-  const deptStats=document.getElementById("dept-stats");
-  const totalInc=procs.reduce((s,p)=>s+p.incidents,0);
-  const totalFlags=procs.reduce((s,p)=>s+p.totals.overall,0);
-  const totalCP1=procs.reduce((s,p)=>s+p.totals.shipment,0);
-  const totalCP2=procs.reduce((s,p)=>s+p.totals.piece,0);
-  const totalCP3=procs.reduce((s,p)=>s+p.totals.carton,0);
-  deptStats.innerHTML=[
-    {l:"Processors",v:procs.length,c:"var(--accent)"},
-    {l:"Total Incidents",v:totalInc,c:"var(--accent)"},
-    {l:"Total CP Flags",v:totalFlags,c:"var(--accent)"},
-    {l:"CP1 Flags",v:totalCP1,c:CP_VIZ.CP1},
-    {l:"CP2 Flags",v:totalCP2,c:CP_VIZ.CP2},
-    {l:"CP3 Flags",v:totalCP3,c:CP_VIZ.CP3},
-  ].map(s=>`<div class="dept-stat">
-    <div class="stat-lbl">${s.l}</div>
-    <div class="stat-val" style="color:${s.c}">${s.v}</div>
-  </div>`).join("");
+  // Dept-wide aggregates
+  let totalIncidents=0,totalCP1=0,totalCP2=0,totalCP3=0;
+  const activeWeekSet=new Set();
+  for(const p of procs){
+    totalIncidents+=p.incidents; totalCP1+=p.totals.shipment;
+    totalCP2+=p.totals.piece;   totalCP3+=p.totals.carton;
+    p.weekly.forEach(w=>{if(w.total>0) activeWeekSet.add(w.fw);});
+  }
+  const navy=gAccent();
 
-  renderOvGrid();
+  document.getElementById("ov-sub").textContent=
+    `All processors · Fiscal Weeks 1–20 · Feb 1 – Jun 20, 2026`;
+
+  document.getElementById("ov-stats").innerHTML=[
+    {l:"Processors",      v:procs.length,         s:"LanIDs on record",    c:navy},
+    {l:"Total Incidents", v:totalIncidents,        s:"assessed dept-wide",  c:navy},
+    {l:"Active Weeks",    v:activeWeekSet.size,    s:"weeks with errors",   c:navy},
+    {l:"CP1 Flags",       v:totalCP1,              s:"Shipment checkpoint", c:CP_VIZ.CP1},
+    {l:"CP2 Flags",       v:totalCP2,              s:"Piece checkpoint",    c:CP_VIZ.CP2},
+    {l:"CP3 Flags",       v:totalCP3,              s:"Carton checkpoint",   c:CP_VIZ.CP3},
+  ].map(x=>statCard(x.l,x.v,x.s,x.c)).join("");
+
+  // Populate LanID dropdown (sorted by total CP flags desc)
+  const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
+  const sel=document.getElementById("ov-sel");
+  sel.innerHTML=`<option value="">&#8212; Select a LanID &#8212;</option>`+
+    sorted.map(p=>`<option value="${p.lanid}">${p.lanid} — ${p.name} (${p.totals.overall} flags)</option>`).join("");
+
+  // Weekly stacked chart — all processors, FW1-20
+  const weeklyAgg=Array.from({length:20},(_,i)=>({fw:i+1,cp1:0,cp2:0,cp3:0}));
+  for(const p of procs){
+    p.weekly.forEach((w,i)=>{weeklyAgg[i].cp1+=w.shipment;weeklyAgg[i].cp2+=w.piece;weeklyAgg[i].cp3+=w.carton;});
+  }
+  mkBar("ch-ov-weekly",weeklyAgg.map(w=>`FW${w.fw}`),[
+    {label:"CP1 — Shipment",data:weeklyAgg.map(w=>w.cp1),backgroundColor:CP_VIZ.CP1,stack:"s"},
+    {label:"CP2 — Piece",   data:weeklyAgg.map(w=>w.cp2),backgroundColor:CP_VIZ.CP2,stack:"s"},
+    {label:"CP3 — Carton",  data:weeklyAgg.map(w=>w.cp3),backgroundColor:CP_VIZ.CP3,stack:"s",borderRadius:4},
+  ],{stacked:true,legend:true});
+
+  // Top error types per CP, dept-wide
+  const cp1T={},cp2T={},cp3T={};
+  for(const p of procs){
+    for(const[k,v] of Object.entries(p.totals.shipTypes))   cp1T[k]=(cp1T[k]||0)+v;
+    for(const[k,v] of Object.entries(p.totals.pieceTypes))  cp2T[k]=(cp2T[k]||0)+v;
+    for(const[k,v] of Object.entries(p.totals.cartonTypes)) cp3T[k]=(cp3T[k]||0)+v;
+  }
+  [[cp1T,"ch-ov-cp1",CP_VIZ.CP1],[cp2T,"ch-ov-cp2",CP_VIZ.CP2],[cp3T,"ch-ov-cp3",CP_VIZ.CP3]].forEach(([types,id,color])=>{
+    const s=Object.entries(types).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    if(s.length) mkBar(id,s.map(([k])=>trunc(k,26)),[{data:s.map(([,v])=>v),backgroundColor:color,borderRadius:4}],{horizontal:true});
+  });
 }
 
-function renderOvGrid(){
-  const procs=Object.values(_data)
-    .filter(p=>_shiftFlt==="All"||p.shift===_shiftFlt)
-    .sort((a,b)=>b.totals.overall-a.totals.overall);
+// =============================================================================
+// CHART HELPERS
+// =============================================================================
+function killChart(id){if(_ch[id]){_ch[id].destroy();delete _ch[id];}}
 
-  const grid=document.getElementById("ov-grid");
-  if(!procs.length){grid.innerHTML=`<div style="color:var(--muted);font-size:13px">No processors found for this filter.</div>`;return;}
-
-  grid.innerHTML=procs.map(p=>{
-    const sc=shiftColor(p.shift);
-    const sl=shiftLetter(p.shift);
-    const topCP=["shipment","piece","carton"].reduce((b,k)=>p.totals[k]>p.totals[b]?k:b,"shipment");
-    const topCPLabel={shipment:"CP1",piece:"CP2",carton:"CP3"}[topCP];
-    return `<div class="ov-card" onclick="goDetail('${p.lanid}')">
-      <div class="ov-card-top">
-        <div class="ov-avatar" style="background:${sc}">${sl}</div>
-        <div>
-          <div class="ov-lanid" style="color:${sc}">${p.lanid}</div>
-          <div class="ov-name">${p.name}</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">${p.shift} · ${p.dept}</div>
-        </div>
-      </div>
-      <div class="ov-stats">
-        <div class="ov-stat"><div class="ov-stat-lbl">Incidents</div><div class="ov-stat-val">${p.incidents}</div></div>
-        <div class="ov-stat"><div class="ov-stat-lbl">CP Flags</div><div class="ov-stat-val" style="color:${sc}">${p.totals.overall}</div></div>
-        <div class="ov-stat"><div class="ov-stat-lbl">Active Wks</div><div class="ov-stat-val">${p.activeWeeks}/20</div></div>
-        <div class="ov-stat"><div class="ov-stat-lbl">Top CP</div><div class="ov-stat-val">${topCPLabel}</div></div>
-      </div>
-      <div class="ov-footer">View Error Card →</div>
-    </div>`;
-  }).join("");
+function mkBar(id,labels,datasets,opts={}){
+  killChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  const{stacked=false,horizontal=false,legend=false}=opts;
+  _ch[id]=new Chart(ctx,{
+    type:"bar",
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      indexAxis:horizontal?"y":"x",
+      plugins:{
+        legend:{display:legend,labels:{color:gc(),font:{size:11},boxWidth:12,padding:12}},
+        tooltip:{backgroundColor:_dark?"#1a2235":"#ffffff",titleColor:gt(),
+          bodyColor:gc(),borderColor:gb(),borderWidth:1,cornerRadius:8},
+      },
+      scales:{
+        x:{stacked,ticks:{color:gc(),font:{size:10}},
+          grid:{display:horizontal,color:gb()},border:{display:false}},
+        y:{stacked,ticks:{color:gc(),font:{size:10}},
+          grid:{display:!horizontal,color:gb()},border:{display:false}},
+      }
+    }
+  });
 }
-
-function goDetail(lanid){ renderDetail(lanid); showView("det"); }
 
 // =============================================================================
 // DETAIL RENDERING
 // =============================================================================
 function renderDetail(lanid){
-  const proc=_data[lanid];
-  if(!proc) return;
+  const proc=_data[lanid]; if(!proc) return;
   _cur=lanid;
-  document.getElementById("proc-sel").value=lanid;
+  document.getElementById("hdr-proc-sel").value=lanid;
   _logFlt="All";
+  // Reset log filter buttons
+  const sc=shiftColor(proc.shift);
   document.querySelectorAll("#log-filters .flt-btn").forEach(b=>{
-    b.classList.toggle("on",b.textContent==="All");
-    b.style.background=b.textContent==="All"?shiftColor(proc.shift):"transparent";
-    b.style.color=b.textContent==="All"?"#0f172a":gc();
-    b.style.borderColor=b.textContent==="All"?shiftColor(proc.shift):gb();
+    const on=b.textContent==="All";
+    b.classList.toggle("on",on);
+    b.style.background=on?sc:"transparent";
+    b.style.color=on?"#0f172a":gc();
+    b.style.borderColor=on?sc:gb();
   });
 
-  const sc=shiftColor(proc.shift);
   const sl=shiftLetter(proc.shift);
 
-  // Compute trends
+  // Trends
   const trends={
-    shipment:linSlope(proc.weekly,"shipment"),
-    piece:   linSlope(proc.weekly,"piece"),
-    carton:  linSlope(proc.weekly,"carton"),
-    overall: linSlope(proc.weekly,"total"),
+    shipment:linSlope(proc.weekly,"shipment"),piece:linSlope(proc.weekly,"piece"),
+    carton:linSlope(proc.weekly,"carton"),overall:linSlope(proc.weekly,"total"),
   };
   const ot=trendLabel(trends.overall);
-
-  // Top checkpoint
   const topCP=["shipment","piece","carton"].reduce((b,k)=>proc.totals[k]>proc.totals[b]?k:b,"shipment");
   const topCPLabel={shipment:"Shipment",piece:"Piece",carton:"Carton"}[topCP];
 
-  // ── Identity header
+  // Identity header
   document.getElementById("det-hdr").innerHTML=`
     <div class="proc-avatar" style="background:${sc};box-shadow:0 0 0 3px var(--bg),0 0 0 5px ${sc}44">${sl}</div>
     <div>
@@ -788,55 +803,54 @@ function renderDetail(lanid){
         <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase">${proc.shift}&nbsp;&nbsp;${proc.dept}&nbsp;&nbsp;</span>
         <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--muted)">${proc.lanid}</span>
       </div>
-      <div class="proc-meta-name" style="color:${sc}">${proc.name} &#8212; Error Frequency Trend</div>
+      <div class="proc-meta-name" style="color:${sc}">${esc(proc.name)} &#8212; Error Frequency Trend</div>
       <div class="proc-meta-sub">Fiscal Weeks 1&#8211;20 &nbsp;&#183;&nbsp; Feb 1 &#8211; Jun 20, 2026</div>
     </div>`;
 
-  // ── Summary stat cards
+  // Summary stats
   document.getElementById("det-stats").innerHTML=[
-    {l:"Total Errors",   v:proc.totals.overall, s:`${proc.incidents} incidents`,          c:sc},
-    {l:"Active Weeks",   v:`${proc.activeWeeks}/20`,s:"weeks with ≥1 flag",              c:gt()},
-    {l:"Overall Trend",  v:ot.text,              s:`slope ${trends.overall.toFixed(3)}/wk`,c:ot.color},
-    {l:"Top Checkpoint", v:topCPLabel,           s:`${proc.totals[topCP]} flags`,          c:gt()},
+    {l:"Total Errors",  v:proc.totals.overall,              s:`${proc.incidents} incidents`,          c:sc},
+    {l:"Active Weeks",  v:`${proc.activeWeeks}/20`,          s:"weeks with &#8805;1 flag",            c:gt()},
+    {l:"Overall Trend", v:ot.text,                           s:`slope ${trends.overall.toFixed(3)}/wk`,c:ot.color},
+    {l:"Top Checkpoint",v:topCPLabel,                        s:`${proc.totals[topCP]} flags`,          c:gt()},
   ].map(s=>`<div class="stat-card">
     <div class="stat-lbl">${s.l}</div>
     <div class="stat-val" style="color:${s.c}">${s.v}</div>
     <div class="stat-sub">${s.s}</div>
   </div>`).join("");
 
-  // ── Impact cards
+  // Impact stats
   document.getElementById("det-impact").innerHTML=[
     {l:"Total Units Impacted",v:proc.totalUnits.toLocaleString()},
     {l:"Total Cases Impacted",v:proc.totalCases.toLocaleString()},
   ].map(s=>`<div class="impact-card">
-    <div class="impact-lbl">${s.l}</div>
+    <div class="stat-lbl">${s.l}</div>
     <div class="stat-val" style="color:#D97706">${s.v}</div>
     <div class="stat-sub">across all incidents</div>
   </div>`).join("");
 
-  // ── Trend line subtitle
+  // Trend subtitle
   document.getElementById("trend-sub").innerHTML=
     `Slope: ${trends.overall.toFixed(3)} flags/wk &nbsp;&#183;&nbsp; <span style="color:${ot.color};font-weight:700">${ot.text}</span>`;
 
-  // ── Checkpoint summary cards
+  // Checkpoint summary cards
   const cpRows=[
     {label:"Shipment (CP1)",key:"shipment",typeKey:"shipTypes",  color:CP_VIZ.CP1},
     {label:"Piece (CP2)",   key:"piece",   typeKey:"pieceTypes", color:CP_VIZ.CP2},
     {label:"Carton (CP3)",  key:"carton",  typeKey:"cartonTypes",color:CP_VIZ.CP3},
   ];
   document.getElementById("cp-cards").innerHTML=cpRows.map(r=>{
-    const tot=proc.totals[r.key];
-    const tr=trendLabel(trends[r.key]);
+    const tot=proc.totals[r.key], tr=trendLabel(trends[r.key]);
     const entries=Object.entries(proc.totals[r.typeKey]||{}).sort((a,b)=>b[1]-a[1]);
     const rows=entries.length
-      ? entries.map((([t,c],i)=>`<tr${i===entries.length-1?' style="border-bottom:none"':""}>
-          <td>${t}</td><td class="c">${c}</td>
+      ?entries.map(([t,c],i)=>`<tr${i===entries.length-1?' style="border-bottom:none"':""}>
+          <td>${esc(t)}</td><td class="c">${c}</td>
           <td class="r">${tot>0?Math.round(c/tot*100):0}%</td>
-        </tr>`)).join("")
-      : `<tr><td colspan="3" class="no-data-italic">No errors recorded</td></tr>`;
-    return `<div class="cp-card">
+        </tr>`).join("")
+      :`<tr><td colspan="3" class="no-data-italic">No errors recorded</td></tr>`;
+    return`<div class="cp-card">
       <div class="cp-card-hdr">
-        <span class="cp-dot" style="background:${r.color}"></span>
+        <span class="cp-dot-lg" style="background:${r.color}"></span>
         <span class="cp-card-name">${r.label}</span>
         <span class="cp-card-count" style="color:${r.color}">${tot}</span>
       </div>
@@ -854,35 +868,17 @@ function renderDetail(lanid){
     </div>`;
   }).join("");
 
-  // ── Charts
-  renderCharts(proc, trends, sc);
-
-  // ── Log
+  renderCharts(proc,trends,sc);
   renderLog(proc);
 }
 
 // =============================================================================
-// CHART RENDERING
+// CHART RENDERING (detail view)
 // =============================================================================
-function killChart(id){ if(_ch[id]){_ch[id].destroy();delete _ch[id];} }
-
-function chartDefaults(){
-  return{
-    plugins:{ legend:{labels:{color:gc(),font:{size:11},boxWidth:12,padding:12}},
-               tooltip:{backgroundColor:_dark?"#161b22":"#ffffff",titleColor:gt(),
-                        bodyColor:gc(),borderColor:gb(),borderWidth:1,cornerRadius:8}},
-    scales:{
-      x:{ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
-      y:{ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
-    }
-  };
-}
-
-function renderCharts(proc, trends, sc){
+function renderCharts(proc,trends,sc){
   const fw_labels=proc.weekly.map(w=>`FW${w.fw}`);
-  const def=chartDefaults();
 
-  // Value label inline plugin (for checkpoint flags bar)
+  // Value labels plugin for checkpoint flags bar
   const valueLabels={
     id:"valueLabels",
     afterDatasetsDraw(chart){
@@ -890,123 +886,96 @@ function renderCharts(proc, trends, sc){
       chart.data.datasets[0].data.forEach((_,i)=>{
         const bar=chart.getDatasetMeta(0).data[i];
         const val=chart.data.datasets[0].data[i];
-        ctx.save();
-        ctx.fillStyle=gt();
-        ctx.font="bold 13px Segoe UI, system-ui, sans-serif";
-        ctx.textAlign="center";
-        ctx.textBaseline="bottom";
-        ctx.fillText(val, bar.x, bar.y-4);
-        ctx.restore();
+        ctx.save();ctx.fillStyle=gt();
+        ctx.font="bold 13px Segoe UI,system-ui,sans-serif";
+        ctx.textAlign="center";ctx.textBaseline="bottom";
+        ctx.fillText(val,bar.x,bar.y-4);ctx.restore();
       });
     }
   };
 
-  // ── Weekly stacked bar
+  const ttBase={
+    backgroundColor:_dark?"#1a2235":"#ffffff",titleColor:gt(),
+    bodyColor:gc(),borderColor:gb(),borderWidth:1,cornerRadius:8,
+  };
+
+  // Weekly stacked bar
   killChart("weekly");
   _ch.weekly=new Chart(document.getElementById("ch-weekly").getContext("2d"),{
     type:"bar",
-    data:{
-      labels:fw_labels,
-      datasets:[
-        {label:"Shipment (CP1)",data:proc.weekly.map(w=>w.shipment),backgroundColor:CP_VIZ.CP1,stack:"s"},
-        {label:"Piece (CP2)",   data:proc.weekly.map(w=>w.piece),   backgroundColor:CP_VIZ.CP2,stack:"s"},
-        {label:"Carton (CP3)",  data:proc.weekly.map(w=>w.carton),  backgroundColor:CP_VIZ.CP3,stack:"s",borderRadius:{topLeft:4,topRight:4}},
-      ]
-    },
+    data:{labels:fw_labels,datasets:[
+      {label:"Shipment (CP1)",data:proc.weekly.map(w=>w.shipment),backgroundColor:CP_VIZ.CP1,stack:"s"},
+      {label:"Piece (CP2)",   data:proc.weekly.map(w=>w.piece),   backgroundColor:CP_VIZ.CP2,stack:"s"},
+      {label:"Carton (CP3)",  data:proc.weekly.map(w=>w.carton),  backgroundColor:CP_VIZ.CP3,stack:"s",borderRadius:{topLeft:4,topRight:4}},
+    ]},
     options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{...def.plugins,
-        tooltip:{...def.plugins.tooltip,
-          callbacks:{
-            title:([{dataIndex}])=>{const w=proc.weekly[dataIndex];return`Fiscal Week ${w.fw} (${w.dateRange})`;}
-          }
-        }
-      },
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:gc(),font:{size:11},boxWidth:12,padding:12}},
+        tooltip:{...ttBase,callbacks:{title:([{dataIndex}])=>{const w=proc.weekly[dataIndex];return`Fiscal Week ${w.fw} (${w.dateRange})`;}}}},
       scales:{
-        x:{...def.scales.x,stacked:true},
-        y:{...def.scales.y,stacked:true,ticks:{...def.scales.y.ticks,precision:0}},
+        x:{stacked:true,ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
+        y:{stacked:true,ticks:{color:gc(),font:{size:11},precision:0},grid:{color:gb()},border:{display:false}},
       }
     }
   });
 
-  // ── Trend line
+  // Trend line
   killChart("trend");
   _ch.trend=new Chart(document.getElementById("ch-trend").getContext("2d"),{
     type:"line",
-    data:{
-      labels:fw_labels,
-      datasets:[{
-        label:"Total CP Flags",data:proc.weekly.map(w=>w.total),
-        borderColor:sc,backgroundColor:sc+"22",pointBackgroundColor:sc,
-        pointRadius:4,borderWidth:2.5,tension:0.1,fill:false,
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{...def.plugins,legend:{display:false}},
-      scales:def.scales
-    }
+    data:{labels:fw_labels,datasets:[{
+      label:"Total CP Flags",data:proc.weekly.map(w=>w.total),
+      borderColor:sc,backgroundColor:sc+"22",pointBackgroundColor:sc,
+      pointRadius:4,borderWidth:2.5,tension:0.1,fill:false,
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...ttBase}},
+      scales:{
+        x:{ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
+        y:{ticks:{color:gc(),font:{size:11},precision:0},grid:{color:gb()},border:{display:false}},
+      }}
   });
 
-  // ── Checkpoint flags vertical bar
+  // Checkpoint flags vertical bar
   killChart("cpflags");
   _ch.cpflags=new Chart(document.getElementById("ch-cpflags").getContext("2d"),{
     type:"bar",
     plugins:[valueLabels],
-    data:{
-      labels:["CP1","CP2","CP3"],
-      datasets:[{
-        label:"Flags",
-        data:[proc.totals.shipment,proc.totals.piece,proc.totals.carton],
-        backgroundColor:[CP_VIZ.CP1,CP_VIZ.CP2,CP_VIZ.CP3],
-        borderRadius:6,
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{...def.plugins,legend:{display:false}},
+    data:{labels:["CP1","CP2","CP3"],datasets:[{
+      label:"Flags",
+      data:[proc.totals.shipment,proc.totals.piece,proc.totals.carton],
+      backgroundColor:[CP_VIZ.CP1,CP_VIZ.CP2,CP_VIZ.CP3],borderRadius:6,
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...ttBase}},
       scales:{
-        x:{...def.scales.x,ticks:{color:gc(),font:{size:12,weight:"bold"}}},
-        y:{...def.scales.y,ticks:{...def.scales.y.ticks,precision:0},
-           max:Math.max(proc.totals.shipment,proc.totals.piece,proc.totals.carton)+2},
-      }
-    }
+        x:{ticks:{color:gc(),font:{size:12,weight:"bold"}},grid:{color:gb()},border:{display:false}},
+        y:{ticks:{color:gc(),font:{size:11},precision:0},grid:{color:gb()},border:{display:false},
+          max:Math.max(proc.totals.shipment,proc.totals.piece,proc.totals.carton)+2},
+      }}
   });
 
-  // ── Top error types horizontal bar
+  // Top error types horizontal bar
   const topTypes=[
     ...Object.entries(proc.totals.shipTypes).map(([type,count])=>({type,count,cp:"CP1"})),
     ...Object.entries(proc.totals.pieceTypes).map(([type,count])=>({type,count,cp:"CP2"})),
     ...Object.entries(proc.totals.cartonTypes).map(([type,count])=>({type,count,cp:"CP3"})),
   ].sort((a,b)=>b.count-a.count);
 
-  // Dynamic height for top errors chart
-  const topErrWrap=document.getElementById("ch-toperr-wrap");
-  topErrWrap.style.height=Math.max(120,topTypes.length*34+16)+"px";
-
+  document.getElementById("ch-toperr-wrap").style.height=Math.max(120,topTypes.length*34+16)+"px";
   killChart("toperr");
   _ch.toperr=new Chart(document.getElementById("ch-toperr").getContext("2d"),{
     type:"bar",
-    data:{
-      labels:topTypes.map(e=>trunc(e.type,24)),
-      datasets:[{
-        label:"Flags",
-        data:topTypes.map(e=>e.count),
-        backgroundColor:topTypes.map(e=>CP_VIZ[e.cp]),
-        borderRadius:4,
-      }]
-    },
-    options:{
-      indexAxis:"y",
-      responsive:true, maintainAspectRatio:false,
-      plugins:{...def.plugins,legend:{display:false}},
+    data:{labels:topTypes.map(e=>trunc(e.type,24)),datasets:[{
+      label:"Flags",data:topTypes.map(e=>e.count),
+      backgroundColor:topTypes.map(e=>CP_VIZ[e.cp]),borderRadius:4,
+    }]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{...ttBase}},
       scales:{
-        x:{...def.scales.x,ticks:{...def.scales.x.ticks,precision:0},
-           grid:{color:gb(),display:true}},
-        y:{...def.scales.y,grid:{display:false},
-           ticks:{color:gc(),font:{size:11}}},
-      }
-    }
+        x:{ticks:{color:gc(),font:{size:11},precision:0},grid:{color:gb(),display:true},border:{display:false}},
+        y:{ticks:{color:gc(),font:{size:11}},grid:{display:false},border:{display:false}},
+      }}
   });
 }
 
@@ -1014,47 +983,38 @@ function renderCharts(proc, trends, sc){
 // LOG RENDERING
 // =============================================================================
 function renderLog(proc){
-  proc=proc||(_cur&&_data[_cur]);
-  if(!proc) return;
+  proc=proc||(_cur&&_data[_cur]); if(!proc) return;
   const sc=shiftColor(proc.shift);
-
   const filtered=proc.rawLog.filter(r=>{
     if(_logFlt==="CP1") return r.cps.some(c=>c.cp==="CP1");
     if(_logFlt==="CP2") return r.cps.some(c=>c.cp==="CP2");
     if(_logFlt==="CP3") return r.cps.some(c=>c.cp==="CP3");
     return true;
   });
-  const assessed=filtered.length;
-
   document.getElementById("log-title").innerHTML=
-    `${assessed} Assessed${_logFlt!=="All"?` &nbsp;&#183;&nbsp; ${_logFlt} filter`:""}`;
-
-  if(!filtered.length){
-    document.getElementById("log-body").innerHTML=`<div style="color:var(--muted);font-size:13px;padding:12px 0">No errors match this filter.</div>`;
-    return;
-  }
-
-  document.getElementById("log-body").innerHTML=filtered.map(r=>{
-    const dateStr=r.date?r.date.slice(5).replace("-","/"):"—";
-    const badges=r.cps.map(c=>`<span class="cp-badge" style="${CP_BADGE_CSS[c.cp]||""}">${c.cp}: ${c.type}</span>`).join("");
-    return `<div class="log-entry">
-      <div class="log-wk">
-        <div class="log-wk-num" style="color:${sc}">FW ${r.fw}</div>
-        <div class="log-wk-dt">${dateStr}</div>
-      </div>
-      <div class="log-body">
-        <div class="log-badges">${badges}</div>
-        <div class="log-comment">${r.comment||""}</div>
-        <div class="log-meta"><b>Cases:</b> ${r.casesRaw||"—"} &nbsp;·&nbsp; <b>Units:</b> ${r.unitsRaw||"—"}</div>
-      </div>
-    </div>`;
-  }).join("");
+    `${filtered.length} Assessed${_logFlt!=="All"?` &nbsp;&#183;&nbsp; ${_logFlt} filter`:""}`;
+  document.getElementById("log-body").innerHTML=filtered.length
+    ?filtered.map(r=>{
+        const dateStr=r.date?r.date.slice(5).replace("-","/"): "&#8212;";
+        const badges=r.cps.map(c=>`<span class="cp-badge" style="${CP_BADGE_CSS[c.cp]||""}">${esc(c.cp)}: ${esc(c.type)}</span>`).join("");
+        return`<div class="log-entry">
+          <div class="log-wk">
+            <div class="log-wk-num" style="color:${sc}">FW ${r.fw}</div>
+            <div class="log-wk-dt">${dateStr}</div>
+          </div>
+          <div class="log-body-inner">
+            <div class="log-badges">${badges}</div>
+            <div class="log-comment">${esc(r.comment)}</div>
+            <div class="log-meta"><b>Cases:</b> ${esc(r.casesRaw)||"&#8212;"} &nbsp;&#183;&nbsp; <b>Units:</b> ${esc(r.unitsRaw)||"&#8212;"}</div>
+          </div>
+        </div>`;
+      }).join("")
+    :`<div style="color:var(--muted);font-size:13px;padding:12px 0">No errors match this filter.</div>`;
 }
 
 function setLogFlt(f,btn){
   _logFlt=f;
-  const proc=_cur&&_data[_cur];
-  const sc=proc?shiftColor(proc.shift):"var(--accent)";
+  const proc=_cur&&_data[_cur], sc=proc?shiftColor(proc.shift):"var(--accent)";
   document.querySelectorAll("#log-filters .flt-btn").forEach(b=>{
     const on=b.textContent===f;
     b.classList.toggle("on",on);
@@ -1071,8 +1031,13 @@ function setLogFlt(f,btn){
 function toggleTheme(){
   _dark=!_dark;
   document.body.dataset.theme=_dark?"dark":"light";
-  document.getElementById("theme-btn").textContent=_dark?"☀️ Light":"🌙 Dark";
-  if(_cur&&_data[_cur]){
+  const label=_dark?"☀️ Light":"🌙 Dark";
+  document.getElementById("theme-btn").textContent=label;
+  const fb=document.getElementById("fb-theme-btn");
+  if(fb) fb.textContent=label;
+  // Redraw charts for current view
+  if(document.getElementById("v-ov").classList.contains("active")) renderOverview();
+  if(document.getElementById("v-det").classList.contains("active")&&_cur) {
     const proc=_data[_cur];
     const trends={
       shipment:linSlope(proc.weekly,"shipment"),piece:linSlope(proc.weekly,"piece"),
@@ -1083,7 +1048,7 @@ function toggleTheme(){
 }
 
 // =============================================================================
-// BOOT — auth check first
+// BOOT
 // =============================================================================
 if(sessionStorage.getItem("mwfc_auth")!=="1"){
   window.location.href=HUB_URL;
