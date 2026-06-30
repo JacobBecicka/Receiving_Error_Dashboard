@@ -799,12 +799,23 @@ function renderOverview(){
       deptWeekly[i].total+=w.total;
     });
   }
-  const deptTrends={
-    shipment:linSlope(deptWeekly,"shipment"),
-    piece:   linSlope(deptWeekly,"piece"),
-    carton:  linSlope(deptWeekly,"carton"),
-  };
   const deptTotals={ shipment:totalCP1, piece:totalCP2, carton:totalCP3 };
+
+  // Week-over-week comparison (current FW vs previous FW) instead of an
+  // all-time slope — dept-wide totals only ever climb week over week since
+  // they're cumulative-by-nature in volume, so a slope always reads as
+  // "increasing." A WoW delta actually shows whether THIS week was better
+  // or worse than last week.
+  function wowDelta(key){
+    const curFw=NUM_WEEKS, prevFw=NUM_WEEKS-1;
+    const cur=deptWeekly[curFw-1]?.[key]??0;
+    const prev=prevFw>=1?(deptWeekly[prevFw-1]?.[key]??0):null;
+    if(prev===null) return{text:"No prior week to compare",color:gc(),diff:0};
+    const diff=cur-prev;
+    if(diff>0)  return{text:`▲ +${diff} vs FW${prevFw}`, color:"#ef4444",diff};
+    if(diff<0)  return{text:`▼ ${diff} vs FW${prevFw}`,  color:"#10b981",diff};
+    return{text:`— Flat vs FW${prevFw}`,color:"#94a3b8",diff:0};
+  }
 
   const ovCpRows=[
     {label:"Shipment (CP1)",key:"shipment",types:cp1T,color:CP_VIZ.CP1},
@@ -812,7 +823,8 @@ function renderOverview(){
     {label:"Carton (CP3)",  key:"carton",  types:cp3T,color:CP_VIZ.CP3},
   ];
   document.getElementById("ov-cp-cards").innerHTML=ovCpRows.map(r=>{
-    const tot=deptTotals[r.key], tr=trendLabel(deptTrends[r.key]);
+    const tot=deptTotals[r.key], wow=wowDelta(r.key);
+    const curWeekCount=deptWeekly[NUM_WEEKS-1]?.[r.key]??0;
     const entries=Object.entries(r.types).sort((a,b)=>b[1]-a[1]);
     const rows=entries.length
       ?entries.map(([t,c],i)=>`<tr${i===entries.length-1?' style="border-bottom:none"':""}>
@@ -827,8 +839,8 @@ function renderOverview(){
         <span class="cp-card-count" style="color:${r.color}">${tot}</span>
       </div>
       <div class="cp-trend-row">
-        <span>Slope: ${deptTrends[r.key].toFixed(3)}/wk</span>
-        <span style="color:${tr.color};font-weight:700">${tr.text}</span>
+        <span>FW${NUM_WEEKS}: ${curWeekCount}</span>
+        <span style="color:${wow.color};font-weight:700">${wow.text}</span>
       </div>
       <div class="subtype-lbl">Error Sub-Types (All-Time)</div>
       <table class="subtype-tbl">
