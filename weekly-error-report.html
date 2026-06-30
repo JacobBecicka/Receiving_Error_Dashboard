@@ -13,6 +13,20 @@
     body { background: #f1f5f9; }
     #root { min-height: 100vh; }
     .btn-hover:hover { opacity: .85; }
+
+    @media print {
+      body { background: #fff !important; }
+      .no-print { display: none !important; }
+      #root { padding: 0 !important; }
+      .print-card {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .print-break { page-break-before: always; break-before: page; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    }
   </style>
 </head>
 <body>
@@ -234,9 +248,9 @@ function Badge({ children, color, bg }) {
   return <span style={{ fontSize:10, fontWeight:700, letterSpacing:1.2, textTransform:"uppercase",
     background:bg, color, padding:"3px 10px", borderRadius:20 }}>{children}</span>;
 }
-function Card({ t, children, style }) {
+function Card({ t, children, style, className = "" }) {
   return (
-    <div style={{ background:t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16,
+    <div className={`print-card ${className}`} style={{ background:t.card, border:`1px solid ${t.cardBorder}`, borderRadius:16,
       padding:"24px 26px 22px", marginBottom:20, boxShadow:t.shadow,
       transition:"background .25s,border-color .25s", ...style }}>{children}</div>
   );
@@ -280,7 +294,7 @@ function CheckpointTable({ t, rows, total, accent, fmtPct }) {
 }
 function NavBar({ t, dark, setMode, onChangeWeek, showChange }) {
   return (
-    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
+    <div className="no-print" style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         <a href="./index.html" style={{ display:"inline-flex", alignItems:"center", gap:5,
           padding:"6px 14px", borderRadius:20, border:`1px solid ${t.cardBorder}`,
@@ -294,12 +308,20 @@ function NavBar({ t, dark, setMode, onChangeWeek, showChange }) {
           </button>
         )}
       </div>
-      <button onClick={()=>setMode(dark?"light":"dark")} style={{
-        display:"flex", alignItems:"center", gap:6, background:t.card,
-        border:`1px solid ${t.cardBorder}`, borderRadius:20, padding:"7px 12px",
-        cursor:"pointer", fontSize:12, fontWeight:700, color:t.textPrimary, boxShadow:t.shadow }}>
-        {dark ? "☀️ Light" : "🌙 Dark"}
-      </button>
+      <div style={{ display:"flex", gap:8 }}>
+        <button className="btn-hover" onClick={() => window.print()} style={{
+          display:"flex", alignItems:"center", gap:6, background:t.card,
+          border:`1px solid ${t.cardBorder}`, borderRadius:20, padding:"7px 12px",
+          cursor:"pointer", fontSize:12, fontWeight:700, color:t.textPrimary, boxShadow:t.shadow }}>
+          🖨️ Print / Save PDF
+        </button>
+        <button className="btn-hover" onClick={()=>setMode(dark?"light":"dark")} style={{
+          display:"flex", alignItems:"center", gap:6, background:t.card,
+          border:`1px solid ${t.cardBorder}`, borderRadius:20, padding:"7px 12px",
+          cursor:"pointer", fontSize:12, fontWeight:700, color:t.textPrimary, boxShadow:t.shadow }}>
+          {dark ? "☀️ Light" : "🌙 Dark"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -573,7 +595,7 @@ function App() {
           </div>
         </Card>
 
-        <Card t={t}>
+        <Card t={t} className="print-break">
           <SectionHeader t={t} eyebrow="Checkpoints" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
             title="Errors by Checkpoint" subtitle="Shipment, Piece, and Carton checks — error types found at each stage" />
           <div style={{ fontSize:13, fontWeight:800, color:t.textPrimary, marginTop:4 }}>Shipment Error Check</div>
@@ -585,7 +607,7 @@ function App() {
         </Card>
 
         {data.topProcessors.length > 0 && (
-          <Card t={t}>
+          <Card t={t} className="print-break">
             <SectionHeader t={t} eyebrow="Processors" eyebrowColor="#B45309" eyebrowBg={dark?"#B4530922":"#fef3c7"}
               title="Processors with 3+ Errors"
               subtitle={`${data.topProcessors.length} WM Sign-On ID${data.topProcessors.length!==1?"s":""} — ${data.topProcessors.reduce((s,p)=>s+p.count,0)} of ${data.total} errors (${fmtPct(data.topProcessors.reduce((s,p)=>s+p.count,0))})`} />
