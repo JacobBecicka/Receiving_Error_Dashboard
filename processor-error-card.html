@@ -465,6 +465,10 @@ function parseNum(v){const m=String(v||"").match(/\d+/);return m?+m[0]:0;}
 function trunc(s,n=25){return s.length>n?s.slice(0,n-1)+"…":s;}
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
 
+// Alphabetical comparator for LanIDs — used for all processor dropdowns.
+// Applies automatically to any new LanID added to the workbook in the future.
+const byLanidAlpha = (a,b)=>a.lanid.localeCompare(b.lanid,undefined,{numeric:true,sensitivity:"base"});
+
 function linSlope(weekly,key){
   const n=weekly.length,xs=weekly.map(w=>w.fw),ys=weekly.map(w=>w[key]||0);
   const xm=xs.reduce((a,b)=>a+b,0)/n,ym=ys.reduce((a,b)=>a+b,0)/n;
@@ -699,9 +703,9 @@ async function loadFile(file){
 function init(){
   document.getElementById("v-loading").style.display="none";
   document.getElementById("app-header").style.display="flex";
-  // Populate header selector
+  // Populate header selector — alphabetical by LanID
   const hSel=document.getElementById("hdr-proc-sel");
-  const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
+  const sorted=Object.values(_data).sort(byLanidAlpha);
   hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
   // Footer reflects actual detected week range
   document.getElementById("det-footer").innerHTML=
@@ -760,8 +764,8 @@ function renderOverview(){
     {l:"CP3 Flags",       v:totalCP3,              s:"Carton checkpoint",   c:CP_VIZ.CP3},
   ].map(x=>statCard(x.l,x.v,x.s,x.c)).join("");
 
-  // Populate LanID dropdown (sorted by total CP flags desc)
-  const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
+  // Populate LanID dropdown — alphabetical by LanID
+  const sorted=Object.values(_data).sort(byLanidAlpha);
   const sel=document.getElementById("ov-sel");
   sel.innerHTML=`<option value="">&#8212; Select a LanID &#8212;</option>`+
     sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
@@ -930,7 +934,7 @@ function renderDetail(lanid){
 
   // Summary stats
   document.getElementById("det-stats").innerHTML=[
-    {l:"Total Errors",  v:proc.totals.overall,              s:`${proc.incidents} incidents`,          c:sc},
+    {l:"Flags / Errors", v:`${proc.totals.overall} / ${proc.incidents}`, s:"CP flags vs. incidents",  c:sc},
     {l:"Active Weeks",  v:`${proc.activeWeeks}/${NUM_WEEKS}`,s:"weeks with &#8805;1 flag",            c:gt()},
     {l:"Overall Trend", v:ot.text,                           s:`slope ${trends.overall.toFixed(3)}/wk`,c:ot.color},
     {l:"Top Checkpoint",v:topCPLabel,                        s:`${proc.totals[topCP]} flags`,          c:gt()},
