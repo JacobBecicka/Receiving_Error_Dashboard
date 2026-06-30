@@ -160,11 +160,14 @@ function parseWeek(wb, weekNum) {
     const pe    = String(row[12]||"").trim();
     const ce    = String(row[13]||"").trim();
     const id    = row[0];
+    const sk = /^a(-?shift)?$/i.test(shift)?"A":/^b(-?shift)?$/i.test(shift)?"B":/^c(-?shift)?$/i.test(shift)?"C":null;
+    if (!sk) return; // skip rows without a valid shift (matches YTD report)
     if (isNoError(se) && isNoError(pe) && isNoError(ce)) return;
     total++;
     if (id !== "" && firstId === null) firstId = id;
     if (id !== "") lastId = id;
-    const sk = shift.toLowerCase().startsWith("a")?"A":shift.toLowerCase().startsWith("b")?"B":shift.toLowerCase().startsWith("c")?"C":null;
+    shiftC[sk]++;
+
     if (sk) shiftC[sk]++;
     if (dept.includes("receiv")) deptC.recv++; else deptC.xfer++;
     if (wm) procC[wm] = (procC[wm]||0)+1;
