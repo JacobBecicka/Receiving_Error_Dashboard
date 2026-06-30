@@ -321,7 +321,7 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     <!-- Weekly stacked chart — all processors combined -->
     <div class="chart-card mb20">
       <div class="ct">Checkpoint Errors by Week — All Processors</div>
-      <div class="cs">Fiscal Weeks 1–20 · Feb 1 – Jun 20, 2026 · Stacked by CP1 · CP2 · CP3</div>
+      <div class="cs" id="ov-weekly-sub">Stacked by CP1 · CP2 · CP3</div>
       <div class="ch-wrap" style="height:190px"><canvas id="ch-ov-weekly"></canvas></div>
     </div>
 
@@ -420,8 +420,8 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     </div>
 
   </main>
-  <footer>
-    Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; Fiscal Weeks 1–20 &nbsp;·&nbsp; Nordstrom
+  <footer id="det-footer">
+    Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; Nordstrom
   </footer>
 </div>
 
@@ -433,12 +433,11 @@ const XLSX_URL  = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Erro
 const HUB_URL   = "index.html";
 const FW_OFFSET = 5; // Tool FW N = XLSX Sheet "Week N+5"  →  FW1 = XLSX Week 6
 
-const FW_DATE_RANGES = {
-  1:"Feb 1–7",2:"Feb 8–14",3:"Feb 15–20",4:"Feb 22–28",5:"Mar 1–6",
-  6:"Mar 8–14",7:"Mar 15–21",8:"Mar 23–28",9:"Mar 29–Apr 4",10:"Apr 5–11",
-  11:"Apr 12–18",12:"Apr 21–25",13:"Apr 26–May 2",14:"May 3–9",15:"May 10–16",
-  16:"May 17–23",17:"May 24–30",18:"Jun 1–6",19:"Jun 8–13",20:"Jun 14–20"
-};
+// FW1 calendar anchor — used only as a fallback when a sheet has no usable
+// row dates to derive its own range from. Real ranges are computed live
+// from the dates found in each sheet (see deriveDateRanges()), so adding
+// new weeks to the workbook requires NO edits here.
+const FW1_START = new Date(2026, 1, 1); // Feb 1, 2026
 
 const SHIFT_COLORS = { "A-Shift":"#38BDF8","B-Shift":"#A78BFA","C-Shift":"#34D399" };
 const CP_VIZ = { CP1:"#0097A7",CP2:"#7C3AED",CP3:"#F59E0B" };
@@ -452,6 +451,8 @@ const CP_BADGE_CSS = {
 // STATE
 // =============================================================================
 let _data={}, _cur=null, _logFlt="All", _dark=true, _ch={};
+let NUM_WEEKS = 0;          // total fiscal weeks detected in the workbook (dynamic)
+let FW_DATE_RANGES = {};    // computed live from the workbook — see deriveDateRanges()
 
 // =============================================================================
 // HELPERS
@@ -494,8 +495,19 @@ function statCard(label,value,sub,color){
   </div>`;
 }
 
+const MONTH_ABBR=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtMD(d){ return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}`; }
+function fmtRange(minD,maxD){
+  if(!minD) return "";
+  if(!maxD || minD.getTime()===maxD.getTime()) return fmtMD(minD);
+  if(minD.getMonth()===maxD.getMonth()) return `${MONTH_ABBR[minD.getMonth()]} ${minD.getDate()}–${maxD.getDate()}`;
+  return `${fmtMD(minD)}–${fmtMD(maxD)}`;
+}
+
 // =============================================================================
 // XLSX PARSING  (FW offset applied: XLSX Week N → Tool FW N-5)
+// No upper bound on fiscal week — every "Week N" sheet in the workbook is
+// read, so newly added weeks (FW21, FW22, …) are picked up automatically.
 // =============================================================================
 function parseWB(wb){
   const records=[];
@@ -503,7 +515,7 @@ function parseWB(wb){
     const m=sn.match(/^Week\s*(\d+)$/i);
     if(!m) continue;
     const xlsxWk=+m[1], fw=xlsxWk-FW_OFFSET;
-    if(fw<1||fw>20) continue;
+    if(fw<1) continue; // only floor — no ceiling, so future weeks are never dropped
 
     const ws=wb.Sheets[sn];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
@@ -532,15 +544,18 @@ function parseWB(wb){
       ];
 
       // Date — handle Date objects and Excel serial numbers
-      const dv=row[8]; let dateStr="";
-      if(dv instanceof Date) dateStr=dv.toISOString().slice(0,10);
+      const dv=row[8]; let dateStr="", dateObj=null;
+      if(dv instanceof Date){ dateObj=dv; dateStr=dv.toISOString().slice(0,10); }
       else if(dv){
         const s=String(dv).trim();
-        if(/^\d{4}-\d{2}-\d{2}/.test(s)) dateStr=s.slice(0,10);
-        else if(/^\d{5}$/.test(s)){dateStr=new Date((+s-25569)*86400000).toISOString().slice(0,10);}
+        if(/^\d{4}-\d{2}-\d{2}/.test(s)){ dateStr=s.slice(0,10); dateObj=new Date(dateStr+"T00:00:00"); }
+        else if(/^\d{5}$/.test(s)){
+          dateObj=new Date((+s-25569)*86400000);
+          dateStr=dateObj.toISOString().slice(0,10);
+        }
       }
 
-           // Shift normalization — skip rows without a valid shift (matches YTD report)
+      // Shift normalization — skip rows without a valid shift (matches YTD report)
       const sr=clean(row[9]).replace(/\xa0/g,"").trim();
       let shift=null;
       if(/^A(-?Shift)?$/i.test(sr)) shift="A-Shift";
@@ -550,7 +565,7 @@ function parseWB(wb){
 
       records.push({
         fw,xlsxWk,lanid,name:clean(row[5])||lanid,
-        shift,dept:clean(row[10])||"Receiving",dateStr,comment,
+        shift,dept:clean(row[10])||"Receiving",dateStr,dateObj,comment,
         cp1Parts,cp2Parts,cp3Parts,allCPs,
         casesRaw:clean(row[16]),unitsRaw:clean(row[17]),
         units:parseNum(row[17]),cases:parseNum(row[16]),
@@ -561,7 +576,35 @@ function parseWB(wb){
   return records;
 }
 
+// Derive each fiscal week's display date range from the actual row dates
+// found in that week's records. Falls back to a calculated 7-day window
+// off FW1_START only if a week has no usable dates at all (e.g. blank sheet).
+function deriveDateRanges(records,numWeeks){
+  const bounds={};
+  for(const r of records){
+    if(!r.dateObj) continue;
+    const b=bounds[r.fw]||(bounds[r.fw]={min:r.dateObj,max:r.dateObj});
+    if(r.dateObj<b.min) b.min=r.dateObj;
+    if(r.dateObj>b.max) b.max=r.dateObj;
+  }
+  const out={};
+  for(let fw=1;fw<=numWeeks;fw++){
+    if(bounds[fw]){
+      out[fw]=fmtRange(bounds[fw].min,bounds[fw].max);
+    }else{
+      const start=new Date(FW1_START.getTime()+(fw-1)*7*86400000);
+      const end=new Date(start.getTime()+6*86400000);
+      out[fw]=fmtRange(start,end);
+    }
+  }
+  return out;
+}
+
 function buildProcessorData(allRecords){
+  // Determine how many fiscal weeks exist in this workbook — dynamic, no cap.
+  NUM_WEEKS = allRecords.reduce((max,r)=>Math.max(max,r.fw),0);
+  FW_DATE_RANGES = deriveDateRanges(allRecords,NUM_WEEKS);
+
   const byLanid={};
   for(const r of allRecords){
     if(!byLanid[r.lanid]) byLanid[r.lanid]=[];
@@ -569,7 +612,7 @@ function buildProcessorData(allRecords){
   }
   const result={};
   for(const[lanid,records] of Object.entries(byLanid)){
-    const weekly=Array.from({length:20},(_,i)=>{
+    const weekly=Array.from({length:NUM_WEEKS},(_,i)=>{
       const fw=i+1;
       return{fw,dateRange:FW_DATE_RANGES[fw]||"",
         shipment:0,piece:0,carton:0,total:0,
@@ -637,7 +680,7 @@ async function autoLoad(){
     document.getElementById("load-msg").textContent="Parsing workbook…";
     const wb=XLSX.read(await res.arrayBuffer(),{type:"array",cellDates:true});
     const recs=parseWB(wb);
-    if(!recs.length) throw new Error("No FW1–20 data found in workbook.");
+    if(!recs.length) throw new Error("No fiscal-week data found in workbook.");
     _data=buildProcessorData(recs);
     init();
   }catch(e){ showFallback(e.message); }
@@ -648,7 +691,7 @@ async function loadFile(file){
   try{
     const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
     const recs=parseWB(wb);
-    if(!recs.length) throw new Error("No FW1–20 data found. Verify sheet names are 'Week N'.");
+    if(!recs.length) throw new Error("No fiscal-week data found. Verify sheet names are 'Week N'.");
     _data=buildProcessorData(recs);
     init();
   }catch(e){ showFallback(e.message); }
@@ -660,6 +703,9 @@ function init(){
   const hSel=document.getElementById("hdr-proc-sel");
   const sorted=Object.values(_data).sort((a,b)=>b.totals.overall-a.totals.overall);
   hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
+  // Footer reflects actual detected week range
+  document.getElementById("det-footer").innerHTML=
+    `Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; Fiscal Weeks 1–${NUM_WEEKS} &nbsp;·&nbsp; Nordstrom`;
   renderOverview();
   showView("ov");
 }
@@ -699,8 +745,11 @@ function renderOverview(){
   }
   const navy=gAccent();
 
+  const firstRange=FW_DATE_RANGES[1]||"", lastRange=FW_DATE_RANGES[NUM_WEEKS]||"";
   document.getElementById("ov-sub").textContent=
-    `All processors · Fiscal Weeks 1–20 · Feb 1 – Jun 20, 2026`;
+    `All processors · Fiscal Weeks 1–${NUM_WEEKS}${firstRange&&lastRange?` · ${firstRange} – ${lastRange}`:""}`;
+  document.getElementById("ov-weekly-sub").textContent=
+    `Fiscal Weeks 1–${NUM_WEEKS}${firstRange&&lastRange?` · ${firstRange} – ${lastRange}`:""} · Stacked by CP1 · CP2 · CP3`;
 
   document.getElementById("ov-stats").innerHTML=[
     {l:"Processors",      v:procs.length,         s:"LanIDs on record",    c:navy},
@@ -717,8 +766,8 @@ function renderOverview(){
   sel.innerHTML=`<option value="">&#8212; Select a LanID &#8212;</option>`+
     sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
 
-  // Weekly stacked chart — all processors, FW1-20
-  const weeklyAgg=Array.from({length:20},(_,i)=>({fw:i+1,cp1:0,cp2:0,cp3:0}));
+  // Weekly stacked chart — all processors, FW1-NUM_WEEKS
+  const weeklyAgg=Array.from({length:NUM_WEEKS},(_,i)=>({fw:i+1,cp1:0,cp2:0,cp3:0}));
   for(const p of procs){
     p.weekly.forEach((w,i)=>{weeklyAgg[i].cp1+=w.shipment;weeklyAgg[i].cp2+=w.piece;weeklyAgg[i].cp3+=w.carton;});
   }
@@ -741,8 +790,7 @@ function renderOverview(){
   });
 
   // ── Dept-wide CP summary cards (same layout as individual processor cards)
-  // Build dept-wide weekly array for slope calculation
-  const deptWeekly=Array.from({length:20},(_,i)=>({fw:i+1,shipment:0,piece:0,carton:0,total:0}));
+  const deptWeekly=Array.from({length:NUM_WEEKS},(_,i)=>({fw:i+1,shipment:0,piece:0,carton:0,total:0}));
   for(const p of procs){
     p.weekly.forEach((w,i)=>{
       deptWeekly[i].shipment+=w.shipment;
@@ -853,6 +901,8 @@ function renderDetail(lanid){
   const topCP=["shipment","piece","carton"].reduce((b,k)=>proc.totals[k]>proc.totals[b]?k:b,"shipment");
   const topCPLabel={shipment:"Shipment",piece:"Piece",carton:"Carton"}[topCP];
 
+  const firstRange=FW_DATE_RANGES[1]||"", lastRange=FW_DATE_RANGES[NUM_WEEKS]||"";
+
   // Identity header
   document.getElementById("det-hdr").innerHTML=`
     <div class="proc-avatar" style="background:${sc};box-shadow:0 0 0 3px var(--bg),0 0 0 5px ${sc}44">${sl}</div>
@@ -863,13 +913,13 @@ function renderDetail(lanid){
         <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--muted)">${proc.lanid}</span>
       </div>
       <div class="proc-meta-name" style="color:${sc}">${esc(proc.name)} &#8212; Error Frequency Trend</div>
-      <div class="proc-meta-sub">Fiscal Weeks 1&#8211;20 &nbsp;&#183;&nbsp; Feb 1 &#8211; Jun 20, 2026</div>
+      <div class="proc-meta-sub">Fiscal Weeks 1&#8211;${NUM_WEEKS}${firstRange&&lastRange?` &nbsp;&#183;&nbsp; ${firstRange} &#8211; ${lastRange}`:""}</div>
     </div>`;
 
   // Summary stats
   document.getElementById("det-stats").innerHTML=[
     {l:"Total Errors",  v:proc.totals.overall,              s:`${proc.incidents} incidents`,          c:sc},
-    {l:"Active Weeks",  v:`${proc.activeWeeks}/20`,          s:"weeks with &#8805;1 flag",            c:gt()},
+    {l:"Active Weeks",  v:`${proc.activeWeeks}/${NUM_WEEKS}`,s:"weeks with &#8805;1 flag",            c:gt()},
     {l:"Overall Trend", v:ot.text,                           s:`slope ${trends.overall.toFixed(3)}/wk`,c:ot.color},
     {l:"Top Checkpoint",v:topCPLabel,                        s:`${proc.totals[topCP]} flags`,          c:gt()},
   ].map(s=>`<div class="stat-card">
