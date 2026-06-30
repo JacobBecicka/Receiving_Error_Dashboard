@@ -540,11 +540,13 @@ function parseWB(wb){
         else if(/^\d{5}$/.test(s)){dateStr=new Date((+s-25569)*86400000).toISOString().slice(0,10);}
       }
 
-      // Shift normalization
-      const sr=clean(row[9]);
-      let shift="A-Shift";
-      if(/\bB\b/i.test(sr)||/B-?Shift/i.test(sr)) shift="B-Shift";
-      else if(/\bC\b/i.test(sr)||/C-?Shift/i.test(sr)) shift="C-Shift";
+           // Shift normalization — skip rows without a valid shift (matches YTD report)
+      const sr=clean(row[9]).replace(/\xa0/g,"").trim();
+      let shift=null;
+      if(/^A(-?Shift)?$/i.test(sr)) shift="A-Shift";
+      else if(/^B(-?Shift)?$/i.test(sr)) shift="B-Shift";
+      else if(/^C(-?Shift)?$/i.test(sr)) shift="C-Shift";
+      if(!shift) continue;
 
       records.push({
         fw,xlsxWk,lanid,name:clean(row[5])||lanid,
