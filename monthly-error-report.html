@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monthly Error Report</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root {
       --page-bg: linear-gradient(160deg, #f1f5f9, #e2e8f0);
@@ -195,280 +196,186 @@
       font-size: 11px; color: var(--text-muted);
       margin-left: 12px; white-space: nowrap;
     }
+    /* Loading / Error states */
+    #loading-wrap, #error-wrap {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 60vh; gap: 14px; text-align: center; padding: 24px;
+    }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid var(--card-border);
+      border-top-color: #0284C7; border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #app-content { display: none; }
   </style>
 </head>
 <body>
 <div class="container">
 
-  <!-- Page header -->
-  <div class="page-header">
-    <div>
-      <div class="eyebrow">Receiving Research Error Form</div>
-      <h1>Monthly Error Report</h1>
-      <select id="month-select"></select>
+  <!-- Loading state -->
+  <div id="loading-wrap">
+    <div class="spinner"></div>
+    <div style="font-size:14px;font-weight:600;color:var(--text-second)">Loading workbook from GitHub…</div>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-wrap" style="display:none">
+    <div style="font-size:40px">⚠️</div>
+    <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Unable to load workbook</div>
+    <div id="error-msg" style="font-size:13px;color:var(--text-second);max-width:380px"></div>
+    <button class="hdr-btn" onclick="init()" style="margin-top:6px">↺ Retry</button>
+    <a class="hdr-btn" href="index.html">🏠 Hub</a>
+  </div>
+
+  <!-- Main app content -->
+  <div id="app-content">
+
+    <!-- Page header -->
+    <div class="page-header">
+      <div>
+        <div class="eyebrow">Receiving Research Error Form</div>
+        <h1>Monthly Error Report</h1>
+        <select id="month-select"></select>
+      </div>
+      <div class="header-btns">
+        <a class="hdr-btn" href="index.html">🏠 Hub</a>
+        <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">🌙 Dark</button>
+      </div>
     </div>
-    <div class="header-btns">
-      <a class="hdr-btn" href="index.html">🏠 Hub</a>
-      <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">🌙 Dark</button>
+
+    <!-- Summary -->
+    <div class="card card-summary">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Summary</div>
+      <div class="stat-grid" id="summary-tiles"></div>
     </div>
-  </div>
 
-  <!-- Summary -->
-  <div class="card card-summary">
-    <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Summary</div>
-    <div class="stat-grid" id="summary-tiles"></div>
-  </div>
-
-  <!-- Month-over-Month -->
-  <div class="card">
-    <div class="section-header" id="mom-header"></div>
-    <div id="mom-body"></div>
-  </div>
-
-  <!-- 3-Month Rolling -->
-  <div class="card">
-    <div class="section-header" id="rolling-header"></div>
-    <canvas id="chart-rolling" style="width:100%;height:180px;"></canvas>
-    <table style="margin-top:14px;" id="rolling-table"></table>
-    <div class="rolling-avg" id="rolling-avg"></div>
-  </div>
-
-  <!-- Shift donut -->
-  <div class="card">
-    <div class="section-header">
-      <span class="badge" style="color:#7C3AED;background:#ede9fe;">By Shift</span>
-      <h2>Error Share by Shift</h2>
-      <p>A-Shift, B-Shift, C-Shift — % of total errors this month</p>
+    <!-- Month-over-Month -->
+    <div class="card">
+      <div class="section-header" id="mom-header"></div>
+      <div id="mom-body"></div>
     </div>
-    <canvas id="chart-shift" style="width:100%;max-height:260px;"></canvas>
-    <div class="split-tiles" id="shift-tiles"></div>
-  </div>
 
-  <!-- Dept donut -->
-  <div class="card">
-    <div class="section-header">
-      <span class="badge" style="color:#0EA5E9;background:#e0f2fe;">By Department</span>
-      <h2>Receiving vs. Transfers</h2>
-      <p>Home Department — Receiving vs. all transfer departments combined</p>
+    <!-- 3-Month Rolling -->
+    <div class="card">
+      <div class="section-header" id="rolling-header"></div>
+      <canvas id="chart-rolling" style="width:100%;height:180px;"></canvas>
+      <table style="margin-top:14px;" id="rolling-table"></table>
+      <div class="rolling-avg" id="rolling-avg"></div>
     </div>
-    <canvas id="chart-dept" style="width:100%;max-height:260px;"></canvas>
-    <div class="split-tiles" id="dept-tiles"></div>
-  </div>
 
-  <!-- Checkpoints -->
-  <div class="card">
-    <div class="section-header">
-      <span class="badge" style="color:#0284C7;background:#e0f2fe;">Checkpoints</span>
-      <h2>Errors by Checkpoint</h2>
-      <p>Shipment, Piece, and Carton checks — all error types logged this month</p>
+    <!-- Shift donut -->
+    <div class="card">
+      <div class="section-header">
+        <span class="badge" style="color:#7C3AED;background:#ede9fe;">By Shift</span>
+        <h2>Error Share by Shift</h2>
+        <p>A-Shift, B-Shift, C-Shift — % of total errors this month</p>
+      </div>
+      <canvas id="chart-shift" style="width:100%;max-height:260px;"></canvas>
+      <div class="split-tiles" id="shift-tiles"></div>
     </div>
-    <div id="checkpoint-body"></div>
-  </div>
 
-  <!-- Processors 5+ -->
-  <div class="card">
-    <div class="section-header" id="procs-header"></div>
-    <table id="procs-table"></table>
-  </div>
-
-  <!-- Key Takeaways -->
-  <div class="card">
-    <div class="section-header">
-      <span class="badge" style="color:#16A34A;background:#dcfce7;">Analysis</span>
-      <h2>Key Takeaways</h2>
+    <!-- Dept donut -->
+    <div class="card">
+      <div class="section-header">
+        <span class="badge" style="color:#0EA5E9;background:#e0f2fe;">By Department</span>
+        <h2>Receiving vs. Transfers</h2>
+        <p>Home Department — Receiving vs. all transfer departments combined</p>
+      </div>
+      <canvas id="chart-dept" style="width:100%;max-height:260px;"></canvas>
+      <div class="split-tiles" id="dept-tiles"></div>
     </div>
-    <div id="takeaways-body"></div>
-  </div>
 
+    <!-- Checkpoints -->
+    <div class="card">
+      <div class="section-header">
+        <span class="badge" style="color:#0284C7;background:#e0f2fe;">Checkpoints</span>
+        <h2>Errors by Checkpoint</h2>
+        <p>Shipment, Piece, and Carton checks — all error types logged this month</p>
+      </div>
+      <div id="checkpoint-body"></div>
+    </div>
+
+    <!-- Processors 5+ -->
+    <div class="card">
+      <div class="section-header" id="procs-header"></div>
+      <table id="procs-table"></table>
+    </div>
+
+    <!-- Key Takeaways -->
+    <div class="card">
+      <div class="section-header">
+        <span class="badge" style="color:#16A34A;background:#dcfce7;">Analysis</span>
+        <h2>Key Takeaways</h2>
+      </div>
+      <div id="takeaways-body"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Sticky month nav (hidden until loaded) -->
+<div id="sticky-nav" style="display:none">
+  <button class="nav-arrow" id="nav-prev" onclick="stepMonth(-1)" title="Previous month">&#8592;</button>
+  <div id="nav-label" onclick="scrollToTop()" title="Tap to scroll to top">—</div>
+  <button class="nav-arrow" id="nav-next" onclick="stepMonth(1)" title="Next month">&#8594;</button>
+  <span id="nav-hint">&#8593; tap label to scroll up</span>
 </div>
 
 <script>
 /* ============================================================
-   DESIGN TOKENS — locked design system
+   CONFIG / DESIGN TOKENS — locked design system
    ============================================================ */
+const WORKBOOK_URL =
+  "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
 const SHIFT_COLORS = { A: '#38BDF8', B: '#A78BFA', C: '#34D399' };
 const TREND_DOWN   = '#34D399';   // improving
 const TREND_UP     = '#f87171';   // worsening
 
-/* ============================================================
-   HARDCODED MONTHLY DATA
-   Source: AI_Safe_Weekly_Error_Data.xlsx, Weeks 1–25
-   (Week 21 blank in source). Grouped by Start time.
-   Last updated: June 2026
-   ============================================================ */
-const MONTHLY_DATA = {
-  '2026-01': {
-    total: 98, shiftA: 29, shiftB: 29, shiftC: 40,
-    receiving: 78, transfers: 20,
-    shipment: [
-      ['SKU Maintenance Incorrect/Incomplete', 33],
-      ['Work Records Not Completed', 25],
-      ['Failed to send shipments to copy, QA, and Photo', 8],
-    ],
-    piece: [
-      ['Item Presentation', 5],
-      ['Hangtag/Sticky Tag Mismatch', 3],
-      ['Price Tag Not Pulled', 3],
-      ['UPC Labels Missing or incorrect', 2],
-    ],
-    carton: [
-      ['Split Move Error', 24],
-      ['Zone Destination Assigned/Palletized', 6],
-      ['Case Quantity Scan Error', 2],
-      ['Units Sent to stock as Multi- Pack', 1],
-    ],
-    procs5: [
-      ['NWZQ',5],['WXSV',5],['MWR3',5],['H1K0',5],
-    ],
-  },
-  '2026-02': {
-    total: 211, shiftA: 81, shiftB: 73, shiftC: 57,
-    receiving: 150, transfers: 61,
-    shipment: [
-      ['SKU Maintenance Incorrect/Incomplete', 85],
-      ['Work Records Not Completed', 13],
-      ['Failed to send shipments to copy, QA, and Photo', 5],
-    ],
-    piece: [
-      ['Item Presentation', 8],
-      ['Hangtag/Sticky Tag Mismatch', 6],
-      ['Price Tag Not Pulled', 5],
-      ['UPC Labels Missing or incorrect', 4],
-    ],
-    carton: [
-      ['Zone Destination Assigned/Palletized', 54],
-      ['Split Move Error', 47],
-      ['Case Quantity Scan Error', 1],
-      ['Units Sent to stock as Multi- Pack', 1],
-    ],
-    procs5: [
-      ['UP07',11],['H42J',9],['QM0P',8],['MGR9',8],['KP6T',8],
-      ['NWZQ',7],['ET85',7],['MWR3',6],['CWMU',6],['UOX3',6],
-      ['FJK4',5],['WXSV',5],['M5ZW',5],['AHZ7',5],['GVK8',5],
-      ['DWKH',5],['QU12',5],['TL5N',5],
-    ],
-  },
-  '2026-03': {
-    total: 267, shiftA: 78, shiftB: 88, shiftC: 101,
-    receiving: 199, transfers: 68,
-    shipment: [
-      ['SKU Maintenance Incorrect/Incomplete', 105],
-      ['Work Records Not Completed', 17],
-      ['Failed to send shipments to copy, QA, and Photo', 10],
-      ['Audit Not performed', 1],
-    ],
-    piece: [
-      ['Item Presentation', 9],
-      ['Hangtag/Sticky Tag Mismatch', 6],
-      ['Price Tag Not Pulled', 5],
-      ['UPC Labels Missing or incorrect', 3],
-    ],
-    carton: [
-      ['Split Move Error', 74],
-      ['Zone Destination Assigned/Palletized', 47],
-      ['Case Quantity Scan Error', 9],
-      ['QA/ Photo Not Palletized Located', 7],
-      ['Units Sent to stock as Multi- Pack', 2],
-    ],
-    procs5: [
-      ['H42J',12],['MWR3',10],['TI03',10],['ET85',9],
-      ['GQ78',7],['MGR9',7],['FPD3',7],['QU12',7],['Q9UE',7],['TXIW',7],
-      ['KP6T',6],['G2A4',6],['FJK4',6],['MT3O',6],['S939',6],['AXNW',6],['GNLE',6],
-      ['UP07',5],['WXSV',5],['QM0P',5],['GVK8',5],['UOX3',5],['VPC6',5],
-    ],
-  },
-  '2026-04': {
-    total: 175, shiftA: 33, shiftB: 57, shiftC: 85,
-    receiving: 152, transfers: 23,
-    shipment: [
-      ['SKU Maintenance Incorrect/Incomplete', 73],
-      ['Work Records Not Completed', 23],
-      ['Failed to send shipments to copy, QA, and Photo', 13],
-      ['Audit Not performed', 1],
-    ],
-    piece: [
-      ['Item Presentation', 4],
-      ['UPC Labels Missing or incorrect', 3],
-      ['Hangtag/Sticky Tag Mismatch', 2],
-    ],
-    carton: [
-      ['Zone Destination Assigned/Palletized', 35],
-      ['Split Move Error', 33],
-      ['Units Sent to stock as Multi- Pack', 2],
-      ['QA/ Photo Not Palletized Located', 1],
-    ],
-    procs5: [
-      ['MWR3',13],['QU12',10],['TXIW',9],['H42J',9],
-      ['ET85',7],['TI03',7],['GQ78',7],
-      ['MGR9',6],['G2CD',6],['GJD2',6],
-      ['FPD3',5],['Q9UE',5],
-    ],
-  },
-  '2026-05': {
-    total: 142, shiftA: 37, shiftB: 61, shiftC: 44,
-    receiving: 105, transfers: 37,
-    shipment: [
-      ['SKU Maintenance Incorrect/Incomplete', 56],
-      ['Failed to send shipments to copy, QA, and Photo', 9],
-      ['Work Records Not Completed', 8],
-    ],
-    piece: [
-      ['Hangtag/Sticky Tag Mismatch', 3],
-      ['UPC Labels Missing or incorrect', 3],
-      ['Item Presentation', 2],
-    ],
-    carton: [
-      ['Split Move Error', 42],
-      ['Zone Destination Assigned/Palletized', 20],
-      ['Case Quantity Scan Error', 6],
-      ['Units Sent to stock as Multi- Pack', 2],
-      ['QA/ Photo Not Palletized Located', 1],
-    ],
-    procs5: [
-      ['TXIW',11],['ET85',10],['W04E',7],['VPC6',7],
-    ],
-  },
-  '2026-06': {
-    total: 251, shiftA: 84, shiftB: 90, shiftC: 77,
-    receiving: 135, transfers: 116,
-    shipment: [
-      ['SKU Maintenance Incorrect/Incomplete', 65],
-      ['Work Records Not Completed', 34],
-      ['Failed to send shipments to copy, QA, and Photo', 27],
-      ['Audit Not performed', 5],
-    ],
-    piece: [
-      ['UPC Labels Missing or incorrect', 12],
-      ['Item Presentation', 10],
-      ['Hangtag/Sticky Tag Mismatch', 2],
-    ],
-    carton: [
-      ['Split Move Error', 82],
-      ['Zone Destination Assigned/Palletized', 50],
-      ['Case Quantity Scan Error', 11],
-      ['Units Sent to stock as Multi- Pack', 1],
-    ],
-    procs5: [
-      ['MGR9',12],['TI03',11],['M5ZW',9],['GA4H',8],
-      ['ET85',6],['GRQL',6],['MWR3',6],['TXIW',6],
-      ['FPD3',5],['Q9UE',5],['QWX1',5],['DWKH',5],['QKSJ',5],
-      ['AHZ7',5],['NWZQ',5],['PLG8',5],['UP39',5],
-    ],
-  },
-};
-
-const MONTH_KEYS = Object.keys(MONTHLY_DATA).sort();
+// Each sheet carries its own ground-truth date-range label in row 2
+// (e.g. "2/1 - 2/7"). A fixed-offset formula breaks on stub weeks
+// (Week 1 is only "1/1 - 1/3", 3 days) so we read the real label instead.
+function parseSheetDateRange(rows) {
+  const label = String(rows[1]?.[1] || "");
+  const m = label.match(/^\s*(\d+)\/(\d+)\s*-\s*(\d+)\/(\d+)/);
+  if (!m) return null;
+  const [, sm, sd, em, ed] = m.map(Number);
+  // Workbook spans Sep'25 - Jun'26: months 9-12 are 2025, months 1-8 are 2026.
+  const syear = sm >= 9 ? 2025 : 2026;
+  const eyear = em >= 9 ? 2025 : 2026;
+  return {
+    start: new Date(syear, sm - 1, sd),
+    end:   new Date(eyear, em - 1, ed),
+    fallbackKey: `${syear}-${String(sm).padStart(2,'0')}`,
+  };
+}
+function excelSerialToDate(n) {
+  // Excel epoch: serial 0 = 1899-12-30
+  return new Date(Date.UTC(1899, 11, 30) + n * 86400000);
+}
+function parseRowDate(v) {
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') return excelSerialToDate(v);
+  const s = String(v || '').trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  return null;
+}
 
 /* ============================================================
    HELPERS
    ============================================================ */
+function isNoError(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return !s || s === "no errors" || s === "no error";
+}
 function monthLabel(k) {
   const [y, m] = k.split('-');
   const MONTHS = ['Jan','Feb','Mar','Apr','May','June','July','Aug','Sep','Oct','Nov','Dec'];
   return `${MONTHS[parseInt(m, 10) - 1]} ${y.slice(2)}`;
 }
 function pct(n, total) {
-  return `${((n / total) * 100).toFixed(1)}%`;
+  return total ? `${((n / total) * 100).toFixed(1)}%` : '—';
 }
 function cpSum(arr) {
   return arr.reduce((s, [, v]) => s + v, 0);
@@ -477,13 +384,153 @@ function esc(str) {
   return String(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function sortObj(o) {
+  return Object.entries(o).sort((a,b) => b[1]-a[1]);
+}
+
+/* ============================================================
+   XLSX PARSING — grouped by calendar month
+   Same column layout and shift-validation logic as the
+   Weekly Error Report / Processor Error Card / YTD Report:
+     col 6  = WM Sign-On    col 9  = Shift
+     col 10 = Home Dept     col 11 = Shipment errors (CP1)
+     col 12 = Piece errors (CP2)   col 13 = Carton errors (CP3)
+   ============================================================ */
+function parseWorkbookToMonths(wb) {
+  const months = {}; // monthKey -> accumulator
+
+  const ensureMonth = mk => {
+    if (!months[mk]) {
+      months[mk] = {
+        total: 0, shiftA: 0, shiftB: 0, shiftC: 0,
+        receiving: 0, transfers: 0,
+        shipment: {}, piece: {}, carton: {}, procs: {},
+      };
+    }
+    return months[mk];
+  };
+
+  wb.SheetNames.forEach(sheetName => {
+    const m = sheetName.match(/^Week\s*(\d+)$/i);
+    if (!m) return;
+
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:"" });
+    if (!rows || rows.length < 6) return;
+
+    const range = parseSheetDateRange(rows);
+    if (!range) return; // can't determine which month this sheet covers
+    const { start: sheetStart, end: sheetEnd, fallbackKey } = range;
+    const slack = 3 * 86400000; // 3-day tolerance for row-level date noise
+
+    const dataRows = rows.slice(5).filter(r => r && String(r[6]||"").trim());
+
+    dataRows.forEach(row => {
+      const shiftRaw = String(row[9]  || "").replace(/\xa0/g,"").trim();
+      const dept     = String(row[10] || "").replace(/\xa0/g,"").trim().toLowerCase();
+      const wm       = String(row[6]  || "").trim();
+      const se       = String(row[11] || "").trim();
+      const pe       = String(row[12] || "").trim();
+      const ce       = String(row[13] || "").trim();
+
+      // Shift validation — skip rows without a recognizable shift
+      // (matches YTD / Weekly / Processor Error Card logic exactly)
+      const sk = /^a(-?shift)?$/i.test(shiftRaw) ? "A"
+               : /^b(-?shift)?$/i.test(shiftRaw) ? "B"
+               : /^c(-?shift)?$/i.test(shiftRaw) ? "C"
+               : null;
+      if (!sk) return;
+      if (isNoError(se) && isNoError(pe) && isNoError(ce)) return;
+
+      // Determine which month this row belongs to: trust the row's own
+      // date if it falls within (or close to) this sheet's actual date
+      // range — this correctly splits boundary weeks (e.g. "3/29 - 4/4")
+      // across two months. Fall back to the sheet's own label for rows
+      // with missing/stray dates (typos can land far outside the sheet's
+      // range and would otherwise create noisy one-off months).
+      const rowDate = parseRowDate(row[8]);
+      let mk = fallbackKey;
+      if (rowDate && rowDate.getTime() >= sheetStart.getTime() - slack
+                  && rowDate.getTime() <= sheetEnd.getTime() + slack) {
+        mk = `${rowDate.getFullYear()}-${String(rowDate.getMonth()+1).padStart(2,'0')}`;
+      }
+
+      const acc = ensureMonth(mk);
+      acc.total++;
+      acc[`shift${sk}`]++;
+      if (dept.includes("receiv")) acc.receiving++; else acc.transfers++;
+      if (wm) acc.procs[wm] = (acc.procs[wm] || 0) + 1;
+
+      const add = (str, counter) => {
+        if (isNoError(str)) return;
+        str.split(";").forEach(e => {
+          const t = e.trim();
+          if (t && !isNoError(t)) counter[t] = (counter[t] || 0) + 1;
+        });
+      };
+      add(se, acc.shipment); add(pe, acc.piece); add(ce, acc.carton);
+    });
+  });
+
+  // Finalize: convert error-type maps to sorted arrays, build procs5 list
+  const finalized = {};
+  Object.entries(months).forEach(([mk, acc]) => {
+    finalized[mk] = {
+      total: acc.total, shiftA: acc.shiftA, shiftB: acc.shiftB, shiftC: acc.shiftC,
+      receiving: acc.receiving, transfers: acc.transfers,
+      shipment: sortObj(acc.shipment),
+      piece:    sortObj(acc.piece),
+      carton:   sortObj(acc.carton),
+      procs5: Object.entries(acc.procs)
+        .filter(([,c]) => c >= 5)
+        .sort((a,b) => b[1]-a[1]),
+    };
+  });
+  return finalized;
+}
 
 /* ============================================================
    STATE
    ============================================================ */
-let currentMonth = MONTH_KEYS[MONTH_KEYS.length - 1];
+let MONTHLY_DATA = {};
+let MONTH_KEYS = [];
+let currentMonth = null;
 let isDark = false;
 let charts = { rolling: null, shift: null, dept: null };
+
+/* ============================================================
+   LOAD / INIT
+   ============================================================ */
+async function init() {
+  document.getElementById('loading-wrap').style.display = 'flex';
+  document.getElementById('error-wrap').style.display = 'none';
+  document.getElementById('app-content').style.display = 'none';
+  document.getElementById('sticky-nav').style.display = 'none';
+
+  try {
+    const res = await fetch(WORKBOOK_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status} — unable to fetch workbook from GitHub.`);
+    const buf = await res.arrayBuffer();
+    const wb  = XLSX.read(buf, { type: 'array' });
+
+    MONTHLY_DATA = parseWorkbookToMonths(wb);
+    MONTH_KEYS   = Object.keys(MONTHLY_DATA).sort();
+
+    if (!MONTH_KEYS.length) throw new Error('No monthly data found in workbook.');
+
+    currentMonth = MONTH_KEYS[MONTH_KEYS.length - 1];
+
+    document.getElementById('loading-wrap').style.display = 'none';
+    document.getElementById('app-content').style.display = 'block';
+    document.getElementById('sticky-nav').style.display = 'flex';
+
+    initDropdown();
+    render();
+  } catch (err) {
+    document.getElementById('loading-wrap').style.display = 'none';
+    document.getElementById('error-msg').textContent = err.message;
+    document.getElementById('error-wrap').style.display = 'flex';
+  }
+}
 
 /* ============================================================
    THEME
@@ -500,6 +547,7 @@ function toggleTheme() {
    ============================================================ */
 function initDropdown() {
   const sel = document.getElementById('month-select');
+  sel.innerHTML = '';
   MONTH_KEYS.forEach(k => {
     const opt = document.createElement('option');
     opt.value = k;
@@ -507,7 +555,7 @@ function initDropdown() {
     sel.appendChild(opt);
   });
   sel.value = currentMonth;
-  sel.addEventListener('change', e => { currentMonth = e.target.value; render(); });
+  sel.onchange = e => { currentMonth = e.target.value; render(); };
 }
 
 /* ============================================================
@@ -624,7 +672,7 @@ function buildTakeaways(data, prevData, mk, prevKey) {
   let t2h, t2b;
   if (prevData) {
     const delta    = total - prevData.total;
-    const deltaPct = ((delta / prevData.total) * 100).toFixed(1);
+    const deltaPct = prevData.total ? ((delta / prevData.total) * 100).toFixed(1) : '0.0';
     const dir      = delta < 0 ? 'down' : delta > 0 ? 'up' : 'unchanged';
     t2h = `Total errors ${dir} ${Math.abs(delta)} (${delta > 0 ? '+' : ''}${deltaPct}%) vs. ${monthLabel(prevKey)}`;
     t2b = `${monthLabel(mk)} recorded ${total} errors vs. ${prevData.total} in ${monthLabel(prevKey)} — `
@@ -698,7 +746,7 @@ function render() {
 
   if (prevData) {
     const delta    = total - prevData.total;
-    const deltaPct = ((delta / prevData.total) * 100).toFixed(1);
+    const deltaPct = prevData.total ? ((delta / prevData.total) * 100).toFixed(1) : '0.0';
     const dCol     = delta < 0 ? TREND_DOWN : delta > 0 ? TREND_UP : 'var(--text-muted)';
     const arrow    = delta < 0 ? '↓' : delta > 0 ? '↑' : '→';
     document.getElementById('mom-body').innerHTML = `
@@ -741,7 +789,7 @@ function render() {
     <tbody>${r3.map((d, i) => {
       const prev  = i > 0 ? r3[i-1].total : null;
       const dlt   = prev !== null ? d.total - prev : null;
-      const dpct  = prev !== null ? ((dlt / prev) * 100).toFixed(1) : null;
+      const dpct  = prev ? ((dlt / prev) * 100).toFixed(1) : (prev === 0 ? '0.0' : null);
       const col   = dlt === null ? 'var(--text-muted)' : dlt > 0 ? TREND_UP : dlt < 0 ? TREND_DOWN : 'var(--text-muted)';
       const chStr = dlt === null ? '—' : `${dlt>0?'+':''}${dlt} (${dlt>0?'+':''}${dpct}%)`;
       return `<tr>
@@ -814,7 +862,7 @@ function render() {
     <span class="badge" style="color:#B45309;background:${amberBg};">Processors</span>
     <h2>Processors with 5+ Errors</h2>
     <p>${data.procs5.length} processors generated ${procSum} of the ${total} logged errors (${pct(procSum, total)}) this month</p>`;
-  document.getElementById('procs-table').innerHTML = `
+  document.getElementById('procs-table').innerHTML = data.procs5.length ? `
     <thead><tr>
       <th>Processor</th><th class="r">Errors</th><th class="r">% of Total</th>
     </tr></thead>
@@ -822,7 +870,7 @@ function render() {
       <td style="font-weight:600">${esc(name)}</td>
       <td class="r" style="color:#B45309">${count}</td>
       <td class="m">${p(count)}</td>
-    </tr>`).join('')}</tbody>`;
+    </tr>`).join('')}</tbody>` : `<tbody><tr><td style="font-style:italic;color:var(--text-muted)">No processors met the 5+ error threshold this month.</td></tr></tbody>`;
 
   /* —— KEY TAKEAWAYS —— */
   const takes = buildTakeaways(data, prevData, mk, prevKey);
@@ -860,19 +908,11 @@ function syncNav() {
   document.getElementById('nav-prev').disabled = idx === 0;
   document.getElementById('nav-next').disabled = idx === MONTH_KEYS.length - 1;
 }
-/* ============================================================
-   INIT
-   ============================================================ */
-initDropdown();
-render();
-</script>
 
-  <!-- Sticky month nav -->
-  <div id="sticky-nav">
-    <button class="nav-arrow" id="nav-prev" onclick="stepMonth(-1)" title="Previous month">&#8592;</button>
-    <div id="nav-label" onclick="scrollToTop()" title="Tap to scroll to top">—</div>
-    <button class="nav-arrow" id="nav-next" onclick="stepMonth(1)" title="Next month">&#8594;</button>
-    <span id="nav-hint">&#8593; tap label to scroll up</span>
-  </div>
+/* ============================================================
+   BOOT
+   ============================================================ */
+init();
+</script>
 </body>
 </html>
