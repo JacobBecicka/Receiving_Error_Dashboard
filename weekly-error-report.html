@@ -168,7 +168,6 @@ function parseWeek(wb, weekNum) {
     if (id !== "") lastId = id;
     shiftC[sk]++;
 
-    if (sk) shiftC[sk]++;
     if (dept.includes("receiv")) deptC.recv++; else deptC.xfer++;
     if (wm) procC[wm] = (procC[wm]||0)+1;
     const add = (str, counter) => {
