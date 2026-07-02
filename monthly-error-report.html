@@ -374,6 +374,15 @@ function parseRowDate(v) {
   const s = String(v || '').trim();
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+  // Fallback: handle "M/D/YY H:MM" or "M/D/YYYY" style strings
+  // (the Start time column can arrive as plain text depending on
+  // how the workbook cell is formatted).
+  const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m2) {
+    let [, mo, da, yr] = m2;
+    yr = yr.length === 2 ? (2000 + +yr) : +yr;
+    return new Date(yr, +mo - 1, +da);
+  }
   return null;
 }
 
@@ -407,9 +416,16 @@ function sortObj(o) {
    XLSX PARSING — grouped by calendar month
    Same column layout and shift-validation logic as the
    Weekly Error Report / Processor Error Card / YTD Report:
-     col 6  = WM Sign-On    col 9  = Shift
-     col 10 = Home Dept     col 11 = Shipment errors (CP1)
+     col 1  = Start time      col 6  = WM Sign-On
+     col 9  = Shift           col 10 = Home Dept
+     col 11 = Shipment errors (CP1)
      col 12 = Piece errors (CP2)   col 13 = Carton errors (CP3)
+
+   NOTE: Rows are bucketed into calendar months using the Start
+   time column (when the error was LOGGED), not Date Error
+   Occurred (when the error happened on the floor). Errors can sit
+   unnoticed for months before being found/logged, so logging date
+   is the correct basis for monthly grouping.
    ============================================================ */
 function parseWorkbookToMonths(wb) {
   const months = {}; // monthKey -> accumulator
@@ -456,13 +472,14 @@ function parseWorkbookToMonths(wb) {
       if (!sk) return;
       if (isNoError(se) && isNoError(pe) && isNoError(ce)) return;
 
-      // Determine which month this row belongs to: trust the row's own
-      // date if it falls within (or close to) this sheet's actual date
-      // range — this correctly splits boundary weeks (e.g. "3/29 - 4/4")
-      // across two months. Fall back to the sheet's own label for rows
-      // with missing/stray dates (typos can land far outside the sheet's
-      // range and would otherwise create noisy one-off months).
-      const rowDate = parseRowDate(row[8]);
+      // Determine which month this row belongs to: trust the row's
+      // own Start time (when the error was logged) if it falls within
+      // (or close to) this sheet's actual date range — this correctly
+      // splits boundary weeks (e.g. "3/29 - 4/4") across two months.
+      // Fall back to the sheet's own label for rows with missing/stray
+      // timestamps (typos can land far outside the sheet's range and
+      // would otherwise create noisy one-off months).
+      const rowDate = parseRowDate(row[1]);
       let mk = fallbackKey;
       if (rowDate && rowDate.getTime() >= sheetStart.getTime() - slack
                   && rowDate.getTime() <= sheetEnd.getTime() + slack) {
