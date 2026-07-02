@@ -115,6 +115,50 @@ function BarChartSVG({ data, t }) {
   );
 }
 
+function MultiLineChart({ data, t }) {
+  // Renders up to 3 lines (A/B/C shift) over the provided week window.
+  const W = 360, H = 130, padL = 26, padR = 10, padT = 14, padB = 26;
+  const max = Math.max(1, ...data.flatMap(d => [d.A, d.B, d.C]));
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
+  const xFor = i => padL + i * stepX;
+  const yFor = v => padT + innerH * (1 - v / max);
+  const lines = [
+    { key: "A", color: SHIFT_COLORS.A },
+    { key: "B", color: SHIFT_COLORS.B },
+    { key: "C", color: SHIFT_COLORS.C },
+  ];
+  const gridVals = [0, 0.5, 1].map(f => Math.round(max * f));
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H + 20}`} style={{ display: "block", margin: "0 auto" }}>
+      {[0, 0.25, 0.5, 0.75, 1].map(f => {
+        const y = padT + innerH * (1 - f);
+        return <line key={f} x1={padL} y1={y} x2={W - padR} y2={y}
+          stroke={t.cardBorder} strokeWidth={1} strokeDasharray="3 3" />;
+      })}
+      {gridVals.map((v, i) => (
+        <text key={i} x={padL - 6} y={yFor(v) + 3} textAnchor="end" fontSize={9} fill={t.textMuted}>{v}</text>
+      ))}
+      {lines.map(line => {
+        const pts = data.map((d, i) => `${xFor(i)},${yFor(d[line.key])}`).join(" ");
+        return (
+          <g key={line.key}>
+            <polyline points={pts} fill="none" stroke={line.color} strokeWidth={2.5}
+              strokeLinejoin="round" strokeLinecap="round" />
+            {data.map((d, i) => (
+              <circle key={i} cx={xFor(i)} cy={yFor(d[line.key])} r={3} fill={line.color} />
+            ))}
+          </g>
+        );
+      })}
+      {data.map((d, i) => (
+        <text key={d.short} x={xFor(i)} y={H + 16} textAnchor="middle" fontSize={10} fill={t.textSecond}>{d.short}</text>
+      ))}
+    </svg>
+  );
+}
+
 function DonutChart({ data, t }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   if (!total) return null;
@@ -164,7 +208,7 @@ function parseWeek(wb, weekNum) {
   let total = 0;
   const shiftC = { A:0, B:0, C:0 };
   const deptC  = { recv:0, xfer:0 };
-  const sErrs = {}, pErrs = {}, cErrs = {}, procC = {};
+  const sErrs = {}, pErrs = {}, cErrs = {}, procC = {}, procShiftC = {};
   let firstId = null, lastId = null;
   dataRows.forEach(row => {
     const shift = String(row[9] ||"").replace(/\xa0/g,"").trim();
@@ -183,7 +227,11 @@ function parseWeek(wb, weekNum) {
     shiftC[sk]++;
 
     if (dept.includes("receiv")) deptC.recv++; else deptC.xfer++;
-    if (wm) procC[wm] = (procC[wm]||0)+1;
+    if (wm) {
+      procC[wm] = (procC[wm]||0)+1;
+      if (!procShiftC[wm]) procShiftC[wm] = { A:0, B:0, C:0 };
+      procShiftC[wm][sk]++;
+    }
     const add = (str, counter) => {
       if (isNoError(str)) return;
       str.split(";").forEach(e => { const t=e.trim(); if(t&&!isNoError(t)) counter[t]=(counter[t]||0)+1; });
@@ -197,8 +245,40 @@ function parseWeek(wb, weekNum) {
     shift: shiftC,
     deptSplit: [{ name:"Receiving", value:deptC.recv }, { name:"Transfers", value:deptC.xfer }],
     shipment: sortObj(sErrs), piece: sortObj(pErrs), carton: sortObj(cErrs),
-    topProcessors: Object.entries(procC).filter(([,c])=>c>=3).sort((a,b)=>b[1]-a[1]).map(([name,count])=>({name,count})),
+    topProcessors: Object.entries(procC)
+      .filter(([,c])=>c>=3)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([name,count]) => {
+        const sc = procShiftC[name] || { A:0, B:0, C:0 };
+        const dominantShift = Object.entries(sc).sort((a,b)=>b[1]-a[1])[0][0];
+        return { name, count, shift: dominantShift };
+      }),
   };
+}
+
+// Receiving-home-department-only error counts by shift, for a single fiscal week.
+// Uses the same per-row assessed-error rule as parseWeek's "total" (one count per
+// row that has any checkpoint entry), filtered to dept === Receiving.
+function parseWeekReceivingByShift(wb, weekNum) {
+  const name = `Week ${weekNum}`;
+  if (!wb.SheetNames.includes(name)) return null;
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:"" });
+  if (!rows || rows.length < 6) return null;
+  const dataRows = rows.slice(5).filter(r => r && String(r[6]||"").trim());
+  const shiftC = { A:0, B:0, C:0 };
+  dataRows.forEach(row => {
+    const shift = String(row[9] ||"").replace(/\xa0/g,"").trim();
+    const dept  = String(row[10]||"").replace(/\xa0/g,"").trim().toLowerCase();
+    const se    = String(row[11]||"").trim();
+    const pe    = String(row[12]||"").trim();
+    const ce    = String(row[13]||"").trim();
+    const sk = /^a(-?shift)?$/i.test(shift)?"A":/^b(-?shift)?$/i.test(shift)?"B":/^c(-?shift)?$/i.test(shift)?"C":null;
+    if (!sk) return;
+    if (!dept.includes("receiv")) return;
+    if (isNoError(se) && isNoError(pe) && isNoError(ce)) return;
+    shiftC[sk]++;
+  });
+  return shiftC;
 }
 
 function buildRolling(wb, weekNum) {
@@ -206,6 +286,16 @@ function buildRolling(wb, weekNum) {
   for (let i = Math.max(1, weekNum - 3); i <= weekNum; i++) {
     const d = parseWeek(wb, i);
     if (d) out.push({ short:getWeekShort(i), label:getWeekLabel(i), total:d.total });
+  }
+  return out;
+}
+
+// 6-week window: the selected week plus the previous 5.
+function buildReceivingShiftRolling(wb, weekNum) {
+  const out = [];
+  for (let i = Math.max(1, weekNum - 5); i <= weekNum; i++) {
+    const d = parseWeekReceivingByShift(wb, i);
+    if (d) out.push({ short:getWeekShort(i), label:getWeekLabel(i), A:d.A, B:d.B, C:d.C });
   }
   return out;
 }
@@ -373,8 +463,9 @@ function App() {
     const data     = parseWeek(wb, weekNum);
     const prevData = weekNum > 1 ? parseWeek(wb, weekNum-1) : null;
     const rolling  = buildRolling(wb, weekNum);
+    const receivingRolling = buildReceivingShiftRolling(wb, weekNum);
     if (!data) return;
-    setReport({ data, prevData, rolling, takeaways:generateTakeaways(data, prevData, rolling, weekNum), weekNum });
+    setReport({ data, prevData, rolling, receivingRolling, takeaways:generateTakeaways(data, prevData, rolling, weekNum), weekNum });
   };
 
   const pageWrap = children => (
@@ -432,7 +523,7 @@ function App() {
   );
 
   // Report
-  const { data, prevData, rolling, takeaways } = report;
+  const { data, prevData, rolling, receivingRolling, takeaways } = report;
   const wLabel     = getWeekLabel(report.weekNum);
   const wLabelPrev = getWeekLabel(report.weekNum - 1);
   const fmtPct     = n => `${((n/data.total)*100).toFixed(1)}%`;
@@ -565,6 +656,43 @@ function App() {
           </Card>
         )}
 
+        {receivingRolling.length >= 2 && (
+          <Card t={t}>
+            <SectionHeader t={t} eyebrow="By Shift · Receiving Only" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
+              title="Receiving Processor Errors by Shift"
+              subtitle={`${receivingRolling[0].label} – ${receivingRolling[receivingRolling.length-1].label} · Receiving home department only, current counting rules`} />
+            <MultiLineChart data={receivingRolling} t={t} />
+            <div style={{ display:"flex", gap:16, marginTop:12, justifyContent:"center" }}>
+              {["A","B","C"].map(k => (
+                <div key={k} style={{ display:"flex", alignItems:"center", gap:6, fontSize:11.5, color:t.textSecond, fontWeight:600 }}>
+                  <span style={{ width:10, height:10, borderRadius:5, background:SHIFT_COLORS[k], display:"inline-block" }} />
+                  {k}-Shift
+                </div>
+              ))}
+            </div>
+            <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, marginTop:16 }}>
+              <thead>
+                <tr style={{ borderBottom:`1px solid ${t.cardBorder}` }}>
+                  <th style={{ textAlign:"left",  padding:"6px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Week</th>
+                  <th style={{ textAlign:"right", padding:"6px 10px", fontSize:11, color:SHIFT_COLORS.A, textTransform:"uppercase" }}>A</th>
+                  <th style={{ textAlign:"right", padding:"6px 10px", fontSize:11, color:SHIFT_COLORS.B, textTransform:"uppercase" }}>B</th>
+                  <th style={{ textAlign:"right", padding:"6px 10px", fontSize:11, color:SHIFT_COLORS.C, textTransform:"uppercase" }}>C</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receivingRolling.map((d,i) => (
+                  <tr key={d.label} style={{ background:i%2?t.rowAlt:"transparent" }}>
+                    <td style={{ padding:"7px 10px", color:t.textPrimary, fontWeight:i===receivingRolling.length-1?800:600 }}>{d.label}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700, color:SHIFT_COLORS.A }}>{d.A}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700, color:SHIFT_COLORS.B }}>{d.B}</td>
+                    <td style={{ padding:"7px 10px", textAlign:"right", fontWeight:700, color:SHIFT_COLORS.C }}>{d.C}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        )}
+
         <Card t={t}>
           <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#A78BFA" eyebrowBg={dark?"#A78BFA22":"#ede9fe"}
             title="Error Share by Shift" subtitle="A-Shift, B-Shift, C-Shift — % of total errors" />
@@ -610,19 +738,26 @@ function App() {
           <Card t={t} className="print-break">
             <SectionHeader t={t} eyebrow="Processors" eyebrowColor="#B45309" eyebrowBg={dark?"#B4530922":"#fef3c7"}
               title="Processors with 3+ Errors"
-              subtitle={`${data.topProcessors.length} WM Sign-On ID${data.topProcessors.length!==1?"s":""} — ${data.topProcessors.reduce((s,p)=>s+p.count,0)} of ${data.total} errors (${fmtPct(data.topProcessors.reduce((s,p)=>s+p.count,0))})`} />
+              subtitle={`${data.topProcessors.length} LanID${data.topProcessors.length!==1?"s":""} — ${data.topProcessors.reduce((s,p)=>s+p.count,0)} of ${data.total} errors (${fmtPct(data.topProcessors.reduce((s,p)=>s+p.count,0))})`} />
             <table style={{ width:"100%", borderCollapse:"collapse", fontSize:14, marginTop:4 }}>
               <thead>
                 <tr style={{ borderBottom:`1px solid ${t.cardBorder}` }}>
-                  <th style={{ textAlign:"left",  padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>WM Sign-On</th>
-                  <th style={{ textAlign:"right", padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Errors</th>
-                  <th style={{ textAlign:"right", padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>% of Total</th>
+                  <th style={{ textAlign:"left",   padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>LanID</th>
+                  <th style={{ textAlign:"center", padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Shift</th>
+                  <th style={{ textAlign:"right",  padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>Errors</th>
+                  <th style={{ textAlign:"right",  padding:"8px 10px", fontSize:11, color:t.textMuted, textTransform:"uppercase" }}>% of Total</th>
                 </tr>
               </thead>
               <tbody>
                 {data.topProcessors.map((p,i) => (
                   <tr key={p.name} style={{ background:i%2?t.rowAlt:"transparent" }}>
                     <td style={{ padding:"9px 10px", color:t.textPrimary, fontWeight:600 }}>{p.name}</td>
+                    <td style={{ padding:"9px 10px", textAlign:"center" }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:SHIFT_COLORS[p.shift],
+                        background:`${SHIFT_COLORS[p.shift]}22`, padding:"3px 10px", borderRadius:12 }}>
+                        {p.shift}
+                      </span>
+                    </td>
                     <td style={{ padding:"9px 10px", textAlign:"right", fontWeight:800, color:"#B45309" }}>{p.count}</td>
                     <td style={{ padding:"9px 10px", textAlign:"right", color:t.textMuted }}>{fmtPct(p.count)}</td>
                   </tr>
