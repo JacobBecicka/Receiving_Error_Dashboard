@@ -749,11 +749,10 @@ function renderOverview(){
   }
   const navy=gAccent();
 
-  const firstRange=FW_DATE_RANGES[1]||"", lastRange=FW_DATE_RANGES[NUM_WEEKS]||"";
   document.getElementById("ov-sub").textContent=
-    `All processors · Fiscal Weeks 1–${NUM_WEEKS}${firstRange&&lastRange?` · ${firstRange} – ${lastRange}`:""}`;
+    `All processors · Fiscal Weeks 1–${NUM_WEEKS}`;
   document.getElementById("ov-weekly-sub").textContent=
-    `Fiscal Weeks 1–${NUM_WEEKS}${firstRange&&lastRange?` · ${firstRange} – ${lastRange}`:""} · Stacked by CP1 · CP2 · CP3`;
+    `Fiscal Weeks 1–${NUM_WEEKS} · Stacked by CP1 · CP2 · CP3`;
 
   document.getElementById("ov-stats").innerHTML=[
     {l:"Processors",      v:procs.length,         s:"LanIDs on record",    c:navy},
@@ -917,8 +916,6 @@ function renderDetail(lanid){
   const topCP=["shipment","piece","carton"].reduce((b,k)=>proc.totals[k]>proc.totals[b]?k:b,"shipment");
   const topCPLabel={shipment:"Shipment",piece:"Piece",carton:"Carton"}[topCP];
 
-  const firstRange=FW_DATE_RANGES[1]||"", lastRange=FW_DATE_RANGES[NUM_WEEKS]||"";
-
   // Identity header
   document.getElementById("det-hdr").innerHTML=`
     <div class="proc-avatar" style="background:${sc};box-shadow:0 0 0 3px var(--bg),0 0 0 5px ${sc}44">${sl}</div>
@@ -929,7 +926,7 @@ function renderDetail(lanid){
         <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--muted)">${proc.lanid}</span>
       </div>
       <div class="proc-meta-name" style="color:${sc}">${esc(proc.name)} &#8212; Error Frequency Trend</div>
-      <div class="proc-meta-sub">Fiscal Weeks 1&#8211;${NUM_WEEKS}${firstRange&&lastRange?` &nbsp;&#183;&nbsp; ${firstRange} &#8211; ${lastRange}`:""}</div>
+      <div class="proc-meta-sub">Fiscal Weeks 1&#8211;${NUM_WEEKS}</div>
     </div>`;
 
   // Summary stats
