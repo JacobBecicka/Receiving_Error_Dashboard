@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Weekly Error Frequency Heat Map · Receiving</title>
+  <title>Fiscal Week Error Frequency Heat Map · Receiving</title>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -22,15 +22,26 @@
     const REPO_RAW = 'https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main';
     const WORKBOOK  = 'AI_Safe_Weekly_Error_Data.xlsx';
 
-    const WEEKS = Array.from({ length: 52 }, (_, i) => `Week ${i + 1}`);
-
     const SHIFTS = [
       { key:"a", label:"A-Shift", accent:"#38bdf8", glow:"rgba(56,189,248,.18)",  border:"rgba(56,189,248,.4)" },
-      { key:"b", label:"B-Shift", accent:"#c084fc", glow:"rgba(192,132,252,.18)", border:"rgba(192,132,252,.4)" },
+      { key:"b", label:"B-Shift", accent:"#a78bfa", glow:"rgba(167,139,250,.18)", border:"rgba(167,139,250,.4)" },
       { key:"c", label:"C-Shift", accent:"#34d399", glow:"rgba(52,211,153,.18)",  border:"rgba(52,211,153,.4)" },
     ];
 
-    const MONTH_BREAKS = [4, 8, 13, 17, 21, 26, 30, 35, 39, 43, 48];
+    // ── DEBUG CATCHER ──────────────────────────────────────────────
+    // Toggle with the "DEBUG" button in the control bar, or append
+    // ?debug=1 to the URL. Logs parsing / fiscal-mapping decisions
+    // so a bad workbook produces a visible reason, not a blank table.
+    const urlDebug = new URLSearchParams(window.location.search).get('debug') === '1';
+    function useDebugLog() {
+      const [logs, setLogs] = useState([]);
+      const push = useCallback((level, msg) => {
+        setLogs(l => [...l, { level, msg, t: new Date().toLocaleTimeString() }].slice(-200));
+        if (level === 'error') console.error('[HeatMap]', msg);
+        else console.log('[HeatMap]', msg);
+      }, []);
+      return [logs, push];
+    }
 
     function makeTk(dark) {
       return {
@@ -54,6 +65,7 @@
         receivingColor:dark ? "#94a3b8"                        : "#334155",
         scrollTrack:   dark ? "#1e293b"                        : "#dde3ea",
         moSep:         dark ? "rgba(100,116,139,.5)"           : "rgba(100,116,139,.35)",
+        debugBg:       dark ? "#0b1220"                        : "#0f172a",
       };
     }
 
@@ -76,12 +88,25 @@
       );
     }
 
-    function parseWorkbook(wb) {
+    // ── Parse "M/D - M/D" range strings ──
+    function parseRange(rangeStr) {
+      const m = String(rangeStr || "").match(/(\d+)\s*\/\s*(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)/);
+      if (!m) return null;
+      return {
+        startMonth: parseInt(m[1], 10), startDay: parseInt(m[2], 10),
+        endMonth:   parseInt(m[3], 10), endDay:   parseInt(m[4], 10),
+      };
+    }
+
+    function parseWorkbook(wb, log) {
       const result      = { a:{}, b:{}, c:{} };
       const ranges      = {};
       const trainingWMs = new Set();
+      const sheetOrder   = [];
+
       for (const sheet of wb.SheetNames) {
-        if (!sheet.startsWith("Week")) continue;
+        if (!/^Week\s+\d+$/i.test(sheet)) continue;
+        sheetOrder.push(sheet);
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header:1, defval:"" });
         ranges[sheet] = String(rows[1]?.[1] || "").trim();
         for (let i = 5; i < rows.length; i++) {
@@ -93,7 +118,7 @@
           const isTraining  = dept.includes("train");
           if (!isReceiving && !isTraining) continue;
           const sk = shift.startsWith("a")?"a":shift.startsWith("b")?"b":shift.startsWith("c")?"c":null;
-          if (!sk) continue;
+          if (!sk) { log && log('warn', `${sheet} row ${i+1}: unrecognized shift "${row[9]}" — skipped`); continue; }
           const wm = String(row[6]).trim();
           if (!wm) continue;
           if (isTraining) trainingWMs.add(wm);
@@ -101,7 +126,30 @@
           result[sk][wm][sheet] = (result[sk][wm][sheet] || 0) + 1;
         }
       }
-      return { counts:result, ranges, trainingWMs };
+
+      // ── Dynamic fiscal-week mapping ──
+      // Fiscal Week 1 = the first sheet (in order) whose date range reaches
+      // into February. This is recomputed from the workbook's own date
+      // labels every load, so it self-corrects each year regardless of
+      // what weekday Jan 1 falls on — no hardcoded offset required.
+      let anchorIdx = -1;
+      for (let i = 0; i < sheetOrder.length; i++) {
+        const parsed = parseRange(ranges[sheetOrder[i]]);
+        if (!parsed) { log && log('warn', `${sheetOrder[i]}: unparseable date range "${ranges[sheetOrder[i]]}"`); continue; }
+        if (parsed.endMonth === 2) { anchorIdx = i; break; }
+      }
+      if (anchorIdx === -1) {
+        log && log('error', 'Could not find a sheet reaching into February — fiscal week mapping failed. Check date-range formatting in row 2 of each sheet.');
+      } else {
+        log && log('info', `Fiscal Week 1 anchored to "${sheetOrder[anchorIdx]}" (${ranges[sheetOrder[anchorIdx]]})`);
+      }
+      const fiscalWeeks = anchorIdx === -1 ? [] : sheetOrder.slice(anchorIdx).map((sheet, i) => ({
+        fw: i + 1,
+        sheet,
+        range: ranges[sheet] || "",
+      }));
+
+      return { counts: result, ranges, trainingWMs, fiscalWeeks };
     }
 
     function hexToRgb(h) {
@@ -122,8 +170,8 @@
       if (!val) return "#94a3b8";
       return val/max > 0.4 ? "#fff" : "#1a2535";
     }
-    function computeTrend(wmData) {
-      const pts = WEEKS.map((w,i)=>[i,wmData[w]||0]).filter(([,v])=>v>0);
+    function computeTrend(wmData, fiscalWeeks) {
+      const pts = fiscalWeeks.map((fw,i)=>[i, wmData[fw.sheet]||0]).filter(([,v])=>v>0);
       if (pts.length<2) return 0;
       const n=pts.length, sx=pts.reduce((s,[x])=>s+x,0), sy=pts.reduce((s,[,y])=>s+y,0);
       const sxy=pts.reduce((s,[x,y])=>s+x*y,0), sx2=pts.reduce((s,[x])=>s+x*x,0);
@@ -146,6 +194,8 @@
       const [dark,     setDark]     = useState(false);
       const [loading,  setLoading]  = useState(true);
       const [loadErr,  setLoadErr]  = useState(null);
+      const [showDebug, setShowDebug] = useState(urlDebug);
+      const [logs, log] = useDebugLog();
       const inputRef = useRef();
       const tk = makeTk(dark);
 
@@ -153,13 +203,19 @@
       useEffect(() => {
         async function autoLoad() {
           try {
+            log('info', `Fetching ${REPO_RAW}/${WORKBOOK}`);
             const resp = await fetch(`${REPO_RAW}/${WORKBOOK}`);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const buf = await resp.arrayBuffer();
             const wb = XLSX.read(new Uint8Array(buf), { type:"array" });
-            const { counts, ranges, trainingWMs } = parseWorkbook(wb);
-            setData({ counts, ranges, trainingWMs, fileName: WORKBOOK });
+            const parsed = parseWorkbook(wb, log);
+            if (!parsed.fiscalWeeks.length) {
+              setLoadErr('Fiscal week mapping failed — see debug log.');
+              setShowDebug(true);
+            }
+            setData({ ...parsed, fileName: WORKBOOK });
           } catch(e) {
+            log('error', e.message);
             setLoadErr(e.message);
           } finally {
             setLoading(false);
@@ -172,53 +228,81 @@
         if (!file?.name.endsWith(".xlsx")) return;
         const reader = new FileReader();
         reader.onload = e => {
-          const wb = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
-          const { counts, ranges, trainingWMs } = parseWorkbook(wb);
-          setData({ counts, ranges, trainingWMs, fileName:file.name });
+          try {
+            const wb = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
+            const parsed = parseWorkbook(wb, log);
+            if (!parsed.fiscalWeeks.length) {
+              setLoadErr('Fiscal week mapping failed — see debug log.');
+              setShowDebug(true);
+            } else {
+              setLoadErr(null);
+            }
+            setData({ ...parsed, fileName:file.name });
+          } catch (err) {
+            log('error', `Failed to parse ${file.name}: ${err.message}`);
+            setLoadErr(err.message);
+          }
         };
         reader.readAsArrayBuffer(file);
       }, []);
 
       const onDrop = e => { e.preventDefault(); setDragging(false); load(e.dataTransfer.files[0]); };
 
+      const FW = data?.fiscalWeeks ?? [];
       const shiftCounts = data?.counts[shift] ?? {};
 
       const maxVal = useMemo(() =>
         Math.max(...Object.values(shiftCounts).flatMap(m=>Object.values(m)),1), [shiftCounts]);
 
+      // Totals/trends only count fiscal weeks (pre-FW1 weeks are excluded entirely)
       const wmTotals = useMemo(() =>
-        Object.fromEntries(Object.entries(shiftCounts).map(([wm,mo])=>
-          [wm,Object.values(mo).reduce((a,b)=>a+b,0)])), [shiftCounts]);
+        Object.fromEntries(Object.keys(shiftCounts).map(wm => [
+          wm, FW.reduce((s,fw)=>s+(shiftCounts[wm]?.[fw.sheet]||0),0)
+        ])), [shiftCounts, FW]);
 
       const wmTrends = useMemo(() =>
-        Object.fromEntries(Object.keys(shiftCounts).map(wm=>[wm,computeTrend(shiftCounts[wm])])), [shiftCounts]);
+        Object.fromEntries(Object.keys(shiftCounts).map(wm=>[wm, computeTrend(shiftCounts[wm], FW)])), [shiftCounts, FW]);
 
       const sortedWMs = useMemo(() =>
-        Object.keys(wmTotals).sort((a,b)=>wmTotals[b]-wmTotals[a]), [wmTotals]);
+        Object.keys(wmTotals).filter(wm=>wmTotals[wm]>0).sort((a,b)=>wmTotals[b]-wmTotals[a]), [wmTotals]);
 
       const grandTotal = Object.values(wmTotals).reduce((a,b)=>a+b,0);
       const avg = sortedWMs.length ? grandTotal/sortedWMs.length : 0;
 
       const weeksWithData = useMemo(() =>
-        WEEKS.filter(w=>sortedWMs.some(wm=>shiftCounts[wm]?.[w]>0)), [sortedWMs,shiftCounts]);
+        FW.filter(fw=>sortedWMs.some(wm=>shiftCounts[wm]?.[fw.sheet]>0)), [sortedWMs,shiftCounts,FW]);
+
+      // Month separators: draw a line whenever the calendar month (from the
+      // range's start date) changes from the previous fiscal week.
+      const monthBreaks = useMemo(() => {
+        const set = new Set();
+        let prevMonth = null;
+        FW.forEach((fw,i) => {
+          const p = parseRange(fw.range);
+          const m = p ? p.startMonth : null;
+          if (prevMonth !== null && m !== null && m !== prevMonth) set.add(i);
+          if (m !== null) prevMonth = m;
+        });
+        return set;
+      }, [FW]);
 
       const shiftTotals = useMemo(() =>
         data ? Object.fromEntries(SHIFTS.map(s=>[s.key,
-          Object.values(data.counts[s.key]).reduce((sum,mo)=>sum+Object.values(mo).reduce((a,b)=>a+b,0),0)
-        ])) : {}, [data]);
+          FW.reduce((sum,fw)=>sum+Object.values(data.counts[s.key]).reduce((a,wm)=>a+(wm[fw.sheet]||0),0),0)
+        ])) : {}, [data, FW]);
 
       const activeShift = SHIFTS.find(s=>s.key===shift);
 
-      function getDelta(wm, wIdx) {
-        if (wIdx===0) return null;
-        const curr=shiftCounts[wm]?.[WEEKS[wIdx]]||0, prev=shiftCounts[wm]?.[WEEKS[wIdx-1]]||0;
+      function getDelta(wm, idx) {
+        if (idx===0) return null;
+        const curr=shiftCounts[wm]?.[FW[idx].sheet]||0, prev=shiftCounts[wm]?.[FW[idx-1].sheet]||0;
         if (curr===0 && prev===0) return null;
         return curr-prev;
       }
 
       const allDeltas = useMemo(() =>
-        sortedWMs.flatMap(wm=>WEEKS.map((_,i)=>getDelta(wm,i)).filter(d=>d!==null)),
-        [sortedWMs,shiftCounts,viewMode]);
+        sortedWMs.flatMap(wm=>FW.map((_,i)=>getDelta(wm,i)).filter(d=>d!==null)),
+        [sortedWMs,shiftCounts,viewMode,FW]);
       const maxAbsDelta = Math.max(...allDeltas.map(Math.abs),1);
 
       function deltaBg(d) {
@@ -256,10 +340,19 @@
               letter-spacing:.06em;border:1px solid transparent;background:transparent;
               color:${tk.textMuted};transition:all .2s}
             .view-btn.on{background:${tk.surface};border-color:${tk.borderMuted};color:${tk.text}}
+            .util-btn{display:flex;align-items:center;gap:.35rem;background:transparent;
+              border:1px solid ${tk.borderMuted};border-radius:8px;padding:.35rem .8rem;cursor:pointer;
+              font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.05em;color:${tk.textMuted};
+              text-decoration:none;transition:all .2s}
+            .util-btn:hover{color:#38bdf8;border-color:#38bdf8}
             .sticky-wm{position:sticky;left:0;z-index:10;padding-right:.75rem;background:${tk.sticky}}
             .sticky-th{position:sticky;left:0;z-index:11;background:${tk.sticky}}
             .mo-sep{border-left:1px solid ${tk.moSep}}
             @keyframes spin{to{transform:rotate(360deg)}}
+            @media print {
+              .no-print{display:none !important}
+              body{background:#fff !important}
+            }
           `}</style>
 
           {/* Header */}
@@ -268,39 +361,48 @@
             <div>
               <p style={{ fontSize:".6rem", letterSpacing:".2em", color:tk.textMuted,
                 fontFamily:"DM Sans,sans-serif", marginBottom:".3rem" }}>
-                RECEIVING · TRAINING · WEEKLY · 2026
+                RECEIVING · TRAINING · FISCAL WEEKLY
               </p>
               <h1 style={{ fontSize:"1.7rem", fontWeight:800, color:tk.textH,
                 fontFamily:"DM Sans,sans-serif", letterSpacing:"-.03em", lineHeight:1 }}>
                 Error Frequency Heat Map
               </h1>
             </div>
-            <div style={{ display:"flex", alignItems:"center", gap:"1.25rem" }}>
+            <div className="no-print" style={{ display:"flex", alignItems:"center", gap:"1.25rem" }}>
               {data && (
                 <p style={{ fontSize:".6rem", color:tk.textMuted, textAlign:"right" }}>
                   {data.fileName}<br/>
                   <span style={{ color:tk.textFaint }}>
-                    data thru {weeksWithData[weeksWithData.length-1]||"—"}
-                    {data.ranges[weeksWithData[weeksWithData.length-1]]
-                      ?` (${data.ranges[weeksWithData[weeksWithData.length-1]]})` :""}
+                    data thru FW{weeksWithData[weeksWithData.length-1]?.fw ?? "—"}
+                    {weeksWithData[weeksWithData.length-1]?.range
+                      ?` (${weeksWithData[weeksWithData.length-1].range})` :""}
                   </span>
                 </p>
               )}
-              <a href="index.html" style={{
-                display:"flex", alignItems:"center", gap:".35rem",
-                background:"transparent", border:`1px solid ${tk.borderMuted}`,
-                borderRadius:8, padding:".35rem .8rem", cursor:"pointer",
-                fontFamily:"DM Mono,monospace", fontSize:".65rem",
-                letterSpacing:".05em", color:tk.textMuted,
-                textDecoration:"none", transition:"all .2s",
-              }}
-                onMouseOver={e=>{ e.currentTarget.style.color="#38bdf8"; e.currentTarget.style.borderColor="#38bdf8"; }}
-                onMouseOut={e=>{ e.currentTarget.style.color=tk.textMuted; e.currentTarget.style.borderColor=tk.borderMuted; }}>
-                ← HUB
-              </a>
+              <button className="util-btn" onClick={()=>setShowDebug(d=>!d)}
+                style={showDebug?{color:"#f59e0b",borderColor:"#f59e0b"}:{}}>
+                DEBUG {logs.some(l=>l.level==='error') ? '⚠' : ''}
+              </button>
+              <button className="util-btn" onClick={()=>window.print()}>PRINT</button>
+              <a className="util-btn" href="index.html">← HUB</a>
               <DarkToggle dark={dark} setDark={setDark} tk={tk} />
             </div>
           </div>
+
+          {/* ── Debug panel ── */}
+          {showDebug && (
+            <div className="no-print" style={{ marginBottom:"1.25rem", background:tk.debugBg, color:"#94e2ff",
+              borderRadius:10, padding:".75rem 1rem", fontSize:".65rem", maxHeight:180, overflowY:"auto",
+              border:"1px solid #1e3a5f" }}>
+              <div style={{ color:"#f8fafc", fontWeight:700, marginBottom:".4rem" }}>DEBUG LOG</div>
+              {logs.length===0 && <div style={{opacity:.5}}>No events yet.</div>}
+              {logs.map((l,i)=>(
+                <div key={i} style={{ color: l.level==='error'?'#f87171':l.level==='warn'?'#fbbf24':'#94e2ff' }}>
+                  [{l.t}] {l.level.toUpperCase()}: {l.msg}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── Loading state ── */}
           {loading ? (
@@ -314,7 +416,7 @@
               </p>
             </div>
 
-          ) : !data ? (
+          ) : !data || !FW.length ? (
             /* ── Error / manual fallback ── */
             <div style={{ maxWidth:480, margin:"4rem auto", textAlign:"center" }}>
               {loadErr && (
@@ -322,8 +424,8 @@
                   background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.3)",
                   borderRadius:10, color:"#f87171", fontSize:".75rem",
                   fontFamily:"DM Sans,sans-serif", lineHeight:1.5 }}>
-                  ⚠ Auto-load failed: {loadErr}<br/>
-                  <span style={{ opacity:.7 }}>Upload the workbook manually below as a fallback.</span>
+                  ⚠ {loadErr}<br/>
+                  <span style={{ opacity:.7 }}>Check the DEBUG panel above, or upload the workbook manually below.</span>
                 </div>
               )}
               <div className={`drop-zone${dragging?" active":""}`}
@@ -344,7 +446,7 @@
           ) : (
             <>
               {/* Control bar */}
-              <div style={{ display:"flex", alignItems:"center", gap:".75rem", marginBottom:"1.25rem", flexWrap:"wrap" }}>
+              <div className="no-print" style={{ display:"flex", alignItems:"center", gap:".75rem", marginBottom:"1.25rem", flexWrap:"wrap" }}>
                 <button onClick={()=>setData(null)} style={{
                   background:"transparent", border:`1px solid ${tk.borderMuted}`, color:tk.textMuted,
                   padding:".3rem .8rem", borderRadius:6, cursor:"pointer",
@@ -391,7 +493,7 @@
               </div>
 
               {/* Legend */}
-              <div style={{ display:"flex", alignItems:"center", gap:".5rem", marginBottom:"1rem", flexWrap:"wrap" }}>
+              <div className="no-print" style={{ display:"flex", alignItems:"center", gap:".5rem", marginBottom:"1rem", flexWrap:"wrap" }}>
                 {viewMode==="raw" ? (
                   <>
                     <span style={{ fontSize:".55rem", color:tk.textMuted, letterSpacing:".08em" }}>NONE</span>
@@ -415,7 +517,7 @@
                       </div>
                     ))}
                     <span style={{ fontSize:".52rem", color:tk.textFaint, marginLeft:".5rem" }}>
-                      · TREND col shows net change first→last active week
+                      · TREND col shows net change first→last active fiscal week
                     </span>
                   </>
                 )}
@@ -462,17 +564,17 @@
                         fontWeight:500, paddingBottom:".5rem", paddingRight:".5rem", whiteSpace:"nowrap", minWidth:80 }}>
                         LanID
                       </th>
-                      {WEEKS.map((w,i)=>{
-                        const hasData = sortedWMs.some(wm=>shiftCounts[wm]?.[w]>0);
-                        const isSep   = MONTH_BREAKS.includes(i);
+                      {FW.map((fw,i)=>{
+                        const hasData = sortedWMs.some(wm=>shiftCounts[wm]?.[fw.sheet]>0);
+                        const isSep   = monthBreaks.has(i);
                         return (
-                          <th key={w} className={isSep?"mo-sep":""}
-                            title={data.ranges[w]?`${w}: ${data.ranges[w]}`:w}
+                          <th key={fw.sheet} className={isSep?"mo-sep":""}
+                            title={fw.range?`FW${fw.fw}: ${fw.range}`:`FW${fw.fw}`}
                             style={{ fontSize:".5rem", fontWeight:500,
                               color:hasData?tk.textMuted:tk.border,
                               textAlign:"center", width:22, paddingBottom:".5rem",
                               letterSpacing:".02em", cursor:"default", paddingLeft:isSep?4:0 }}>
-                            {i+1}
+                            {fw.fw}
                           </th>
                         );
                       })}
@@ -490,10 +592,10 @@
                     {sortedWMs.map(wm=>{
                       const trend      = wmTrends[wm];
                       const isTraining = data.trainingWMs.has(wm);
-                      const activeWks  = WEEKS.filter(w=>(shiftCounts[wm]?.[w]||0)>0);
-                      const netChange  = activeWks.length>=2
-                        ?(shiftCounts[wm]?.[activeWks[activeWks.length-1]]||0)-(shiftCounts[wm]?.[activeWks[0]]||0)
-                        :null;
+                      const activeIdxs = FW.map((fw,i)=>({i, v:shiftCounts[wm]?.[fw.sheet]||0})).filter(o=>o.v>0);
+                      const netChange  = activeIdxs.length>=2
+                        ? activeIdxs[activeIdxs.length-1].v - activeIdxs[0].v
+                        : null;
                       return (
                         <tr key={wm}>
                           <td className="sticky-wm" style={{ fontSize:".65rem", fontWeight:500,
@@ -508,18 +610,18 @@
                                 letterSpacing:".04em", verticalAlign:"middle" }}>T</span>
                             )}
                           </td>
-                          {WEEKS.map((w,wIdx)=>{
-                            const raw   = shiftCounts[wm]?.[w]||0;
-                            const delta = getDelta(wm,wIdx);
-                            const isSep = MONTH_BREAKS.includes(wIdx);
+                          {FW.map((fw,idx)=>{
+                            const raw   = shiftCounts[wm]?.[fw.sheet]||0;
+                            const delta = getDelta(wm,idx);
+                            const isSep = monthBreaks.has(idx);
                             const bg    = viewMode==="raw"?heatBg(raw,maxVal):deltaBg(delta);
                             const fg    = viewMode==="raw"?heatFg(raw,maxVal):deltaFg(delta);
                             const txt   = viewMode==="raw"
                               ?(raw>0?raw:"")
                               :(delta===null?"":(delta===0?"·":((delta>0?"+":"")+delta)));
                             return (
-                              <td key={w} style={{ padding:0, textAlign:"center", paddingLeft:isSep?4:0 }}
-                                onMouseEnter={e=>setTooltip({wm,week:w,raw,delta,range:data.ranges[w]||"",isTraining,x:e.clientX,y:e.clientY})}
+                              <td key={fw.sheet} style={{ padding:0, textAlign:"center", paddingLeft:isSep?4:0 }}
+                                onMouseEnter={e=>setTooltip({wm,fw,raw,delta,isTraining,x:e.clientX,y:e.clientY})}
                                 onMouseLeave={()=>setTooltip(null)}>
                                 <div className="wk-cell" style={{ width:20, height:22, margin:"0 auto",
                                   display:"flex", alignItems:"center", justifyContent:"center",
@@ -553,11 +655,11 @@
                     <tr>
                       <td className="sticky-wm" style={{ fontSize:".52rem", color:tk.textMuted,
                         paddingTop:".75rem", fontWeight:600, letterSpacing:".05em" }}>WK TOTAL</td>
-                      {WEEKS.map((w,i)=>{
-                        const tot   = sortedWMs.reduce((s,wm)=>s+(shiftCounts[wm]?.[w]||0),0);
-                        const isSep = MONTH_BREAKS.includes(i);
+                      {FW.map((fw,i)=>{
+                        const tot   = sortedWMs.reduce((s,wm)=>s+(shiftCounts[wm]?.[fw.sheet]||0),0);
+                        const isSep = monthBreaks.has(i);
                         return (
-                          <td key={w} style={{ textAlign:"center", paddingTop:".75rem", paddingLeft:isSep?4:0 }}>
+                          <td key={fw.sheet} style={{ textAlign:"center", paddingTop:".75rem", paddingLeft:isSep?4:0 }}>
                             <span style={{ fontSize:".5rem", fontWeight:600, color:tot>0?tk.textMuted:tk.border }}>
                               {tot>0?tot:""}
                             </span>
@@ -574,7 +676,7 @@
               </div>
 
               {/* Top movers */}
-              <div style={{ marginTop:"1.5rem", display:"flex", gap:".4rem", flexWrap:"wrap", alignItems:"center" }}>
+              <div className="no-print" style={{ marginTop:"1.5rem", display:"flex", gap:".4rem", flexWrap:"wrap", alignItems:"center" }}>
                 <span style={{ fontSize:".52rem", color:tk.textMuted, letterSpacing:".1em", marginRight:".25rem" }}>
                   TOP OFFENDERS
                 </span>
@@ -621,8 +723,8 @@
                   background:"rgba(124,58,237,.15)", border:"1px solid rgba(124,58,237,.35)",
                   fontSize:".48rem", fontWeight:700, color:"#7c3aed", letterSpacing:".04em", verticalAlign:"middle" }}>T</span>
               )}
-              <span style={{ color:tk.textMuted }}> · {tooltip.week}</span>
-              {tooltip.range && <span style={{ color:tk.textFaint }}> ({tooltip.range})</span>}
+              <span style={{ color:tk.textMuted }}> · FW{tooltip.fw.fw}</span>
+              {tooltip.fw.range && <span style={{ color:tk.textFaint }}> ({tooltip.fw.range})</span>}
               <span style={{ color:tk.textNav }}> → </span>
               <strong style={{ color:tooltip.raw>0?"#f59e0b":tk.textNav }}>
                 {tooltip.raw} incident{tooltip.raw!==1?"s":""}
@@ -630,7 +732,7 @@
               {tooltip.delta!==null && (
                 <span style={{ marginLeft:".5rem",
                   color:tooltip.delta<0?"#22c55e":tooltip.delta>0?"#ef4444":tk.textMuted }}>
-                  ({tooltip.delta>0?"+":""}{tooltip.delta} vs prev wk)
+                  ({tooltip.delta>0?"+":""}{tooltip.delta} vs prev FW)
                 </span>
               )}
             </div>
