@@ -66,6 +66,14 @@
       letter-spacing: -0.3px;
     }
     .section-header p { font-size: 13px; color: var(--text-second); }
+    /* Top nav (Hub / Print / Theme) — matches Weekly Error Report layout */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+    .top-nav-right { display: flex; gap: 8px; }
     .page-header {
       display: flex;
       justify-content: space-between;
@@ -126,10 +134,20 @@
       font-weight: 700;
     }
     th.r { text-align: right; }
+    th.c { text-align: center; }
     td { padding: 8px 10px; font-size: 13.5px; color: var(--text-primary); }
     td.r { text-align: right; font-weight: 700; }
+    td.c { text-align: center; }
     td.m { text-align: right; color: var(--text-muted); width: 72px; font-size: 13px; }
     tr:nth-child(even) td { background: var(--row-alt); }
+    /* Shift badge (matches Weekly Error Report processor table) */
+    .shift-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 12px;
+    }
     /* Rolling */
     .rolling-avg { font-size: 12.5px; color: var(--text-second); margin-top: 14px; line-height: 1.5; }
     /* Checkpoints */
@@ -159,8 +177,6 @@
     @media (max-width: 500px) {
       .mom-right { width: 100%; text-align: left; margin-left: 0; margin-top: 8px; }
     }
-    /* Header button group */
-    .header-btns { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0; }
     .hdr-btn {
       display: flex; align-items: center; gap: 6px;
       background: var(--card); border: 1px solid var(--card-border);
@@ -212,7 +228,7 @@
     /* ===================== PRINT ===================== */
     @media print {
       body { background: #fff !important; padding: 0 !important; }
-      .no-print, #sticky-nav, .header-btns, select { display: none !important; }
+      .no-print, #sticky-nav, select { display: none !important; }
       .card {
         box-shadow: none !important;
         border: 1px solid #ccc !important;
@@ -239,11 +255,20 @@
     <div style="font-size:15px;font-weight:700;color:var(--text-primary)">Unable to load workbook</div>
     <div id="error-msg" style="font-size:13px;color:var(--text-second);max-width:380px"></div>
     <button class="hdr-btn" onclick="init()" style="margin-top:6px">↺ Retry</button>
-    <a class="hdr-btn" href="index.html">🏠 Hub</a>
+    <a class="hdr-btn" href="index.html">← Hub</a>
   </div>
 
   <!-- Main app content -->
   <div id="app-content">
+
+    <!-- Top nav: Hub / Print / Theme — uniform across all dashboards -->
+    <div class="top-nav no-print">
+      <a class="hdr-btn" href="index.html">← Hub</a>
+      <div class="top-nav-right">
+        <button class="hdr-btn" id="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+        <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">🌙 Dark</button>
+      </div>
+    </div>
 
     <!-- Page header -->
     <div class="page-header">
@@ -251,11 +276,6 @@
         <div class="eyebrow">Receiving Research Error Form</div>
         <h1>Monthly Error Report</h1>
         <select id="month-select"></select>
-      </div>
-      <div class="header-btns">
-        <a class="hdr-btn" href="index.html">🏠 Hub</a>
-        <button class="hdr-btn" id="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
-        <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">🌙 Dark</button>
       </div>
     </div>
 
@@ -271,7 +291,7 @@
       <div id="mom-body"></div>
     </div>
 
-    <!-- 3-Month Rolling -->
+    <!-- 6-Month Rolling -->
     <div class="card">
       <div class="section-header" id="rolling-header"></div>
       <canvas id="chart-rolling" style="width:100%;height:180px;"></canvas>
@@ -416,7 +436,7 @@ function sortObj(o) {
    XLSX PARSING — grouped by calendar month
    Same column layout and shift-validation logic as the
    Weekly Error Report / Processor Error Card / YTD Report:
-     col 1  = Start time      col 6  = WM Sign-On
+     col 1  = Start time      col 6  = WM Sign-On (LanID)
      col 9  = Shift           col 10 = Home Dept
      col 11 = Shipment errors (CP1)
      col 12 = Piece errors (CP2)   col 13 = Carton errors (CP3)
@@ -435,7 +455,8 @@ function parseWorkbookToMonths(wb) {
       months[mk] = {
         total: 0, shiftA: 0, shiftB: 0, shiftC: 0,
         receiving: 0, transfers: 0,
-        shipment: {}, piece: {}, carton: {}, procs: {},
+        recvShiftA: 0, recvShiftB: 0, recvShiftC: 0,
+        shipment: {}, piece: {}, carton: {}, procs: {}, procShift: {},
       };
     }
     return months[mk];
@@ -489,8 +510,12 @@ function parseWorkbookToMonths(wb) {
       const acc = ensureMonth(mk);
       acc.total++;
       acc[`shift${sk}`]++;
-      if (dept.includes("receiv")) acc.receiving++; else acc.transfers++;
-      if (wm) acc.procs[wm] = (acc.procs[wm] || 0) + 1;
+      if (dept.includes("receiv")) { acc.receiving++; acc[`recvShift${sk}`]++; } else acc.transfers++;
+      if (wm) {
+        acc.procs[wm] = (acc.procs[wm] || 0) + 1;
+        if (!acc.procShift[wm]) acc.procShift[wm] = { A: 0, B: 0, C: 0 };
+        acc.procShift[wm][sk]++;
+      }
 
       const add = (str, counter) => {
         if (isNoError(str)) return;
@@ -509,12 +534,19 @@ function parseWorkbookToMonths(wb) {
     finalized[mk] = {
       total: acc.total, shiftA: acc.shiftA, shiftB: acc.shiftB, shiftC: acc.shiftC,
       receiving: acc.receiving, transfers: acc.transfers,
+      recvShiftA: acc.recvShiftA, recvShiftB: acc.recvShiftB, recvShiftC: acc.recvShiftC,
       shipment: sortObj(acc.shipment),
       piece:    sortObj(acc.piece),
       carton:   sortObj(acc.carton),
+      // Each entry: [lanId, count, dominantShift]
       procs5: Object.entries(acc.procs)
         .filter(([,c]) => c >= 5)
-        .sort((a,b) => b[1]-a[1]),
+        .sort((a,b) => b[1]-a[1])
+        .map(([name, count]) => {
+          const sc = acc.procShift[name] || { A: 0, B: 0, C: 0 };
+          const dominantShift = Object.entries(sc).sort((a,b) => b[1]-a[1])[0][0];
+          return [name, count, dominantShift];
+        }),
     };
   });
   return finalized;
@@ -527,7 +559,7 @@ let MONTHLY_DATA = {};
 let MONTH_KEYS = [];
 let currentMonth = null;
 let isDark = false;
-let charts = { rolling: null, shift: null, dept: null };
+let charts = { rolling: null, shift: null, dept: null, recvShift: null };
 
 /* ============================================================
    LOAD / INIT
@@ -680,6 +712,55 @@ function makeBarChart(labels, values, currentIdx) {
   });
 }
 
+function makeShiftLineChart(labels, aVals, bVals, cVals) {
+  destroyChart('recvShift');
+  const gridC = isDark ? '#1e293b' : '#e2e8f0';
+  const textC = isDark ? '#94a3b8' : '#475569';
+  const mutC  = isDark ? '#64748b' : '#94a3b8';
+  const bgC   = isDark ? '#111827' : '#ffffff';
+  const mkSet = (label, data, color) => ({
+    label, data, borderColor: color, backgroundColor: color,
+    pointBackgroundColor: color, pointRadius: 3, tension: 0.3,
+    borderWidth: 2.5, fill: false,
+  });
+  charts['recvShift'] = new Chart(document.getElementById('chart-recv-shift'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        mkSet('A-Shift', aVals, SHIFT_COLORS.A),
+        mkSet('B-Shift', bVals, SHIFT_COLORS.B),
+        mkSet('C-Shift', cVals, SHIFT_COLORS.C),
+      ],
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: bgC,
+          borderColor: gridC,
+          borderWidth: 1,
+          titleColor: isDark ? '#f1f5f9' : '#0f172a',
+          bodyColor: textC,
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: textC, font: { size: 12 } },
+          grid:  { display: false },
+          border:{ color: gridC },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { color: mutC, font: { size: 11 }, precision: 0 },
+          grid:  { color: gridC },
+          border:{ display: false },
+        },
+      },
+    },
+  });
+}
+
 /* ============================================================
    TAKEAWAYS
    ============================================================ */
@@ -763,7 +844,7 @@ function render() {
     { label:'Total Errors',     value: total,                                        color:'#16A34A', bg: isDark?'#16A34A22':'#dcfce7' },
     { label:'Busiest Shift',    value: `${busyL}-Shift (${p(busyN)})`,               color: SHIFT_COLORS[busyL], bg: isDark?SHIFT_COLORS[busyL]+'22':'#f0f9ff' },
     { label:'Top Checkpoint',   value: topCP.name,                                   color:'#0284C7', bg: isDark?'#0284C722':'#e0f2fe' },
-    { label:'Processors w/ 5+', value: data.procs5.length,                           color:'#B45309', bg: isDark?'#B4530922':'#fef3c7' },
+    { label:'LanIDs w/ 5+',     value: data.procs5.length,                           color:'#B45309', bg: isDark?'#B4530922':'#fef3c7' },
   ].map(s => `<div class="stat-tile" style="background:${s.bg};border:1px solid ${s.color}30;">
       <div class="s-label">${esc(s.label)}</div>
       <div class="s-value" style="color:${s.color}">${esc(String(s.value))}</div>
@@ -835,6 +916,37 @@ function render() {
   document.getElementById('rolling-avg').innerHTML =
     r3.length >= 2 ? `${r3.length}-month average: <strong>${avg}</strong> errors/month.` : '';
 
+  /* —— 6-MONTH RECEIVING-ONLY BY SHIFT —— */
+  const r6Keys = MONTH_KEYS.slice(Math.max(0, selIdx - 5), selIdx + 1);
+  const r6     = r6Keys.map(k => ({
+    label: monthLabel(k),
+    A: MONTHLY_DATA[k].recvShiftA,
+    B: MONTHLY_DATA[k].recvShiftB,
+    C: MONTHLY_DATA[k].recvShiftC,
+  }));
+  document.getElementById('recv-shift-header').innerHTML = `
+    <span class="badge" style="color:#0284C7;background:${isDark?'#0284C722':'#e0f2fe'};">By Shift · Receiving Only</span>
+    <h2>Receiving Processor Errors by Shift</h2>
+    <p>6 Month Receiving Home Department Errors</p>`;
+  makeShiftLineChart(r6.map(d => d.label), r6.map(d=>d.A), r6.map(d=>d.B), r6.map(d=>d.C));
+  document.getElementById('recv-shift-legend').innerHTML = ['A','B','C'].map(k => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-second);font-weight:600;">
+      <span style="width:10px;height:10px;border-radius:5px;background:${SHIFT_COLORS[k]};display:inline-block;"></span>${k}-Shift
+    </div>`).join('');
+  document.getElementById('recv-shift-table').innerHTML = `
+    <thead><tr>
+      <th>Month</th>
+      <th class="r" style="color:${SHIFT_COLORS.A}">A</th>
+      <th class="r" style="color:${SHIFT_COLORS.B}">B</th>
+      <th class="r" style="color:${SHIFT_COLORS.C}">C</th>
+    </tr></thead>
+    <tbody>${r6.map((d,i) => `<tr>
+      <td style="font-weight:${i===r6.length-1?800:600}">${esc(d.label)}</td>
+      <td class="r" style="color:${SHIFT_COLORS.A}">${d.A}</td>
+      <td class="r" style="color:${SHIFT_COLORS.B}">${d.B}</td>
+      <td class="r" style="color:${SHIFT_COLORS.C}">${d.C}</td>
+    </tr>`).join('')}</tbody>`;
+
   /* —— SHIFT DONUT —— */
   makeDoughnut('chart-shift',
     ['A-Shift','B-Shift','C-Shift'],
@@ -887,22 +999,23 @@ function render() {
     renderCP(data.piece,    'Piece Error Check',    false) +
     renderCP(data.carton,   'Carton Error Check',   false);
 
-  /* —— PROCESSORS 5+ —— */
+  /* —— LANIDS 5+ —— */
   const procSum = data.procs5.reduce((s,[,c]) => s+c, 0);
   const amberBg = isDark ? '#B4530922' : '#fef3c7';
   document.getElementById('procs-header').innerHTML = `
     <span class="badge" style="color:#B45309;background:${amberBg};">Processors</span>
-    <h2>Processors with 5+ Errors</h2>
-    <p>${data.procs5.length} processors generated ${procSum} of the ${total} logged errors (${pct(procSum, total)}) this month</p>`;
+    <h2>LanIDs with 5+ Errors</h2>
+    <p>${data.procs5.length} LanID${data.procs5.length!==1?'s':''} generated ${procSum} of the ${total} logged errors (${pct(procSum, total)}) this month</p>`;
   document.getElementById('procs-table').innerHTML = data.procs5.length ? `
     <thead><tr>
-      <th>Processor</th><th class="r">Errors</th><th class="r">% of Total</th>
+      <th>LanID</th><th class="c">Shift</th><th class="r">Errors</th><th class="r">% of Total</th>
     </tr></thead>
-    <tbody>${data.procs5.map(([name, count]) => `<tr>
+    <tbody>${data.procs5.map(([name, count, shift]) => `<tr>
       <td style="font-weight:600">${esc(name)}</td>
+      <td class="c"><span class="shift-badge" style="color:${SHIFT_COLORS[shift]};background:${SHIFT_COLORS[shift]}22;">${esc(shift)}</span></td>
       <td class="r" style="color:#B45309">${count}</td>
       <td class="m">${p(count)}</td>
-    </tr>`).join('')}</tbody>` : `<tbody><tr><td style="font-style:italic;color:var(--text-muted)">No processors met the 5+ error threshold this month.</td></tr></tbody>`;
+    </tr>`).join('')}</tbody>` : `<tbody><tr><td style="font-style:italic;color:var(--text-muted)">No LanIDs met the 5+ error threshold this month.</td></tr></tbody>`;
 
   /* —— KEY TAKEAWAYS —— */
   const takes = buildTakeaways(data, prevData, mk, prevKey);
