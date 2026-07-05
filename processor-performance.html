@@ -17,10 +17,19 @@
 const { useState, useEffect, useMemo } = React;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const MONTH_ORDER = [
-  'Jan 26','Feb 26','Mar 26','Apr 26','May 26','Jun 26',
-  'Jul 26','Aug 26','Sep 26','Oct 26','Nov 26','Dec 26'
-];
+// NOTE: Month keys ("Jan 26", "Feb 26"...) come from the production workbook's
+// own sheet names / row dates, and are sorted using monthSortKey() below
+// (year-aware) rather than a hardcoded single-year lookup table — this keeps
+// sorting correct now that the error workbook spans multiple fiscal years
+// (FW48 '25 through FW7 '27 and beyond).
+function monthSortKey(m) {
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [mon, yr] = String(m).split(' ');
+  const idx = MONTHS.indexOf(mon);
+  const yrNum = parseInt(yr, 10);
+  if (idx < 0 || isNaN(yrNum)) return Infinity; // unparseable keys sort last
+  return yrNum * 12 + idx;
+}
 
 const SHIFT_META = {
   a: { label:'A-Shift', color:'#0284c7', bg:'rgba(2,132,199,.12)',  bdr:'rgba(2,132,199,.35)' },
@@ -31,6 +40,13 @@ const SHIFT_META = {
 const ERR_FILE  = 'AI_Safe_Weekly_Error_Data.xlsx';
 const PROD_FILE = 'AI-safe-monthly-processing-data.xlsx';
 const HUB_URL   = 'https://jacobbecicka.github.io/Receiving_Error_Dashboard/index.html';
+
+// Sheets in the error workbook are named directly with their fiscal week,
+// e.g. "FW1 26", "FW48 25" — no calendar-week-offset math is needed here at
+// all, since this tool only cares about which sheets to scan for rows; the
+// actual calendar month a row belongs to is derived from its own Start time
+// date (see xlDateToMonthKey), completely independent of sheet naming.
+const FW_SHEET_RE = /^FW\s*\d+\s+\d+$/i;
 
 const COLS = [
   { key:'tm',    label:'TM',       title:'LanID — Team Member identifier',                              w:72,  sortable:true  },
@@ -61,6 +77,7 @@ function makeTk(dark) {
     cardBg:   dark ? '#1e293b' : '#ffffff',
     cardBdr:  dark ? '#334155' : '#e2e8f0',
     cardShd:  dark ? 'none'    : '0 1px 6px rgba(0,0,0,.06)',
+    shadow:   dark ? '0 2px 14px rgba(0,0,0,.35)' : '0 2px 12px rgba(0,0,0,.07)',
     tblBg:    dark ? '#1e293b' : '#ffffff',
     tblBdr:   dark ? '#334155' : '#e2e8f0',
     rowE:     dark ? '#1e293b' : '#ffffff',
@@ -164,7 +181,7 @@ function parseErrors(wb) {
   const errors = {};
 
   for (const sn of wb.SheetNames) {
-    if (!sn.startsWith('Week')) continue;
+    if (!FW_SHEET_RE.test(sn)) continue;
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1,defval:''});
 
     // Find header row (contains "Start time")
@@ -345,21 +362,6 @@ function computeRows(errors, prod, selMon, allMons) {
 }
 
 // ── Sub-components (OUTSIDE App — prevents keyboard collapse bug) ─────────────
-function ThemeToggle({dark,toggle,T}) {
-  return (
-    <button onClick={toggle} style={{background:'none',border:'none',cursor:'pointer',
-      display:'flex',alignItems:'center',gap:'.4rem',padding:'.25rem'}}>
-      <span style={{fontSize:'.7rem',color:T.muted}}>{dark?'☀':'☾'}</span>
-      <div style={{width:32,height:18,borderRadius:9,background:T.togTrack,
-        position:'relative',transition:'background .2s'}}>
-        <div style={{position:'absolute',top:2,left:dark?14:2,width:14,height:14,
-          borderRadius:'50%',background:T.togKnob,transition:'left .2s',
-          boxShadow:'0 1px 3px rgba(0,0,0,.2)'}}/>
-      </div>
-    </button>
-  );
-}
-
 function TrendCell({val,T}) {
   if (val===0) return <span style={{color:T.muted,fontSize:'.72rem'}}>→</span>;
   if (val>0)   return <span style={{color:'#dc2626',fontSize:'.72rem',fontWeight:700}}>▲</span>;
@@ -446,16 +448,13 @@ function App() {
     })();
   },[]);
 
-  // Sorted list of months with data
+  // Sorted list of months with data — year-aware sort (see monthSortKey),
+  // so this stays correct as the workbook spans multiple fiscal years.
   const allMons = useMemo(()=>{
     const seen = new Set();
     if (errors) Object.values(errors).forEach(m=>Object.keys(m).forEach(k=>seen.add(k)));
     if (prod)   Object.values(prod).forEach(m=>Object.keys(m).forEach(k=>seen.add(k)));
-    return [...seen].sort((a,b)=>{
-      const ai=MONTH_ORDER.indexOf(a), bi=MONTH_ORDER.indexOf(b);
-      if (ai>=0&&bi>=0) return ai-bi;
-      return a.localeCompare(b);
-    });
+    return [...seen].sort((a,b)=>monthSortKey(a)-monthSortKey(b));
   },[errors,prod]);
 
   const allRows = useMemo(()=>computeRows(errors,prod,selMon,allMons),[errors,prod,selMon,allMons]);
@@ -524,9 +523,20 @@ function App() {
         .tbl-row:hover td{background:${T.rowHov}!important;transition:background .1s}
         .sth{cursor:pointer;user-select:none;transition:color .15s}
         .sth:hover{color:${T.thAct}!important}
-        .hub-btn:hover{border-color:#0284c7!important;color:#0284c7!important}
         select{font-family:'DM Mono',monospace;outline:none}
         @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+        /* Uniform header buttons — Hub / Print / Theme — matches Weekly,
+           Monthly Error, YTD, Heat Map, and Processor Error Card reports */
+        .hdr-btn{display:flex;align-items:center;gap:6px;background:${T.cardBg};
+          border:1px solid ${T.cardBdr};border-radius:20px;padding:7px 14px;
+          cursor:pointer;font-size:12px;font-weight:700;color:${T.text};
+          box-shadow:${T.shadow};text-decoration:none;white-space:nowrap;
+          font-family:'DM Sans',sans-serif;transition:opacity .15s}
+        .hdr-btn:hover{opacity:.82}
+        @media print {
+          .no-print{display:none !important}
+          body{background:#fff !important}
+        }
       `}</style>
 
       {/* Header */}
@@ -545,17 +555,10 @@ function App() {
             <p style={{fontSize:'.6rem',color:T.sub,marginTop:'.3rem'}}>{periodLabel}</p>
           )}
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
-          <a href={HUB_URL} className="hub-btn" style={{
-            display:'inline-flex',alignItems:'center',gap:'.3rem',
-            padding:'.3rem .8rem',borderRadius:6,
-            border:`1px solid ${T.cardBdr}`,background:T.cardBg,
-            color:T.muted,textDecoration:'none',
-            fontFamily:'DM Mono,monospace',fontSize:'.65rem',letterSpacing:'.05em',
-            transition:'all .2s'}}>
-            ⌂ HUB
-          </a>
-          <ThemeToggle dark={dark} toggle={()=>setDark(d=>!d)} T={T}/>
+        <div className="no-print" style={{display:'flex',alignItems:'center',gap:'.6rem'}}>
+          <a href={HUB_URL} className="hdr-btn">← Hub</a>
+          <button className="hdr-btn" onClick={()=>window.print()}>🖨️ Print / Save PDF</button>
+          <button className="hdr-btn" onClick={()=>setDark(d=>!d)}>{dark?'☀️ Light':'🌙 Dark'}</button>
         </div>
       </div>
 
@@ -622,7 +625,7 @@ function App() {
           </div>
 
           {/* Controls */}
-          <div style={{display:'flex',alignItems:'center',gap:'.5rem',
+          <div className="no-print" style={{display:'flex',alignItems:'center',gap:'.5rem',
             flexWrap:'wrap',marginBottom:'.85rem'}}>
 
             {/* Period selector */}
@@ -844,7 +847,7 @@ function App() {
           </div>
 
           {/* Column guide */}
-          <div style={{marginTop:'.85rem'}}>
+          <div className="no-print" style={{marginTop:'.85rem'}}>
             <button onClick={()=>setGuideOpen(o=>!o)} style={{
               background:'none',border:'none',cursor:'pointer',color:T.muted,
               fontFamily:'DM Mono,monospace',fontSize:'.6rem',letterSpacing:'.08em',
