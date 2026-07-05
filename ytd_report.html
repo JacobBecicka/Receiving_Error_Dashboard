@@ -104,6 +104,10 @@
     .tile-lbl { font-size: 10.5px; color: var(--text2); margin-bottom: 2px; }
     .tile-val { font-size: 17px; font-weight: 800; }
 
+    /* Grey bubble wrapper — matches the grey-track treatment used by
+       shift-tile / dept-tile strips elsewhere in this report */
+    .bubble { background: var(--track); border-radius: 12px; padding: 14px 16px; }
+
     .ie-pair { background: var(--track); border-radius: 10px; padding: 10px 14px; flex: 1 1 150px; }
     .ie-lbl { font-size: 10.5px; color: var(--text2); margin-bottom: 4px; }
     .ie-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--textm); margin-bottom: 2px; }
@@ -184,6 +188,9 @@ const OUTLIER_THRESHOLD = 500; // units above this → outlier row
 //  A = sky blue | B = soft purple | C = mint green
 // ════════════════════════════════════════════════════════
 const SC = { A:'#38BDF8', B:'#A78BFA', C:'#34D399' };
+
+// Department colors — matched to Weekly Error Report's DEPT_COLORS
+const DC = { Receiving:'#38BDF8', Transfers:'#94A3B8' };
 
 // ════════════════════════════════════════════════════════
 //  STATE
@@ -308,6 +315,14 @@ function aggregate(rows) {
   const shiftErrors = { A:0, B:0, C:0 };
   rows.forEach(r => { if (r.shift in shiftErrors) shiftErrors[r.shift]++; });
 
+  // Home department split — Receiving vs. all Transfer departments combined.
+  // Same "receiv" substring match used by the Weekly Error Report.
+  const deptSplit = { recv:0, xfer:0 };
+  rows.forEach(r => {
+    if (String(r.dept).toLowerCase().includes('receiv')) deptSplit.recv++;
+    else deptSplit.xfer++;
+  });
+
   // Checkpoint breakdown
   const cpC = { shipment:{}, piece:{}, carton:{} };
   rows.forEach(r => {
@@ -380,7 +395,7 @@ function aggregate(rows) {
   });
 
   return {
-    total, weeksLabel, shiftErrors,
+    total, weeksLabel, shiftErrors, deptSplit,
     shipment, piece, carton,
     outliers, unitsIncl, unitsExcl, casesIncl, casesExcl,
     shiftVolume, skuTotal, skuBreakdown, coaching,
@@ -570,7 +585,9 @@ function renderSummary(d) {
   </div>`).join('');
   return `<div class="card" style="padding:18px 20px">
     <div class="eyebrow" style="margin-bottom:2px">${esc(selectedFY)} — Summary</div>
-    <div class="tiles" style="margin-top:8px">${tiles}</div>
+    <div class="bubble" style="margin-top:8px">
+      <div class="tiles">${tiles}</div>
+    </div>
     <p style="font-size:12.5px;color:var(--text2);margin-top:12px;line-height:1.5">
       ${fmt(d.total)} logged errors across ${d.weeksLabel}. Shipment checkpoint errors lead at ${pct(shipTotal,d.total)},
       driven mainly by ${esc(d.shipment[0]?.name||'SKU Maintenance errors')}.
@@ -592,6 +609,31 @@ function renderShiftChart(d) {
     <span class="badge" style="color:#7C3AED;background:${darkMode?'#7C3AED22':'#ede9fe'}">By Shift</span>
     <div class="sec-title">Error Volume by Shift</div>
     <div class="sec-sub">Count and share of total errors — ${d.weeksLabel}</div>
+    <div style="display:flex;justify-content:center;margin:18px 0 10px">${donut}</div>
+    <div style="display:flex;gap:10px">${tiles}</div>
+  </div>`;
+}
+
+// New: Receiving vs. Transfers donut + tiles, matching the Weekly Error
+// Report's "By Department" section (same colors, same donut/tile layout).
+function renderDept(d) {
+  const total = d.deptSplit.recv + d.deptSplit.xfer;
+  if (!total) return '';
+  const pieData = [
+    { name:'Receiving', value:d.deptSplit.recv, color:DC.Receiving },
+    { name:'Transfers', value:d.deptSplit.xfer, color:DC.Transfers },
+  ];
+  const donut = buildDonut(pieData, total);
+  const tiles = pieData.map(p=>`
+    <div class="shift-tile">
+      <div class="shift-tile-lbl">${p.name}</div>
+      <div class="shift-tile-val" style="color:${p.color}">${p.value}</div>
+      <div class="shift-tile-pct">${pct(p.value,total)}</div>
+    </div>`).join('');
+  return `<div class="card">
+    <span class="badge" style="color:#38BDF8;background:${darkMode?'#38BDF822':'#e0f2fe'}">By Department</span>
+    <div class="sec-title">Receiving vs. Transfers</div>
+    <div class="sec-sub">Home Department — Receiving vs. all transfer departments combined, ${d.weeksLabel}</div>
     <div style="display:flex;justify-content:center;margin:18px 0 10px">${donut}</div>
     <div style="display:flex;gap:10px">${tiles}</div>
   </div>`;
@@ -776,6 +818,7 @@ function render() {
     (d ? [
       renderSummary(d),
       renderShiftChart(d),
+      renderDept(d),
       renderCheckpoints(d),
       renderVolume(d),
       renderCoaching(d),
