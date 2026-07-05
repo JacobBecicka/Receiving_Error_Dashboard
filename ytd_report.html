@@ -315,6 +315,14 @@ function aggregate(rows) {
   const shiftErrors = { A:0, B:0, C:0 };
   rows.forEach(r => { if (r.shift in shiftErrors) shiftErrors[r.shift]++; });
 
+  // Shift counts — Receiving home department only (new "By Shift · Receiving Only" section)
+  const shiftErrorsRecvOnly = { A:0, B:0, C:0 };
+  rows.forEach(r => {
+    if (r.shift in shiftErrorsRecvOnly && String(r.dept).toLowerCase().includes('receiv')) {
+      shiftErrorsRecvOnly[r.shift]++;
+    }
+  });
+
   // Home department split — Receiving vs. all Transfer departments combined.
   // Same "receiv" substring match used by the Weekly Error Report.
   const deptSplit = { recv:0, xfer:0 };
@@ -395,7 +403,7 @@ function aggregate(rows) {
   });
 
   return {
-    total, weeksLabel, shiftErrors, deptSplit,
+    total, weeksLabel, shiftErrors, shiftErrorsRecvOnly, deptSplit,
     shipment, piece, carton,
     outliers, unitsIncl, unitsExcl, casesIncl, casesExcl,
     shiftVolume, skuTotal, skuBreakdown, coaching,
@@ -614,7 +622,30 @@ function renderShiftChart(d) {
   </div>`;
 }
 
-// New: Receiving vs. Transfers donut + tiles, matching the Weekly Error
+// New: "By Shift · Receiving Only" — same donut + tile treatment as the
+// all-department shift chart above, but scoped to Home Department = Receiving.
+// No monthly/weekly breakdown table underneath — donut and tiles only.
+function renderShiftReceivingOnly(d) {
+  const recvTotal = d.shiftErrorsRecvOnly.A + d.shiftErrorsRecvOnly.B + d.shiftErrorsRecvOnly.C;
+  if (!recvTotal) return '';
+  const pieData = ['A','B','C'].map(s=>({name:`${s}-Shift`,value:d.shiftErrorsRecvOnly[s],color:SC[s]}));
+  const donut   = buildDonut(pieData, recvTotal);
+  const tiles   = ['A','B','C'].map(s=>`
+    <div class="shift-tile">
+      <div class="shift-tile-lbl">${s}-Shift</div>
+      <div class="shift-tile-val" style="color:${SC[s]}">${d.shiftErrorsRecvOnly[s]}</div>
+      <div class="shift-tile-pct">${pct(d.shiftErrorsRecvOnly[s],recvTotal)}</div>
+    </div>`).join('');
+  return `<div class="card">
+    <span class="badge" style="color:#7C3AED;background:${darkMode?'#7C3AED22':'#ede9fe'}">By Shift · Receiving Only</span>
+    <div class="sec-title">Receiving Errors by Shift</div>
+    <div class="sec-sub">Home Department = Receiving only — ${d.weeksLabel}</div>
+    <div style="display:flex;justify-content:center;margin:18px 0 10px">${donut}</div>
+    <div style="display:flex;gap:10px">${tiles}</div>
+  </div>`;
+}
+
+// Receiving vs. Transfers donut + tiles, matching the Weekly Error
 // Report's "By Department" section (same colors, same donut/tile layout).
 function renderDept(d) {
   const total = d.deptSplit.recv + d.deptSplit.xfer;
@@ -818,6 +849,7 @@ function render() {
     (d ? [
       renderSummary(d),
       renderShiftChart(d),
+      renderShiftReceivingOnly(d),
       renderDept(d),
       renderCheckpoints(d),
       renderVolume(d),
