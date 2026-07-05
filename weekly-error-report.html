@@ -41,28 +41,39 @@ const WORKBOOK_URL =
 const SHIFT_COLORS = { A:"#38BDF8", B:"#A78BFA", C:"#34D399" };
 const DEPT_COLORS  = { Receiving:"#38BDF8", Transfers:"#94A3B8" };
 
-const SHEET_WEEK_1_START = new Date(2025, 11, 28);
-function getSheetWeekStart(n) {
-  const d = new Date(SHEET_WEEK_1_START);
-  d.setDate(d.getDate() + (n - 1) * 7);
-  return d;
+// ---------------------------------------------------------------------------
+// Fiscal week handling
+// Sheets are named directly with their fiscal week, e.g. "FW1 26", "FW48 25".
+// No calendar-week math or anchor detection is needed anymore — the sheet
+// name IS the fiscal week identity. We just parse it and sort chronologically.
+// ---------------------------------------------------------------------------
+const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
+
+function parseFiscalSheetNames(sheetNames) {
+  return sheetNames
+    .map(name => {
+      const m = name.match(FW_SHEET_RE);
+      if (!m) return null;
+      return { name, fw: parseInt(m[1], 10), yy: parseInt(m[2], 10) };
+    })
+    .filter(Boolean)
+    // Chronological order: year first, then fiscal week number within that year.
+    .sort((a, b) => (a.yy - b.yy) || (a.fw - b.fw));
 }
-function getWeekDisplay(sheetNum) {
-  if (sheetNum <= 5) return { week: 47 + sheetNum, year: 2025 };
-  return { week: sheetNum - 5, year: 2026 };
-}
-function getWeekLabel(sheetNum) {
-  const { week, year } = getWeekDisplay(sheetNum);
-  return `Week ${week} ${year}`;
-}
-function getWeekShort(sheetNum) {
-  const { week } = getWeekDisplay(sheetNum);
-  return `W${week}`;
-}
-function isWeekStarted(sheetNum) {
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
-  return getSheetWeekStart(sheetNum) <= today;
+
+function getWeekLabel(wk) { return `Fiscal Week ${wk.fw} · 20${wk.yy}`; }
+function getWeekShort(wk) { return `FW${wk.fw}`; }
+
+// A fiscal week only "counts" for selection/reporting once it actually has
+// logged data rows — this naturally excludes future preview weeks that have
+// been pre-created in the workbook (e.g. early 2027 weeks) without needing
+// any date math.
+function sheetHasData(wb, sheetName) {
+  const sheet = wb.Sheets[sheetName];
+  if (!sheet) return false;
+  const rows = XLSX.utils.sheet_to_json(sheet, { header:1, defval:"" });
+  if (!rows || rows.length < 6) return false;
+  return rows.slice(5).some(r => r && String(r[6] || "").trim());
 }
 
 function getTheme(mode) {
@@ -198,10 +209,9 @@ function isNoError(v) {
   return !s || s === "no errors" || s === "no error";
 }
 
-function parseWeek(wb, weekNum) {
-  const name = `Week ${weekNum}`;
-  if (!wb.SheetNames.includes(name)) return null;
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:"" });
+function parseWeek(wb, sheetName) {
+  if (!wb.SheetNames.includes(sheetName)) return null;
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:"" });
   if (!rows || rows.length < 6) return null;
   const dateRange = String(rows[1]?.[1] || "").trim();
   const dataRows  = rows.slice(5).filter(r => r && String(r[6]||"").trim());
@@ -259,10 +269,9 @@ function parseWeek(wb, weekNum) {
 // Receiving-home-department-only error counts by shift, for a single fiscal week.
 // Uses the same per-row assessed-error rule as parseWeek's "total" (one count per
 // row that has any checkpoint entry), filtered to dept === Receiving.
-function parseWeekReceivingByShift(wb, weekNum) {
-  const name = `Week ${weekNum}`;
-  if (!wb.SheetNames.includes(name)) return null;
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, defval:"" });
+function parseWeekReceivingByShift(wb, sheetName) {
+  if (!wb.SheetNames.includes(sheetName)) return null;
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:"" });
   if (!rows || rows.length < 6) return null;
   const dataRows = rows.slice(5).filter(r => r && String(r[6]||"").trim());
   const shiftC = { A:0, B:0, C:0 };
@@ -281,26 +290,32 @@ function parseWeekReceivingByShift(wb, weekNum) {
   return shiftC;
 }
 
-function buildRolling(wb, weekNum) {
+// Both rolling builders now walk backward through the chronologically sorted
+// fiscal-week list by array index, rather than doing arithmetic on a week
+// number. This makes fiscal-year rollovers (…FW52 25 → FW1 26…) automatic.
+function buildRolling(wb, weekList, idx, span) {
+  const start = Math.max(0, idx - (span - 1));
   const out = [];
-  for (let i = Math.max(1, weekNum - 3); i <= weekNum; i++) {
-    const d = parseWeek(wb, i);
-    if (d) out.push({ short:getWeekShort(i), label:getWeekLabel(i), total:d.total });
+  for (let i = start; i <= idx; i++) {
+    const wk = weekList[i];
+    const d = parseWeek(wb, wk.name);
+    if (d) out.push({ short:getWeekShort(wk), label:getWeekLabel(wk), total:d.total });
   }
   return out;
 }
 
-// 6-week window: the selected week plus the previous 5.
-function buildReceivingShiftRolling(wb, weekNum) {
+function buildReceivingShiftRolling(wb, weekList, idx, span) {
+  const start = Math.max(0, idx - (span - 1));
   const out = [];
-  for (let i = Math.max(1, weekNum - 5); i <= weekNum; i++) {
-    const d = parseWeekReceivingByShift(wb, i);
-    if (d) out.push({ short:getWeekShort(i), label:getWeekLabel(i), A:d.A, B:d.B, C:d.C });
+  for (let i = start; i <= idx; i++) {
+    const wk = weekList[i];
+    const d = parseWeekReceivingByShift(wb, wk.name);
+    if (d) out.push({ short:getWeekShort(wk), label:getWeekLabel(wk), A:d.A, B:d.B, C:d.C });
   }
   return out;
 }
 
-function generateTakeaways(data, prevData, rolling, weekNum) {
+function generateTakeaways(data, prevData, rolling, wLabel, wLabelPrev) {
   const fp = n => `${((n/data.total)*100).toFixed(1)}%`;
   const shiftArr = [["A",data.shift.A],["B",data.shift.B],["C",data.shift.C]].sort((a,b)=>b[1]-a[1]);
   const topShift = shiftArr[0];
@@ -310,7 +325,6 @@ function generateTakeaways(data, prevData, rolling, weekNum) {
   const cpArr = [["Shipment",sT,data.shipment],["Piece",pT,data.piece],["Carton",cT,data.carton]].sort((a,b)=>b[1]-a[1]);
   const topCP = cpArr[0];
   const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : null;
-  const wLabel = getWeekLabel(weekNum), wLabelPrev = getWeekLabel(weekNum - 1);
   const takes = [];
   takes.push({
     h: `${topShift[0]}-Shift leads with ${fp(topShift[1])} of errors`,
@@ -417,12 +431,13 @@ function NavBar({ t, dark, setMode, onChangeWeek, showChange }) {
 }
 
 function App() {
-  const [mode,    setMode]    = useState("light");
-  const [wb,      setWb]      = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(null);
-  const [weekNum, setWeekNum] = useState(null);
-  const [report,  setReport]  = useState(null);
+  const [mode,     setMode]     = useState("light");
+  const [wb,       setWb]       = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState(null);
+  const [weekList, setWeekList] = useState([]);   // chronological, data-having fiscal weeks
+  const [weekIdx,  setWeekIdx]  = useState(null); // index into weekList
+  const [report,   setReport]   = useState(null);
   const t    = getTheme(mode);
   const dark = mode === "dark";
 
@@ -436,13 +451,11 @@ function App() {
       })
       .then(buf => {
         const workbook = XLSX.read(new Uint8Array(buf), { type:"array" });
-        const weeks = workbook.SheetNames
-          .filter(n => n.startsWith("Week"))
-          .map(n => parseInt(n.replace("Week","").trim()))
-          .filter(n => !isNaN(n) && n > 0 && isWeekStarted(n))
-          .sort((a,b) => a - b);
+        const allWeeks = parseFiscalSheetNames(workbook.SheetNames);
+        const withData = allWeeks.filter(wk => sheetHasData(workbook, wk.name));
         setWb(workbook);
-        if (weeks.length) setWeekNum(weeks[weeks.length - 1]);
+        setWeekList(withData);
+        if (withData.length) setWeekIdx(withData.length - 1);
         setLoading(false);
       })
       .catch(err => {
@@ -451,21 +464,21 @@ function App() {
       });
   }, []);
 
-  const availableWeeks = wb
-    ? wb.SheetNames.filter(n=>n.startsWith("Week"))
-        .map(n=>parseInt(n.replace("Week","").trim()))
-        .filter(n=>!isNaN(n)&&n>0&&isWeekStarted(n))
-        .sort((a,b)=>a-b)
-    : [];
-
   const runReport = () => {
-    if (!wb || !weekNum) return;
-    const data     = parseWeek(wb, weekNum);
-    const prevData = weekNum > 1 ? parseWeek(wb, weekNum-1) : null;
-    const rolling  = buildRolling(wb, weekNum);
-    const receivingRolling = buildReceivingShiftRolling(wb, weekNum);
+    if (!wb || weekIdx === null || !weekList[weekIdx]) return;
+    const wk       = weekList[weekIdx];
+    const prevWk   = weekIdx > 0 ? weekList[weekIdx - 1] : null;
+    const data     = parseWeek(wb, wk.name);
+    const prevData = prevWk ? parseWeek(wb, prevWk.name) : null;
+    const rolling  = buildRolling(wb, weekList, weekIdx, 4);
+    const receivingRolling = buildReceivingShiftRolling(wb, weekList, weekIdx, 6);
     if (!data) return;
-    setReport({ data, prevData, rolling, receivingRolling, takeaways:generateTakeaways(data, prevData, rolling, weekNum), weekNum });
+    const wLabel     = getWeekLabel(wk);
+    const wLabelPrev = prevWk ? getWeekLabel(prevWk) : null;
+    setReport({
+      data, prevData, rolling, receivingRolling, wLabel, wLabelPrev,
+      takeaways: generateTakeaways(data, prevData, rolling, wLabel, wLabelPrev),
+    });
   };
 
   const pageWrap = children => (
@@ -509,11 +522,11 @@ function App() {
       </p>
       <label style={{ display:"block", fontSize:12, fontWeight:700, color:t.textSecond,
         textTransform:"uppercase", letterSpacing:.5, marginBottom:8 }}>Select Fiscal Week</label>
-      <select value={weekNum||""} onChange={e=>setWeekNum(Number(e.target.value))}
+      <select value={weekIdx===null?"":weekIdx} onChange={e=>setWeekIdx(Number(e.target.value))}
         style={{ width:"100%", padding:"10px 14px", borderRadius:10, fontSize:14,
           border:`1px solid ${t.inputBorder}`, background:t.inputBg, color:t.textPrimary,
           marginBottom:16, cursor:"pointer" }}>
-        {availableWeeks.map(w => <option key={w} value={w}>{getWeekLabel(w)}</option>)}
+        {weekList.map((wk, i) => <option key={wk.name} value={i}>{getWeekLabel(wk)}</option>)}
       </select>
       <button className="btn-hover" onClick={runReport} style={{
         width:"100%", padding:12, borderRadius:10, background:"#38BDF8",
@@ -523,9 +536,7 @@ function App() {
   );
 
   // Report
-  const { data, prevData, rolling, receivingRolling, takeaways } = report;
-  const wLabel     = getWeekLabel(report.weekNum);
-  const wLabelPrev = getWeekLabel(report.weekNum - 1);
+  const { data, prevData, rolling, receivingRolling, takeaways, wLabel, wLabelPrev } = report;
   const fmtPct     = n => `${((n/data.total)*100).toFixed(1)}%`;
   const shiftArr   = [["A",data.shift.A],["B",data.shift.B],["C",data.shift.C]].sort((a,b)=>b[1]-a[1]);
   const topShift   = shiftArr[0];
