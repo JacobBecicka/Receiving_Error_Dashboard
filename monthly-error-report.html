@@ -101,6 +101,9 @@
       outline: none;
       margin-top: 10px;
     }
+    /* Grey bubble wrapper — matches the grey-track treatment used in the
+       YTD and Weekly Error Reports' Summary sections */
+    .bubble { background: var(--track-bg); border-radius: 12px; padding: 14px 16px; }
     /* Summary tiles */
     .stat-grid { display: flex; flex-wrap: wrap; gap: 10px; }
     .stat-tile { flex: 1 1 130px; border-radius: 10px; padding: 9px 16px; }
@@ -282,7 +285,9 @@
     <!-- Summary -->
     <div class="card card-summary">
       <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Summary</div>
-      <div class="stat-grid" id="summary-tiles"></div>
+      <div class="bubble">
+        <div class="stat-grid" id="summary-tiles"></div>
+      </div>
     </div>
 
     <!-- Month-over-Month -->
