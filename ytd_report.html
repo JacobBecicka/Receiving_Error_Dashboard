@@ -76,13 +76,17 @@
     th.r, td.r { text-align: right; }
     tr.alt { background: var(--rowalt); }
 
-    .theme-btn {
+    /* Uniform header buttons — Hub / Print / Theme — matches Weekly & Monthly reports */
+    .hdr-btn {
       display: flex; align-items: center; gap: 6px;
       background: var(--card); border: 1px solid var(--border);
       border-radius: 20px; padding: 7px 14px; cursor: pointer;
       font-size: 12px; font-weight: 700; color: var(--text1);
       box-shadow: var(--shadow); flex-shrink: 0; transition: all 0.15s;
+      text-decoration: none; white-space: nowrap;
     }
+    .hdr-btn:hover { opacity: 0.82; }
+
     .fy-btn {
       padding: 6px 18px; border-radius: 20px;
       border: 1.5px solid var(--border);
@@ -186,17 +190,17 @@ const SC = { A:'#38BDF8', B:'#A78BFA', C:'#34D399' };
 // ════════════════════════════════════════════════════════
 let darkMode   = false;
 let fyData     = {};
-let selectedFY = 'FY2026';
+let selectedFY = null;
 
 // ════════════════════════════════════════════════════════
 //  FISCAL CALENDAR
-//  Sheets "Week 1"–"Week 5"  → FY2025  fiscal Wks 48–52
-//  Sheets "Week 6"+           → FY2026  fiscal Wk = calWeek − 5
+//  Sheets are now named directly with their fiscal week, e.g.
+//  "FW1 26", "FW48 25" — the sheet name IS the fiscal week/year,
+//  so there's no calendar-week-to-fiscal-week math left to do here.
+//  fy label = "FY20{yy}", fiscal week = the number straight from
+//  the sheet name.
 // ════════════════════════════════════════════════════════
-function getFiscalInfo(calWeek) {
-  if (calWeek <= 5) return { fy:'FY2025', fiscalWeek: 47 + calWeek };
-  return { fy:'FY2026', fiscalWeek: calWeek - 5 };
-}
+const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
 
 // ════════════════════════════════════════════════════════
 //  LOAD WORKBOOK
@@ -210,16 +214,20 @@ async function loadWorkbook() {
 }
 
 // ════════════════════════════════════════════════════════
-//  PARSE WORKBOOK  →  { FY2025: [...rows], FY2026: [...rows] }
+//  PARSE WORKBOOK  →  { FY2025:[...rows], FY2026:[...rows], FY2027:[...rows] }
+//  (object keys are built dynamically from whatever fiscal years
+//  actually appear as sheets in the workbook — no hardcoded list,
+//  so new fiscal years show up automatically as they're added.)
 // ════════════════════════════════════════════════════════
 function parseWorkbook(wb) {
-  const out = { FY2025:[], FY2026:[] };
+  const out = {};
 
   wb.SheetNames.forEach(name => {
-    const m = name.match(/^Week\s*(\d+)$/i);
+    const m = name.match(FW_SHEET_RE);
     if (!m) return;
-    const calWeek = parseInt(m[1], 10);
-    const { fy, fiscalWeek } = getFiscalInfo(calWeek);
+    const fiscalWeek = parseInt(m[1], 10);
+    const fy = `FY20${m[2]}`;
+    if (!out[fy]) out[fy] = [];
 
     const ws = wb.Sheets[name];
     const all = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
@@ -261,7 +269,7 @@ function parseWorkbook(wb) {
       const cases = parseCases(String(row[iCases] ?? '').trim());
 
       out[fy].push({
-        calWeek, fiscalWeek, fy, shift,
+        fiscalWeek, fy, shift,
         lanId:    String(row[iLan]  ?? '').replace(/\xa0/g,'').trim(),
         dept:     String(row[iDept] ?? '').replace(/\xa0/g,'').trim(),
         comments: String(row[iCmt]  ?? '').replace(/\xa0/g,'').trim(),
@@ -504,33 +512,27 @@ function renderFetchError(msg) {
 }
 
 function renderHeader() {
-  return `<div class="no-print" style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px">
-    <div>
-      <div class="eyebrow">Receiving Research Error Form</div>
-      <h1 style="font-size:24px;font-weight:800;color:var(--text1);letter-spacing:-0.5px">
-        Receiving Error Report — Year to Date
-      </h1>
+  return `<div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;flex-wrap:wrap;gap:10px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <a class="hdr-btn" href="index.html">← Hub</a>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <a href="index.html" style="display:flex;align-items:center;gap:6px;
-        background:var(--card);border:1px solid var(--border);border-radius:20px;
-        padding:7px 14px;font-size:12px;font-weight:700;color:var(--text2);
-        text-decoration:none;box-shadow:var(--shadow);transition:all 0.15s"
-        onmouseover="this.style.color='#0284C7';this.style.borderColor='#0284C7'"
-        onmouseout="this.style.color='';this.style.borderColor=''">
-        ← Hub
-      </a>
-      <button class="theme-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
-      <button class="theme-btn" onclick="toggleTheme()">
-        ${darkMode?'☀️ Light':'🌙 Dark'}
-      </button>
+    <div style="display:flex;gap:8px">
+      <button class="hdr-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="hdr-btn" onclick="toggleTheme()">${darkMode?'☀️ Light':'🌙 Dark'}</button>
     </div>
+  </div>
+  <div style="margin-bottom:22px">
+    <div class="eyebrow">Receiving Research Error Form</div>
+    <h1 style="font-size:26px;font-weight:800;color:var(--text1);letter-spacing:-0.5px">
+      Receiving Error Report — Year to Date
+    </h1>
   </div>`;
 }
 
 function renderFYSelector(keys) {
   const btns = keys.map(k => {
-    const partial = k === 'FY2025';
+    const weeksInFY = [...new Set((fyData[k]||[]).map(r=>r.fiscalWeek))];
+    const partial = weeksInFY.length > 0 && weeksInFY.length < 52;
     return `<button class="fy-btn${k===selectedFY?' active':''}" onclick="selectFY('${k}')">
       ${k}${partial?` <span style="font-size:9px;opacity:.65;font-weight:600">Partial</span>`:''}
     </button>`;
@@ -541,12 +543,6 @@ function renderFYSelector(keys) {
       <div style="display:flex;gap:8px">${btns}</div>
     </div>
   </div>`;
-}
-
-function renderFYBanner() {
-  // Static, print-only label showing which FY is on screen, since the
-  // interactive selector buttons are hidden when printing.
-  return `<div style="display:none" class="print-only-fy-banner">${selectedFY}</div>`;
 }
 
 function renderNoData() {
@@ -770,7 +766,7 @@ function renderAnalysis(d) {
 function render() {
   document.body.classList.toggle('dark', darkMode);
   const root = document.getElementById('root');
-  const fyKeys = Object.keys(fyData).sort().reverse(); // FY2026 first
+  const fyKeys = Object.keys(fyData).sort().reverse(); // newest fiscal year first
   const rows = fyData[selectedFY] || [];
   const d    = rows.length ? aggregate(rows) : null;
 
@@ -803,7 +799,7 @@ async function init() {
     fyData = parseWorkbook(wb);
     // Auto-select highest FY with data
     const withData = Object.keys(fyData).filter(k=>fyData[k].length>0).sort().reverse();
-    if (withData.length) selectedFY = withData[0];
+    selectedFY = withData.length ? withData[0] : (Object.keys(fyData).sort().reverse()[0] || null);
     render();
   } catch (err) {
     console.error(err);
