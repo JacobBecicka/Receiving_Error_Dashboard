@@ -375,17 +375,35 @@ const SHIFT_COLORS = { A: '#38BDF8', B: '#A78BFA', C: '#34D399' };
 const TREND_DOWN   = '#34D399';   // improving
 const TREND_UP     = '#f87171';   // worsening
 
-// Each sheet carries its own ground-truth date-range label in row 2
-// (e.g. "2/1 - 2/7"). A fixed-offset formula breaks on stub weeks
-// (Week 1 is only "1/1 - 1/3", 3 days) so we read the real label instead.
-function parseSheetDateRange(rows) {
+// ------------------------------------------------------------------
+// Fiscal week sheet naming
+// Sheets are now named directly with their fiscal week, e.g. "FW1 26",
+// "FW48 25" — no more "Week N" calendar-index sheets, so no anchor/
+// offset detection is needed to find fiscal week 1. We just parse the
+// fiscal week number + 2-digit fiscal year straight out of the sheet
+// name.
+// ------------------------------------------------------------------
+const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
+
+// Each sheet still carries its own ground-truth CALENDAR date-range
+// label in row 2 (e.g. "2/1 - 2/7") — that part of the workbook format
+// hasn't changed, so per-row Start-time bucketing into calendar months
+// still works exactly as before. The only thing that changed is how we
+// figure out which CALENDAR YEAR that date range falls in: fiscal years
+// start Feb 1, so fiscal year "25" runs Feb 2025 -> Jan 2026. That means
+// a January date range under fiscal year 25 is actually calendar year
+// 2026, while Feb-Dec date ranges match the fiscal year number directly.
+function calendarYearForMonth(fiscalYY, month) {
+  const base = 2000 + fiscalYY;
+  return month === 1 ? base + 1 : base;
+}
+function parseSheetDateRange(rows, fiscalYY) {
   const label = String(rows[1]?.[1] || "");
   const m = label.match(/^\s*(\d+)\/(\d+)\s*-\s*(\d+)\/(\d+)/);
   if (!m) return null;
   const [, sm, sd, em, ed] = m.map(Number);
-  // Workbook spans Sep'25 - Jun'26: months 9-12 are 2025, months 1-8 are 2026.
-  const syear = sm >= 9 ? 2025 : 2026;
-  const eyear = em >= 9 ? 2025 : 2026;
+  const syear = calendarYearForMonth(fiscalYY, sm);
+  const eyear = calendarYearForMonth(fiscalYY, em);
   return {
     start: new Date(syear, sm - 1, sd),
     end:   new Date(eyear, em - 1, ed),
@@ -471,13 +489,14 @@ function parseWorkbookToMonths(wb) {
   };
 
   wb.SheetNames.forEach(sheetName => {
-    const m = sheetName.match(/^Week\s*(\d+)$/i);
+    const m = sheetName.match(FW_SHEET_RE);
     if (!m) return;
+    const fiscalYY = parseInt(m[2], 10);
 
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:"" });
     if (!rows || rows.length < 6) return;
 
-    const range = parseSheetDateRange(rows);
+    const range = parseSheetDateRange(rows, fiscalYY);
     if (!range) return; // can't determine which month this sheet covers
     const { start: sheetStart, end: sheetEnd, fallbackKey } = range;
     const slack = 3 * 86400000; // 3-day tolerance for row-level date noise
