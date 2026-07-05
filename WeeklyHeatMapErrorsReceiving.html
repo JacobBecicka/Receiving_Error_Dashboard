@@ -28,10 +28,15 @@
       { key:"c", label:"C-Shift", accent:"#34d399", glow:"rgba(52,211,153,.18)",  border:"rgba(52,211,153,.4)" },
     ];
 
+    // Sheets are named directly with their fiscal week, e.g. "FW6 26",
+    // "FW48 25" — the sheet name IS the fiscal week/year, so there's no
+    // anchor-detection or calendar-week-offset math needed anymore.
+    const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
+
     // ── DEBUG CATCHER ──────────────────────────────────────────────
     // Toggle with the "DEBUG" button in the control bar, or append
-    // ?debug=1 to the URL. Logs parsing / fiscal-mapping decisions
-    // so a bad workbook produces a visible reason, not a blank table.
+    // ?debug=1 to the URL. Logs parsing decisions so a bad workbook
+    // produces a visible reason, not a blank table.
     const urlDebug = new URLSearchParams(window.location.search).get('debug') === '1';
     function useDebugLog() {
       const [logs, setLogs] = useState([]);
@@ -66,26 +71,9 @@
         scrollTrack:   dark ? "#1e293b"                        : "#dde3ea",
         moSep:         dark ? "rgba(100,116,139,.5)"           : "rgba(100,116,139,.35)",
         debugBg:       dark ? "#0b1220"                        : "#0f172a",
+        // Shadow token — matches Weekly/Monthly/YTD reports' button shadow
+        shadow:        dark ? "0 2px 14px rgba(0,0,0,.35)"     : "0 2px 12px rgba(0,0,0,.07)",
       };
-    }
-
-    function DarkToggle({ dark, setDark, tk }) {
-      return (
-        <button onClick={() => setDark(d => !d)} style={{
-          display:"flex", alignItems:"center", gap:".45rem",
-          background:"none", border:"none", cursor:"pointer", padding:0, flexShrink:0
-        }}>
-          <span style={{ fontSize:".58rem", color:tk.textMuted, letterSpacing:".08em", fontFamily:"DM Mono,monospace" }}>
-            {dark ? "DARK" : "LIGHT"}
-          </span>
-          <div style={{ width:36, height:20, borderRadius:10, position:"relative",
-            background: dark ? "#38bdf8" : "#cbd5e1", transition:"background .25s", flexShrink:0 }}>
-            <div style={{ position:"absolute", top:2, left: dark ? 18 : 2,
-              width:16, height:16, borderRadius:"50%", background:"#fff",
-              transition:"left .25s", boxShadow:"0 1px 3px rgba(0,0,0,.25)" }} />
-          </div>
-        </button>
-      );
     }
 
     // ── Parse "M/D - M/D" range strings ──
@@ -98,15 +86,19 @@
       };
     }
 
+    function fwLabel(fw) { return `FW${fw.fw} '${fw.yy}`; }
+
     function parseWorkbook(wb, log) {
       const result      = { a:{}, b:{}, c:{} };
       const ranges      = {};
       const trainingWMs = new Set();
-      const sheetOrder   = [];
+      const sheetMeta    = []; // {sheet, fw, yy}
 
       for (const sheet of wb.SheetNames) {
-        if (!/^Week\s+\d+$/i.test(sheet)) continue;
-        sheetOrder.push(sheet);
+        const m = sheet.match(FW_SHEET_RE);
+        if (!m) continue;
+        sheetMeta.push({ sheet, fw: parseInt(m[1], 10), yy: parseInt(m[2], 10) });
+
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheet], { header:1, defval:"" });
         ranges[sheet] = String(rows[1]?.[1] || "").trim();
         for (let i = 5; i < rows.length; i++) {
@@ -127,25 +119,19 @@
         }
       }
 
-      // ── Dynamic fiscal-week mapping ──
-      // Fiscal Week 1 = the first sheet (in order) whose date range reaches
-      // into February. This is recomputed from the workbook's own date
-      // labels every load, so it self-corrects each year regardless of
-      // what weekday Jan 1 falls on — no hardcoded offset required.
-      let anchorIdx = -1;
-      for (let i = 0; i < sheetOrder.length; i++) {
-        const parsed = parseRange(ranges[sheetOrder[i]]);
-        if (!parsed) { log && log('warn', `${sheetOrder[i]}: unparseable date range "${ranges[sheetOrder[i]]}"`); continue; }
-        if (parsed.endMonth === 2) { anchorIdx = i; break; }
-      }
-      if (anchorIdx === -1) {
-        log && log('error', 'Could not find a sheet reaching into February — fiscal week mapping failed. Check date-range formatting in row 2 of each sheet.');
+      // Chronological order: fiscal year first, then fiscal week number
+      // within that year. No anchor detection needed — the sheet name
+      // already tells us exactly where each week sits.
+      sheetMeta.sort((a,b) => (a.yy - b.yy) || (a.fw - b.fw));
+
+      if (!sheetMeta.length) {
+        log && log('error', 'No sheets matched the "FW<n> <yy>" naming pattern — check sheet names in the workbook.');
       } else {
-        log && log('info', `Fiscal Week 1 anchored to "${sheetOrder[anchorIdx]}" (${ranges[sheetOrder[anchorIdx]]})`);
+        log && log('info', `Parsed ${sheetMeta.length} fiscal weeks: ${sheetMeta[0].sheet} → ${sheetMeta[sheetMeta.length-1].sheet}`);
       }
-      const fiscalWeeks = anchorIdx === -1 ? [] : sheetOrder.slice(anchorIdx).map((sheet, i) => ({
-        fw: i + 1,
-        sheet,
+
+      const fiscalWeeks = sheetMeta.map(({ sheet, fw, yy }) => ({
+        fw, yy, sheet,
         range: ranges[sheet] || "",
       }));
 
@@ -210,7 +196,7 @@
             const wb = XLSX.read(new Uint8Array(buf), { type:"array" });
             const parsed = parseWorkbook(wb, log);
             if (!parsed.fiscalWeeks.length) {
-              setLoadErr('Fiscal week mapping failed — see debug log.');
+              setLoadErr('No fiscal week sheets found — see debug log.');
               setShowDebug(true);
             }
             setData({ ...parsed, fileName: WORKBOOK });
@@ -232,7 +218,7 @@
             const wb = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
             const parsed = parseWorkbook(wb, log);
             if (!parsed.fiscalWeeks.length) {
-              setLoadErr('Fiscal week mapping failed — see debug log.');
+              setLoadErr('No fiscal week sheets found — see debug log.');
               setShowDebug(true);
             } else {
               setLoadErr(null);
@@ -282,6 +268,18 @@
           const m = p ? p.startMonth : null;
           if (prevMonth !== null && m !== null && m !== prevMonth) set.add(i);
           if (m !== null) prevMonth = m;
+        });
+        return set;
+      }, [FW]);
+
+      // Fiscal-year separators: draw a line whenever the fiscal year
+      // (from the sheet name itself, e.g. "FW1 26") changes.
+      const yearBreaks = useMemo(() => {
+        const set = new Set();
+        let prevYY = null;
+        FW.forEach((fw,i) => {
+          if (prevYY !== null && fw.yy !== prevYY) set.add(i);
+          prevYY = fw.yy;
         });
         return set;
       }, [FW]);
@@ -340,11 +338,14 @@
               letter-spacing:.06em;border:1px solid transparent;background:transparent;
               color:${tk.textMuted};transition:all .2s}
             .view-btn.on{background:${tk.surface};border-color:${tk.borderMuted};color:${tk.text}}
-            .util-btn{display:flex;align-items:center;gap:.35rem;background:transparent;
-              border:1px solid ${tk.borderMuted};border-radius:8px;padding:.35rem .8rem;cursor:pointer;
-              font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.05em;color:${tk.textMuted};
-              text-decoration:none;transition:all .2s}
-            .util-btn:hover{color:#38bdf8;border-color:#38bdf8}
+            /* Uniform header buttons — Hub / Print / Theme / Debug —
+               matches Weekly, Monthly, and YTD report button styling */
+            .hdr-btn{display:flex;align-items:center;gap:6px;background:${tk.surface};
+              border:1px solid ${tk.borderMuted};border-radius:20px;padding:7px 14px;
+              cursor:pointer;font-size:12px;font-weight:700;color:${tk.text};
+              box-shadow:${tk.shadow};text-decoration:none;white-space:nowrap;
+              font-family:'DM Sans',sans-serif;transition:opacity .15s}
+            .hdr-btn:hover{opacity:.82}
             .sticky-wm{position:sticky;left:0;z-index:10;padding-right:.75rem;background:${tk.sticky}}
             .sticky-th{position:sticky;left:0;z-index:11;background:${tk.sticky}}
             .mo-sep{border-left:1px solid ${tk.moSep}}
@@ -368,24 +369,24 @@
                 Error Frequency Heat Map
               </h1>
             </div>
-            <div className="no-print" style={{ display:"flex", alignItems:"center", gap:"1.25rem" }}>
+            <div className="no-print" style={{ display:"flex", alignItems:"center", gap:"0.6rem", flexWrap:"wrap" }}>
               {data && (
-                <p style={{ fontSize:".6rem", color:tk.textMuted, textAlign:"right" }}>
+                <p style={{ fontSize:".6rem", color:tk.textMuted, textAlign:"right", marginRight:".5rem" }}>
                   {data.fileName}<br/>
                   <span style={{ color:tk.textFaint }}>
-                    data thru FW{weeksWithData[weeksWithData.length-1]?.fw ?? "—"}
+                    data thru {weeksWithData.length ? fwLabel(weeksWithData[weeksWithData.length-1]) : "—"}
                     {weeksWithData[weeksWithData.length-1]?.range
                       ?` (${weeksWithData[weeksWithData.length-1].range})` :""}
                   </span>
                 </p>
               )}
-              <button className="util-btn" onClick={()=>setShowDebug(d=>!d)}
+              <button className="hdr-btn" onClick={()=>setShowDebug(d=>!d)}
                 style={showDebug?{color:"#f59e0b",borderColor:"#f59e0b"}:{}}>
                 DEBUG {logs.some(l=>l.level==='error') ? '⚠' : ''}
               </button>
-              <button className="util-btn" onClick={()=>window.print()}>PRINT</button>
-              <a className="util-btn" href="index.html">← HUB</a>
-              <DarkToggle dark={dark} setDark={setDark} tk={tk} />
+              <button className="hdr-btn" onClick={()=>window.print()}>🖨️ Print / Save PDF</button>
+              <a className="hdr-btn" href="index.html">← Hub</a>
+              <button className="hdr-btn" onClick={()=>setDark(d=>!d)}>{dark?'☀️ Light':'🌙 Dark'}</button>
             </div>
           </div>
 
@@ -566,10 +567,10 @@
                       </th>
                       {FW.map((fw,i)=>{
                         const hasData = sortedWMs.some(wm=>shiftCounts[wm]?.[fw.sheet]>0);
-                        const isSep   = monthBreaks.has(i);
+                        const isSep   = monthBreaks.has(i) || yearBreaks.has(i);
                         return (
                           <th key={fw.sheet} className={isSep?"mo-sep":""}
-                            title={fw.range?`FW${fw.fw}: ${fw.range}`:`FW${fw.fw}`}
+                            title={fw.range?`${fwLabel(fw)}: ${fw.range}`:fwLabel(fw)}
                             style={{ fontSize:".5rem", fontWeight:500,
                               color:hasData?tk.textMuted:tk.border,
                               textAlign:"center", width:22, paddingBottom:".5rem",
@@ -613,7 +614,7 @@
                           {FW.map((fw,idx)=>{
                             const raw   = shiftCounts[wm]?.[fw.sheet]||0;
                             const delta = getDelta(wm,idx);
-                            const isSep = monthBreaks.has(idx);
+                            const isSep = monthBreaks.has(idx) || yearBreaks.has(idx);
                             const bg    = viewMode==="raw"?heatBg(raw,maxVal):deltaBg(delta);
                             const fg    = viewMode==="raw"?heatFg(raw,maxVal):deltaFg(delta);
                             const txt   = viewMode==="raw"
@@ -657,7 +658,7 @@
                         paddingTop:".75rem", fontWeight:600, letterSpacing:".05em" }}>WK TOTAL</td>
                       {FW.map((fw,i)=>{
                         const tot   = sortedWMs.reduce((s,wm)=>s+(shiftCounts[wm]?.[fw.sheet]||0),0);
-                        const isSep = monthBreaks.has(i);
+                        const isSep = monthBreaks.has(i) || yearBreaks.has(i);
                         return (
                           <td key={fw.sheet} style={{ textAlign:"center", paddingTop:".75rem", paddingLeft:isSep?4:0 }}>
                             <span style={{ fontSize:".5rem", fontWeight:600, color:tot>0?tk.textMuted:tk.border }}>
@@ -723,7 +724,7 @@
                   background:"rgba(124,58,237,.15)", border:"1px solid rgba(124,58,237,.35)",
                   fontSize:".48rem", fontWeight:700, color:"#7c3aed", letterSpacing:".04em", verticalAlign:"middle" }}>T</span>
               )}
-              <span style={{ color:tk.textMuted }}> · FW{tooltip.fw.fw}</span>
+              <span style={{ color:tk.textMuted }}> · {fwLabel(tooltip.fw)}</span>
               {tooltip.fw.range && <span style={{ color:tk.textFaint }}> ({tooltip.fw.range})</span>}
               <span style={{ color:tk.textNav }}> → </span>
               <strong style={{ color:tooltip.raw>0?"#f59e0b":tk.textNav }}>
