@@ -63,11 +63,14 @@ header {
 .header-sub   { font-size:.72rem; color:var(--muted); }
 
 /* ── BUTTONS ────────────────────────────────────── */
+/* Uniform Hub / Print / Theme buttons — same icon + label convention
+   used across the Weekly, Monthly, YTD, and Heat Map reports:
+   "← Hub", "🖨️ Print / Save PDF", "🌙 Dark" / "☀️ Light" */
 .btn {
   background:var(--surface2); border:1px solid var(--border); border-radius:8px;
   padding:.4rem .8rem; color:var(--text); font-size:.82rem; font-weight:600;
   cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s;
-  white-space:nowrap;
+  white-space:nowrap; text-decoration:none; display:inline-flex; align-items:center; gap:.35rem;
 }
 .btn:hover { background:var(--card-hover); border-color:var(--accent); }
 .btn-accent  { background:var(--accent); color:#fff; border-color:var(--accent); }
@@ -216,7 +219,7 @@ main { max-width:960px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 .log-scroll { max-height:460px; overflow-y:auto; }
 .log-entry { border-bottom:1px solid var(--border); padding:11px 0;
   display:flex; gap:14px; align-items:flex-start; }
-.log-wk { min-width:50px; flex-shrink:0; }
+.log-wk { min-width:58px; flex-shrink:0; }
 .log-wk-num { font-size:12px; font-weight:800; }
 .log-wk-dt  { font-size:10px; color:var(--muted); margin-top:1px; }
 .log-body-inner { flex:1; min-width:0; }
@@ -238,6 +241,16 @@ main { max-width:960px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 }
 footer { text-align:center; padding:1.5rem; font-size:.75rem;
   color:var(--muted); border-top:1px solid var(--border); }
+
+/* ===================== PRINT ===================== */
+@media print {
+  body { background:#fff !important; }
+  .no-print { display:none !important; }
+  header { position:static !important; }
+  .card-box, .cp-card, .s-card, .stat-card, .impact-card, .chart-card {
+    box-shadow:none !important; break-inside:avoid; page-break-inside:avoid;
+  }
+}
 </style>
 </head>
 <body data-theme="dark">
@@ -257,7 +270,8 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
       <div style="font-size:22px;font-weight:800">Processor Error Card</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn" onclick="goHub()">⌂ Hub</button>
+      <button class="btn" onclick="goHub()">← Hub</button>
+      <button class="btn" onclick="window.print()">🖨️ Print / Save PDF</button>
       <button class="btn" onclick="toggleTheme()" id="fb-theme-btn">☀️ Light</button>
     </div>
   </div>
@@ -271,7 +285,7 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">AI_Safe_Weekly_Error_Data.xlsx</div>
     <div class="btn btn-accent">Browse Files</div>
   </label>
-  <button class="btn" onclick="goHub()" style="margin-top:8px">⌂ Back to Hub</button>
+  <button class="btn" onclick="goHub()" style="margin-top:8px">← Back to Hub</button>
 </div>
 
 <!-- ══ HEADER ═════════════════════════════════════════════ -->
@@ -283,14 +297,15 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
       <div class="header-sub" id="hdr-sub">Processor Error Cards</div>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    <button class="btn" onclick="goHub()">⌂ Hub</button>
+  <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <button class="btn" onclick="goHub()">← Hub</button>
     <button class="btn" id="btn-ov" onclick="showView('ov')" style="display:none">← Overview</button>
     <select class="proc-sel" id="hdr-proc-sel" style="display:none" onchange="onSelChange(this.value)"></select>
     <label style="cursor:pointer">
       <span class="btn">📂 Load File</span>
       <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
     </label>
+    <button class="btn" onclick="window.print()">🖨️ Print / Save PDF</button>
     <button class="btn" id="theme-btn" onclick="toggleTheme()">☀️ Light</button>
   </div>
 </header>
@@ -409,7 +424,7 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     <div class="card-box" style="margin-bottom:0">
       <div class="log-hdr">
         <div class="log-hdr-title" id="log-title">Loading…</div>
-        <div class="flt-row" id="log-filters">
+        <div class="flt-row no-print" id="log-filters">
           <button class="flt-btn on" onclick="setLogFlt('All',this)">All</button>
           <button class="flt-btn"    onclick="setLogFlt('CP1',this)">CP1</button>
           <button class="flt-btn"    onclick="setLogFlt('CP2',this)">CP2</button>
@@ -431,13 +446,17 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
 // =============================================================================
 const XLSX_URL  = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
 const HUB_URL   = "index.html";
-const FW_OFFSET = 5; // Tool FW N = XLSX Sheet "Week N+5"  →  FW1 = XLSX Week 6
 
-// FW1 calendar anchor — used only as a fallback when a sheet has no usable
-// row dates to derive its own range from. Real ranges are computed live
-// from the dates found in each sheet (see deriveDateRanges()), so adding
-// new weeks to the workbook requires NO edits here.
-const FW1_START = new Date(2026, 1, 1); // Feb 1, 2026
+// Sheets are named directly with their fiscal week, e.g. "FW6 26", "FW48 25"
+// — the sheet name IS the fiscal week/year, so there's no calendar-week
+// offset math needed anymore (previously: XLSX "Week N" -> Tool FW N-5).
+const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
+
+// FW1 calendar anchor — used only as a last-resort fallback when a fiscal
+// week has no usable row dates to derive its own range from. Real ranges
+// are computed live from the dates found in each sheet (see
+// deriveDateRanges()), so this only matters for a completely blank week.
+const FW1_START = new Date(2025, 11, 28); // matches the earliest sheet, FW48 '25
 
 const SHIFT_COLORS = { "A-Shift":"#38BDF8","B-Shift":"#A78BFA","C-Shift":"#34D399" };
 const CP_VIZ = { CP1:"#0097A7",CP2:"#7C3AED",CP3:"#F59E0B" };
@@ -453,6 +472,7 @@ const CP_BADGE_CSS = {
 let _data={}, _cur=null, _logFlt="All", _dark=true, _ch={};
 let NUM_WEEKS = 0;          // total fiscal weeks detected in the workbook (dynamic)
 let FW_DATE_RANGES = {};    // computed live from the workbook — see deriveDateRanges()
+let FW_LABELS = {};         // seq (1..NUM_WEEKS) -> display label, e.g. "FW6 '26"
 
 // =============================================================================
 // HELPERS
@@ -464,6 +484,8 @@ function clean(v){if(v==null)return"";let s=String(v).trim().replace(/\xa0/g,"")
 function parseNum(v){const m=String(v||"").match(/\d+/);return m?+m[0]:0;}
 function trunc(s,n=25){return s.length>n?s.slice(0,n-1)+"…":s;}
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function fwLbl(seq){ return FW_LABELS[seq] || `FW${seq}`; }
+function fwRangeLabel(){ return NUM_WEEKS ? `${fwLbl(1)} – ${fwLbl(NUM_WEEKS)}` : ""; }
 
 // Alphabetical comparator for LanIDs — used for all processor dropdowns.
 // Applies automatically to any new LanID added to the workbook in the future.
@@ -509,18 +531,34 @@ function fmtRange(minD,maxD){
 }
 
 // =============================================================================
-// XLSX PARSING  (FW offset applied: XLSX Week N → Tool FW N-5)
-// No upper bound on fiscal week — every "Week N" sheet in the workbook is
-// read, so newly added weeks (FW21, FW22, …) are picked up automatically.
+// XLSX PARSING
+// Sheets are matched directly on the "FW<n> <yy>" naming pattern and sorted
+// chronologically (fiscal year, then fiscal week). Each sheet is then given
+// a sequential index (1..N) across the whole workbook — that sequential
+// index is what drives the weekly arrays/charts internally, while the
+// original "FW<n> '<yy>" text is kept as a display label (FW_LABELS) since
+// fiscal week numbers reset every year and would otherwise collide.
 // =============================================================================
 function parseWB(wb){
   const records=[];
-  for(const sn of wb.SheetNames){
-    const m=sn.match(/^Week\s*(\d+)$/i);
-    if(!m) continue;
-    const xlsxWk=+m[1], fw=xlsxWk-FW_OFFSET;
-    if(fw<1) continue; // only floor — no ceiling, so future weeks are never dropped
 
+  const sheetMeta=[];
+  for(const sn of wb.SheetNames){
+    const m=sn.match(FW_SHEET_RE);
+    if(!m) continue;
+    sheetMeta.push({ sheet:sn, fw:+m[1], yy:+m[2] });
+  }
+  sheetMeta.sort((a,b)=>(a.yy-b.yy)||(a.fw-b.fw));
+
+  const seqOf={}, labelOf={};
+  sheetMeta.forEach((m,i)=>{
+    seqOf[m.sheet]=i+1;
+    labelOf[m.sheet]=`FW${m.fw} '${m.yy}`;
+  });
+  FW_LABELS = Object.fromEntries(sheetMeta.map((m,i)=>[i+1, labelOf[m.sheet]]));
+
+  for(const {sheet:sn} of sheetMeta){
+    const seq=seqOf[sn];
     const ws=wb.Sheets[sn];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
     let hi=-1;
@@ -568,7 +606,7 @@ function parseWB(wb){
       if(!shift) continue;
 
       records.push({
-        fw,xlsxWk,lanid,name:clean(row[5])||lanid,
+        fw:seq, fwLabel:labelOf[sn], lanid,name:clean(row[5])||lanid,
         shift,dept:clean(row[10])||"Receiving",dateStr,dateObj,comment,
         cp1Parts,cp2Parts,cp3Parts,allCPs,
         casesRaw:clean(row[16]),unitsRaw:clean(row[17]),
@@ -636,7 +674,7 @@ function buildProcessorData(allRecords){
       // Incidents — non-FYI only
       if(!r.fyi){
         incidents++; totalUnits+=r.units; totalCases+=r.cases;
-        rawLog.push({fw:r.fw,date:r.dateStr,cps:r.allCPs,
+        rawLog.push({fw:r.fw,fwLabel:r.fwLabel,date:r.dateStr,cps:r.allCPs,
           comment:r.comment,casesRaw:r.casesRaw,unitsRaw:r.unitsRaw});
       }
     }
@@ -695,7 +733,7 @@ async function loadFile(file){
   try{
     const wb=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:true});
     const recs=parseWB(wb);
-    if(!recs.length) throw new Error("No fiscal-week data found. Verify sheet names are 'Week N'.");
+    if(!recs.length) throw new Error("No fiscal-week data found. Verify sheet names are 'FW<n> <yy>'.");
     _data=buildProcessorData(recs);
     init();
   }catch(e){ showFallback(e.message); }
@@ -709,7 +747,7 @@ function init(){
   hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
   // Footer reflects actual detected week range
   document.getElementById("det-footer").innerHTML=
-    `Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; Fiscal Weeks 1–${NUM_WEEKS} &nbsp;·&nbsp; Nordstrom`;
+    `Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; ${fwRangeLabel()} &nbsp;·&nbsp; Nordstrom`;
   renderOverview();
   showView("ov");
 }
@@ -750,9 +788,9 @@ function renderOverview(){
   const navy=gAccent();
 
   document.getElementById("ov-sub").textContent=
-    `All processors · Fiscal Weeks 1–${NUM_WEEKS}`;
+    `All processors · ${fwRangeLabel()}`;
   document.getElementById("ov-weekly-sub").textContent=
-    `Fiscal Weeks 1–${NUM_WEEKS} · Stacked by CP1 · CP2 · CP3`;
+    `${fwRangeLabel()} · Stacked by CP1 · CP2 · CP3`;
 
   document.getElementById("ov-stats").innerHTML=[
     {l:"Processors",      v:procs.length,         s:"LanIDs on record",    c:navy},
@@ -774,7 +812,7 @@ function renderOverview(){
   for(const p of procs){
     p.weekly.forEach((w,i)=>{weeklyAgg[i].cp1+=w.shipment;weeklyAgg[i].cp2+=w.piece;weeklyAgg[i].cp3+=w.carton;});
   }
-  mkBar("ch-ov-weekly",weeklyAgg.map(w=>`FW${w.fw}`),[
+  mkBar("ch-ov-weekly",weeklyAgg.map(w=>fwLbl(w.fw)),[
     {label:"CP1 — Shipment",data:weeklyAgg.map(w=>w.cp1),backgroundColor:CP_VIZ.CP1,stack:"s"},
     {label:"CP2 — Piece",   data:weeklyAgg.map(w=>w.cp2),backgroundColor:CP_VIZ.CP2,stack:"s"},
     {label:"CP3 — Carton",  data:weeklyAgg.map(w=>w.cp3),backgroundColor:CP_VIZ.CP3,stack:"s",borderRadius:4},
@@ -815,9 +853,9 @@ function renderOverview(){
     const prev=prevFw>=1?(deptWeekly[prevFw-1]?.[key]??0):null;
     if(prev===null) return{text:"No prior week to compare",color:gc(),diff:0};
     const diff=cur-prev;
-    if(diff>0)  return{text:`▲ +${diff} vs FW${prevFw}`, color:"#ef4444",diff};
-    if(diff<0)  return{text:`▼ ${diff} vs FW${prevFw}`,  color:"#10b981",diff};
-    return{text:`— Flat vs FW${prevFw}`,color:"#94a3b8",diff:0};
+    if(diff>0)  return{text:`▲ +${diff} vs ${fwLbl(prevFw)}`, color:"#ef4444",diff};
+    if(diff<0)  return{text:`▼ ${diff} vs ${fwLbl(prevFw)}`,  color:"#10b981",diff};
+    return{text:`— Flat vs ${fwLbl(prevFw)}`,color:"#94a3b8",diff:0};
   }
 
   const ovCpRows=[
@@ -842,7 +880,7 @@ function renderOverview(){
         <span class="cp-card-count" style="color:${r.color}">${tot}</span>
       </div>
       <div class="cp-trend-row">
-        <span>FW${NUM_WEEKS}: ${curWeekCount}</span>
+        <span>${fwLbl(NUM_WEEKS)}: ${curWeekCount}</span>
         <span style="color:${wow.color};font-weight:700">${wow.text}</span>
       </div>
       <div class="subtype-lbl">Error Sub-Types (All-Time)</div>
@@ -926,7 +964,7 @@ function renderDetail(lanid){
         <span style="font-family:monospace;font-size:11px;font-weight:800;color:var(--muted)">${proc.lanid}</span>
       </div>
       <div class="proc-meta-name" style="color:${sc}">${esc(proc.name)} &#8212; Error Frequency Trend</div>
-      <div class="proc-meta-sub">Fiscal Weeks 1&#8211;${NUM_WEEKS}</div>
+      <div class="proc-meta-sub">${fwRangeLabel()}</div>
     </div>`;
 
   // Summary stats
@@ -998,7 +1036,7 @@ function renderDetail(lanid){
 // CHART RENDERING (detail view)
 // =============================================================================
 function renderCharts(proc,trends,sc){
-  const fw_labels=proc.weekly.map(w=>`FW${w.fw}`);
+  const fw_labels=proc.weekly.map(w=>fwLbl(w.fw));
 
   // Value labels plugin for checkpoint flags bar
   const valueLabels={
@@ -1033,7 +1071,7 @@ function renderCharts(proc,trends,sc){
     options:{
       responsive:true,maintainAspectRatio:false,
       plugins:{legend:{labels:{color:gc(),font:{size:11},boxWidth:12,padding:12}},
-        tooltip:{...ttBase,callbacks:{title:([{dataIndex}])=>{const w=proc.weekly[dataIndex];return`Fiscal Week ${w.fw} (${w.dateRange})`;}}}},
+        tooltip:{...ttBase,callbacks:{title:([{dataIndex}])=>{const w=proc.weekly[dataIndex];return`${fwLbl(w.fw)} (${w.dateRange})`;}}}},
       scales:{
         x:{stacked:true,ticks:{color:gc(),font:{size:11}},grid:{color:gb()},border:{display:false}},
         y:{stacked:true,ticks:{color:gc(),font:{size:11},precision:0},grid:{color:gb()},border:{display:false}},
@@ -1121,7 +1159,7 @@ function renderLog(proc){
         const badges=r.cps.map(c=>`<span class="cp-badge" style="${CP_BADGE_CSS[c.cp]||""}">${esc(c.cp)}: ${esc(c.type)}</span>`).join("");
         return`<div class="log-entry">
           <div class="log-wk">
-            <div class="log-wk-num" style="color:${sc}">FW ${r.fw}</div>
+            <div class="log-wk-num" style="color:${sc}">${r.fwLabel||fwLbl(r.fw)}</div>
             <div class="log-wk-dt">${dateStr}</div>
           </div>
           <div class="log-body-inner">
