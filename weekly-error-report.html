@@ -794,8 +794,9 @@ function App() {
         </div>
 
         <Card t={t} style={{ padding:"18px 20px" }}>
-          <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
-            textTransform:"uppercase", marginBottom:10 }}>Summary</div>
+          <div style={{ marginBottom:10 }}>
+            <Badge color="#64748B" bg={dark?"#64748B22":"#e2e8f0"}>Summary</Badge>
+          </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
             {[
               { label:"Total Errors",     value:data.total,                                         color:"#34D399", bg:dark?"#34D39922":"#d1fae5" },
@@ -903,7 +904,7 @@ function App() {
           <Card t={t}>
             <SectionHeader t={t} eyebrow="By Shift · Receiving Only" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
               title="Receiving Unique Processors Impacted by Shift"
-              subtitle={`${receivingRolling[0].label} – ${receivingRolling[receivingRolling.length-1].label} · Receiving home department only · unique LanIDs with 1+ assessed error, FYI/not-an-error excluded · LOS overlaid on its own right-hand scale`} />
+              subtitle={`${receivingRolling[0].label} – ${receivingRolling[receivingRolling.length-1].label} · Receiving home department only · unique LanIDs with 1+ assessed error`} />
             <MultiLineChart data={receivingRolling} t={t} showLOS={true} />
             <div style={{ display:"flex", gap:16, marginTop:12, justifyContent:"center", flexWrap:"wrap" }}>
               {["A","B","C"].map(k => (
