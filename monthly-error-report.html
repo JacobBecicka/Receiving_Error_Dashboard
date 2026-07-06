@@ -171,9 +171,9 @@
     .takeaway {
       margin-bottom: 14px;
       padding-left: 14px;
-      border-left: 3px solid #16A34A30;
+      border-left: 3px solid #15803D40;
     }
-    .dark .takeaway { border-left-color: #16A34A55; }
+    .dark .takeaway { border-left-color: #15803D66; }
     .takeaway h3 { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
     .takeaway p  { font-size: 13px; color: var(--text-second); line-height: 1.5; }
     canvas { display: block; }
@@ -284,7 +284,8 @@
 
     <!-- Summary -->
     <div class="card card-summary">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Summary</div>
+      <span class="badge" style="color:#475569;background:#CBD5E1;" id="summary-badge">Summary</span>
+      <div style="height:6px"></div>
       <div class="bubble">
         <div class="stat-grid" id="summary-tiles"></div>
       </div>
@@ -326,7 +327,7 @@
     <!-- Dept donut -->
     <div class="card">
       <div class="section-header">
-        <span class="badge" style="color:#0EA5E9;background:#e0f2fe;">By Department</span>
+        <span class="badge" style="color:#65A30D;background:#ECFCCB;">By Department</span>
         <h2>Receiving vs. Transfers</h2>
         <p>Home Department — Receiving vs. all transfer departments combined</p>
       </div>
@@ -353,7 +354,7 @@
     <!-- Key Takeaways -->
     <div class="card">
       <div class="section-header">
-        <span class="badge" style="color:#16A34A;background:#dcfce7;">Analysis</span>
+        <span class="badge" style="color:#15803D;background:#DCFCE7;">Analysis</span>
         <h2>Key Takeaways</h2>
       </div>
       <div id="takeaways-body"></div>
@@ -873,9 +874,9 @@ function render() {
   /* —— SUMMARY TILES —— */
   const summaryEl = document.getElementById('summary-tiles');
   summaryEl.innerHTML = [
-    { label:'Total Errors',     value: total,                                        color:'#16A34A', bg: isDark?'#16A34A22':'#dcfce7' },
+    { label:'Total Errors',     value: total,                                        color:'#E11D48', bg: isDark?'#E11D4822':'#FCE7EC' },
     { label:'Busiest Shift',    value: `${busyL}-Shift (${p(busyN)})`,               color: SHIFT_COLORS[busyL], bg: isDark?SHIFT_COLORS[busyL]+'22':'#f0f9ff' },
-    { label:'Top Checkpoint',   value: topCP.name,                                   color:'#0284C7', bg: isDark?'#0284C722':'#e0f2fe' },
+    { label:'Top Checkpoint',   value: topCP.name,                                   color:'#C2410C', bg: isDark?'#C2410C22':'#FFEDD5' },
     { label:'LanIDs w/ 5+',     value: data.procs5.length,                           color:'#B45309', bg: isDark?'#B4530922':'#fef3c7' },
   ].map(s => `<div class="stat-tile" style="background:${s.bg};border:1px solid ${s.color}30;">
       <div class="s-label">${esc(s.label)}</div>
@@ -883,9 +884,9 @@ function render() {
     </div>`).join('');
 
   /* —— MONTH-OVER-MONTH —— */
-  const tealBg = isDark ? '#0D948822' : '#ccfbf1';
+  const tealBg = isDark ? '#A21CAF22' : '#FAE8FF';
   document.getElementById('mom-header').innerHTML = `
-    <span class="badge" style="color:#0D9488;background:${tealBg};">Trend</span>
+    <span class="badge" style="color:#A21CAF;background:${tealBg};">Trend</span>
     <h2>Month-over-Month</h2>
     <p>${prevKey ? `${monthLabel(mk)} vs. ${monthLabel(prevKey)}` : `${monthLabel(mk)} — earliest month on record`}</p>`;
 
@@ -919,9 +920,9 @@ function render() {
   const r3Keys = MONTH_KEYS.slice(Math.max(0, selIdx - 2), selIdx + 1);
   const r3     = r3Keys.map(k => ({ label: monthLabel(k), total: MONTHLY_DATA[k].total }));
   const rIdx   = r3.length - 1;
-  const redBg  = isDark ? '#DC262622' : '#fee2e2';
+  const redBg  = isDark ? '#64748B22' : '#E2E8F0';
   document.getElementById('rolling-header').innerHTML = `
-    <span class="badge" style="color:#DC2626;background:${redBg};">Rolling Trend</span>
+    <span class="badge" style="color:#64748B;background:${redBg};">Rolling Trend</span>
     <h2>3-Month Rolling Review</h2>
     <p>Total errors per calendar month (up to 3 months ending with selection)</p>`;
 
@@ -957,7 +958,7 @@ function render() {
     C: MONTHLY_DATA[k].recvShiftC,
   }));
   document.getElementById('recv-shift-header').innerHTML = `
-    <span class="badge" style="color:#0284C7;background:${isDark?'#0284C722':'#e0f2fe'};">By Shift · Receiving Only</span>
+    <span class="badge" style="color:#AD1F7E;background:${isDark?'#AD1F7E22':'#FCE4F5'};">By Shift · Receiving Only</span>
     <h2>Receiving Processor Errors by Shift</h2>
     <p>6 Month Receiving Home Department Errors</p>`;
   makeShiftLineChart(r6.map(d => d.label), r6.map(d=>d.A), r6.map(d=>d.B), r6.map(d=>d.C));
@@ -999,10 +1000,10 @@ function render() {
   makeDoughnut('chart-dept',
     ['Receiving','Transfers'],
     [data.receiving, data.transfers],
-    ['#0EA5E9','#94A3B8']
+    ['#65A30D','#94A3B8']
   );
   document.getElementById('dept-tiles').innerHTML = [
-    { name:'Receiving',  val: data.receiving,  color:'#0EA5E9' },
+    { name:'Receiving',  val: data.receiving,  color:'#65A30D' },
     { name:'Transfers',  val: data.transfers,   color:'#94A3B8' },
   ].map(s => `<div class="split-tile">
     <div class="t-name">${s.name}</div>
