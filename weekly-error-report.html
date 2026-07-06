@@ -39,7 +39,7 @@ const WORKBOOK_URL =
   "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
 
 const SHIFT_COLORS = { A:"#38BDF8", B:"#A78BFA", C:"#34D399" };
-const DEPT_COLORS  = { Receiving:"#38BDF8", Transfers:"#94A3B8" };
+const DEPT_COLORS  = { Receiving:"#65A30D", Transfers:"#94A3B8" };
 
 // ---------------------------------------------------------------------------
 // LOS (Level of Service) heat-map coloring — continuous gradient
@@ -195,13 +195,6 @@ function BarChartSVG({ data, t }) {
 const LOS_COLOR = "#F59E0B"; // amber
 
 function MultiLineChart({ data, t, showLOS }) {
-  // Renders up to 3 lines (A/B/C shift) on a left axis, plus an optional
-  // LOS overlay on an independent right axis. The two axes are scaled
-  // separately on purpose — LOS lives in a tight 80-100ish band while
-  // unique-processor counts range 0-25+, so sharing one scale would either
-  // flatten the LOS line to nothing or blow up the shift lines. Each axis
-  // is auto-ranged to its own data so neither series visually distorts
-  // the other.
   const W = 360, H = 130, padL = 26, padR = showLOS ? 30 : 10, padT = 14, padB = 26;
   const max = Math.max(1, ...data.flatMap(d => [d.A, d.B, d.C]));
   const innerW = W - padL - padR;
@@ -216,9 +209,6 @@ function MultiLineChart({ data, t, showLOS }) {
   ];
   const gridVals = [0, 0.5, 1].map(f => Math.round(max * f));
 
-  // Right-axis (LOS) domain: auto-ranged to the actual LOS values present,
-  // padded and rounded to the nearest 5, so the LOS line uses its full own
-  // vertical range rather than being squashed into the left axis's scale.
   const losVals = showLOS ? data.map(d => d.los).filter(v => v !== null && v !== undefined) : [];
   let losMin = 0, losMax = 100;
   if (losVals.length) {
@@ -261,8 +251,6 @@ function MultiLineChart({ data, t, showLOS }) {
       })}
 
       {showLOS && losVals.length > 0 && (() => {
-        // Break the polyline at any week with a missing LOS value instead
-        // of interpolating across the gap.
         const segments = [];
         let cur = [];
         data.forEach((d, i) => {
@@ -335,9 +323,6 @@ function isNoError(v) {
   return !s || s === "no errors" || s === "no error";
 }
 
-// FYI / non-assessed comment detection. Column S (0-based index 18) holds
-// the researcher's comment. Rows flagged FYI are excluded from unique-LanID
-// counts here (per Jacob: exclude FYI/not-an-error from this view).
 function isFyiComment(v) {
   const s = String(v || "").trim().toLowerCase();
   return s.includes("fyi") || s.includes("not an error");
@@ -363,7 +348,7 @@ function parseWeek(wb, sheetName) {
     const ce    = String(row[13]||"").trim();
     const id    = row[0];
     const sk = /^a(-?shift)?$/i.test(shift)?"A":/^b(-?shift)?$/i.test(shift)?"B":/^c(-?shift)?$/i.test(shift)?"C":null;
-    if (!sk) return; // skip rows without a valid shift (matches YTD report)
+    if (!sk) return;
     if (isNoError(se) && isNoError(pe) && isNoError(ce)) return;
     total++;
     if (id !== "" && firstId === null) firstId = id;
@@ -400,12 +385,6 @@ function parseWeek(wb, sheetName) {
   };
 }
 
-// Receiving-home-department-only UNIQUE LanID counts by shift, for a single
-// fiscal week. Counts how many distinct processors (LanIDs) received at
-// least one error that week, per shift — not how many error rows were
-// logged. FYI / "not an error" commented rows (column S, index 18) are
-// excluded entirely, matching the assessed-incident exclusion rule but
-// applied here to unique-person counts as well.
 function parseWeekReceivingByShift(wb, sheetName) {
   if (!wb.SheetNames.includes(sheetName)) return null;
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:"" });
@@ -431,9 +410,6 @@ function parseWeekReceivingByShift(wb, sheetName) {
   return { A: uniqueLan.A.size, B: uniqueLan.B.size, C: uniqueLan.C.size };
 }
 
-// Both rolling builders now walk backward through the chronologically sorted
-// fiscal-week list by array index, rather than doing arithmetic on a week
-// number. This makes fiscal-year rollovers (…FW52 25 → FW1 26…) automatic.
 function buildRolling(wb, weekList, idx, span) {
   const start = Math.max(0, idx - (span - 1));
   const out = [];
@@ -452,8 +428,6 @@ function buildReceivingShiftRolling(wb, weekList, idx, span) {
     const wk = weekList[i];
     const d = parseWeekReceivingByShift(wb, wk.name);
     if (!d) continue;
-    // LOS is optional per week — parsed defensively so a bad/missing cell
-    // just omits that week's LOS point rather than breaking the chart.
     let los = null;
     try { los = parseLOS(wb, wk.name); } catch (e) { /* skip silently, already logged elsewhere */ }
     out.push({ short:getWeekShort(wk), label:getWeekLabel(wk), A:d.A, B:d.B, C:d.C, los });
@@ -607,8 +581,8 @@ function App() {
   const [wb,        setWb]        = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
-  const [weekList,  setWeekList]  = useState([]);   // chronological, data-having fiscal weeks
-  const [weekIdx,   setWeekIdx]   = useState(null); // index into weekList
+  const [weekList,  setWeekList]  = useState([]);
+  const [weekIdx,   setWeekIdx]   = useState(null);
   const [report,    setReport]    = useState(null);
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugLog,  setDebugLog]  = useState([]);
@@ -619,13 +593,8 @@ function App() {
     setDebugLog(prev => [...prev.slice(-49), { msg, level, time: new Date().toLocaleTimeString() }]);
   };
 
-  // Auto-fetch workbook on mount
   useEffect(() => {
     setLoading(true);
-    // Cache-bust: raw.githubusercontent.com caches at the CDN edge for
-    // several minutes regardless of browser cache/incognito, so a fresh
-    // query string on every load is the reliable way to always get the
-    // latest committed version of the workbook.
     fetch(`${WORKBOOK_URL}?t=${Date.now()}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -658,8 +627,6 @@ function App() {
     const receivingRolling = buildReceivingShiftRolling(wb, weekList, weekIdx, 6);
     if (!data) return;
 
-    // LOS is optional per week — parse defensively and log any issues rather
-    // than letting a bad cell break the whole report.
     let los = null, prevLos = null;
     try {
       los = parseLOS(wb, wk.name);
@@ -696,7 +663,6 @@ function App() {
     </div>
   );
 
-  // Loading state
   if (loading) return pageWrap(
     <div style={{ textAlign:"center", padding:"60px 0" }}>
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
@@ -707,7 +673,6 @@ function App() {
     </div>
   );
 
-  // Error state
   if (error) return pageWrap(
     <Card t={t} style={{ textAlign:"center" }}>
       <div style={{ fontSize:28, marginBottom:12 }}>⚠️</div>
@@ -716,7 +681,6 @@ function App() {
     </Card>
   );
 
-  // Week picker
   if (!report) return pageWrap(
     <Card t={t}>
       <div style={{ fontSize:11, fontWeight:700, color:t.textMuted, letterSpacing:1,
@@ -739,7 +703,6 @@ function App() {
     </Card>
   );
 
-  // Report
   const { data, prevData, rolling, receivingRolling, takeaways, wLabel, wLabelPrev, los, prevLos } = report;
   const fmtPct     = n => `${((n/data.total)*100).toFixed(1)}%`;
   const shiftArr   = [["A",data.shift.A],["B",data.shift.B],["C",data.shift.C]].sort((a,b)=>b[1]-a[1]);
@@ -763,7 +726,6 @@ function App() {
   ];
   const deptPieData = data.deptSplit.map(d => ({ ...d, color:DEPT_COLORS[d.name] }));
 
-  // LOS summary tiles — only rendered when this week actually has LOS data.
   const losColor    = los !== null ? losHeat(los) : null;
   const losDelta     = (los !== null && prevLos !== null) ? +(los - prevLos).toFixed(1) : null;
   const losFlat      = losDelta === 0;
@@ -795,13 +757,13 @@ function App() {
 
         <Card t={t} style={{ padding:"18px 20px" }}>
           <div style={{ marginBottom:10 }}>
-            <Badge color="#64748B" bg={dark?"#64748B22":"#e2e8f0"}>Summary</Badge>
+            <Badge color="#475569" bg={dark?"#47556955":"#CBD5E1"}>Summary</Badge>
           </div>
           <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
             {[
-              { label:"Total Errors",     value:data.total,                                         color:"#34D399", bg:dark?"#34D39922":"#d1fae5" },
+              { label:"Total Errors",     value:data.total,                                         color:"#E11D48", bg:dark?"#E11D4822":"#FCE7EC" },
               { label:"Busiest Shift",    value:`${topShift[0]} (${fmtPct(topShift[1])})`,          color:topShiftColor, bg:`${topShiftColor}22` },
-              { label:"Top Checkpoint",   value:topCP[0],                                           color:"#0284C7", bg:dark?"#0284C722":"#e0f2fe" },
+              { label:"Top Checkpoint",   value:topCP[0],                                           color:"#C2410C", bg:dark?"#C2410C22":"#FFEDD5" },
               { label:"Processors w/ 3+", value:String(data.topProcessors.length),                   color:"#B45309", bg:dark?"#B4530922":"#fef3c7" },
             ].map(s => (
               <div key={s.label} style={{ background:s.bg, border:`1px solid ${s.color}40`,
@@ -833,7 +795,7 @@ function App() {
 
         {prevData && (
           <Card t={t}>
-            <SectionHeader t={t} eyebrow="Trend" eyebrowColor="#0D9488" eyebrowBg={dark?"#0D948822":"#ccfbf1"}
+            <SectionHeader t={t} eyebrow="Trend" eyebrowColor="#A21CAF" eyebrowBg={dark?"#A21CAF22":"#FAE8FF"}
               title="Week-over-Week: Total Errors" subtitle={`${wLabel} vs. ${wLabelPrev}`} />
             <div style={{ display:"flex", alignItems:"center", gap:18, marginTop:4 }}>
               <div style={{ textAlign:"center" }}>
@@ -859,7 +821,7 @@ function App() {
 
         {rolling.length >= 2 && (
           <Card t={t}>
-            <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#f87171" eyebrowBg={dark?"#f8717122":"#fee2e2"}
+            <SectionHeader t={t} eyebrow="Rolling Trend" eyebrowColor="#64748B" eyebrowBg={dark?"#64748B22":"#E2E8F0"}
               title="4-Week Rolling Review"
               subtitle={`${rolling[0].label} – ${rolling[rolling.length-1].label}`} />
             <BarChartSVG data={rolling} t={t} />
@@ -902,7 +864,7 @@ function App() {
 
         {receivingRolling.length >= 2 && (
           <Card t={t}>
-            <SectionHeader t={t} eyebrow="By Shift · Receiving Only" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
+            <SectionHeader t={t} eyebrow="By Shift · Receiving Only" eyebrowColor="#AD1F7E" eyebrowBg={dark?"#AD1F7E22":"#FCE4F5"}
               title="Receiving Unique Processors Impacted by Shift"
               subtitle={`${receivingRolling[0].label} – ${receivingRolling[receivingRolling.length-1].label} · Receiving home department only · unique LanIDs with 1+ assessed error`} />
             <MultiLineChart data={receivingRolling} t={t} showLOS={true} />
@@ -959,7 +921,7 @@ function App() {
         </Card>
 
         <Card t={t}>
-          <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#38BDF8" eyebrowBg={dark?"#38BDF822":"#e0f2fe"}
+          <SectionHeader t={t} eyebrow="By Department" eyebrowColor="#65A30D" eyebrowBg={dark?"#65A30D22":"#ECFCCB"}
             title="Receiving vs. Transfers" subtitle="Home Department — Receiving vs. all transfer departments combined" />
           <DonutChart data={deptPieData} t={t} />
           <div style={{ display:"flex", gap:8, marginTop:12 }}>
@@ -1018,11 +980,11 @@ function App() {
         )}
 
         <Card t={t}>
-          <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#34D399" eyebrowBg={dark?"#34D39922":"#d1fae5"}
+          <SectionHeader t={t} eyebrow="Analysis" eyebrowColor="#15803D" eyebrowBg={dark?"#15803D22":"#DCFCE7"}
             title="Key Takeaways" />
           {takeaways.map(item => (
             <div key={item.h} style={{ marginBottom:14, paddingLeft:14,
-              borderLeft:`3px solid ${dark?"#34D39955":"#34D39930"}` }}>
+              borderLeft:`3px solid ${dark?"#15803D66":"#15803D40"}` }}>
               <div style={{ fontSize:14, fontWeight:700, color:t.textPrimary, marginBottom:3 }}>{item.h}</div>
               <div style={{ fontSize:13, color:t.textSecond, lineHeight:1.5 }}>{item.b}</div>
             </div>
