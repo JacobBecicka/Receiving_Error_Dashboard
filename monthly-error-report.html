@@ -316,7 +316,7 @@
     <!-- Shift donut -->
     <div class="card">
       <div class="section-header">
-        <span class="badge" style="color:#7C3AED;background:#ede9fe;">By Shift</span>
+        <span class="badge" style="color:#A78BFA;background:#ede9fe;">By Shift</span>
         <h2>Error Share by Shift</h2>
         <p>A-Shift, B-Shift, C-Shift — % of total errors this month</p>
       </div>
@@ -875,10 +875,10 @@ function render() {
   const summaryEl = document.getElementById('summary-tiles');
   summaryEl.innerHTML = [
     { label:'Total Errors',     value: total,                                        color:'#E11D48', bg: isDark?'#E11D4822':'#FCE7EC' },
-    { label:'Busiest Shift',    value: `${busyL}-Shift (${p(busyN)})`,               color: SHIFT_COLORS[busyL], bg: isDark?SHIFT_COLORS[busyL]+'22':'#f0f9ff' },
+    { label:'Busiest Shift',    value: `${busyL}-Shift (${p(busyN)})`,               color: SHIFT_COLORS[busyL], bg: SHIFT_COLORS[busyL]+'22' },
     { label:'Top Checkpoint',   value: topCP.name,                                   color:'#C2410C', bg: isDark?'#C2410C22':'#FFEDD5' },
     { label:'LanIDs w/ 5+',     value: data.procs5.length,                           color:'#B45309', bg: isDark?'#B4530922':'#fef3c7' },
-  ].map(s => `<div class="stat-tile" style="background:${s.bg};border:1px solid ${s.color}30;">
+  ].map(s => `<div class="stat-tile" style="background:${s.bg};border:1px solid ${s.color}40;">
       <div class="s-label">${esc(s.label)}</div>
       <div class="s-value" style="color:${s.color}">${esc(String(s.value))}</div>
     </div>`).join('');
