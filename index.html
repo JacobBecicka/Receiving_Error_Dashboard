@@ -99,12 +99,25 @@
     .header-icon { font-size: 1.5rem; }
     .header-title { font-size: 1.1rem; font-weight: 700; color: var(--text); line-height: 1.2; }
     .header-sub { font-size: 0.75rem; color: var(--muted); }
-    .theme-btn {
-      background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-      padding: 0.4rem 0.8rem; color: var(--text); font-size: 0.85rem;
-      cursor: pointer; transition: background 0.2s; white-space: nowrap;
+
+    /* Unified pill button standard shared across all suite tools */
+    .hdr-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 7px 14px;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: opacity 0.2s;
     }
-    .theme-btn:hover { background: var(--card-hover); }
+    .hdr-btn:hover { opacity: 0.8; }
 
     main { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem; }
 
@@ -176,7 +189,7 @@
           <div class="header-sub">Internal Operations Hub</div>
         </div>
       </div>
-      <button class="theme-btn" onclick="toggleTheme()" id="theme-label">☀️ Light</button>
+      <button class="hdr-btn" onclick="toggleTheme()" id="theme-label">☀️ Light</button>
     </header>
 
     <main>
@@ -223,7 +236,7 @@
             <span class="card-badge">Live</span>
           </div>
           <div class="card-name">Processor Performance</div>
-          <div class="card-desc">WM Sign-On ID level error tracking. Identify repeated patterns and coaching candidates by checkpoint.</div>
+          <div class="card-desc">LanID level error tracking. Identify repeated patterns and coaching candidates by checkpoint.</div>
           <div class="card-footer">Open tool →</div>
         </div>
 
