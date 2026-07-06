@@ -132,6 +132,35 @@
 
     .coach-shift-lbl { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
 
+    /* ===== Lipstick / bullet bar — combined shift chart ===== */
+    .bullet-row { margin-bottom: 18px; }
+    .bullet-row:last-child { margin-bottom: 0; }
+    .bullet-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .bullet-lbl { font-size: 13px; font-weight: 800; }
+    .bullet-nums { font-size: 12px; color: var(--text2); }
+    .bullet-track {
+      position: relative; height: 26px; border-radius: 7px;
+      background: var(--track); overflow: hidden;
+    }
+    .bullet-outer {
+      position: absolute; top: 0; left: 0; height: 100%;
+      border-radius: 7px; transition: width 0.3s;
+    }
+    .bullet-inner {
+      position: absolute; top: 6px; left: 0; height: 14px;
+      border-radius: 5px; transition: width 0.3s;
+    }
+    .bullet-legend {
+      display: flex; gap: 18px; align-items: center; margin-top: 14px;
+      font-size: 11.5px; color: var(--text2); flex-wrap: wrap;
+    }
+    .bullet-legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+    .legend-swatch.inner { width: 14px; height: 8px; border-radius: 3px; }
+
     .spinner {
       width: 44px; height: 44px;
       border: 3px solid var(--border);
@@ -191,6 +220,34 @@ const SC = { A:'#38BDF8', B:'#A78BFA', C:'#34D399' };
 
 // Department colors — matched to Weekly Error Report's DEPT_COLORS
 const DC = { Receiving:'#38BDF8', Transfers:'#94A3B8' };
+
+// ════════════════════════════════════════════════════════
+//  COLOR HELPERS — same-hue shade variants for the lipstick chart
+//  outer bar = darker/saturated (All Shifts), inner bar = lighter
+//  pastel (Receiving-only subset)
+// ════════════════════════════════════════════════════════
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  return {
+    r: parseInt(h.substring(0,2),16),
+    g: parseInt(h.substring(2,4),16),
+    b: parseInt(h.substring(4,6),16),
+  };
+}
+function rgbToHex(r,g,b) {
+  const c = n => Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+// Blend a hex color toward black (darken) or white (lighten) by ratio 0–1
+function shade(hex, ratio, toward) {
+  const { r,g,b } = hexToRgb(hex);
+  const t = toward === 'black' ? 0 : 255;
+  return rgbToHex(r+(t-r)*ratio, g+(t-g)*ratio, b+(t-b)*ratio);
+}
+// Darker, more saturated variant — used for the OUTER "All Shifts" bar
+const darkShade  = hex => shade(hex, 0.28, 'black');
+// Light pastel variant — used for the INNER "Receiving-only" bar
+const pastelShade = hex => shade(hex, 0.55, 'white');
 
 // ════════════════════════════════════════════════════════
 //  STATE
@@ -604,44 +661,52 @@ function renderSummary(d) {
   </div>`;
 }
 
-function renderShiftChart(d) {
-  const pieData = ['A','B','C'].map(s=>({name:`${s}-Shift`,value:d.shiftErrors[s],color:SC[s]}));
-  const donut   = buildDonut(pieData, d.total);
-  const tiles   = ['A','B','C'].map(s=>`
-    <div class="shift-tile">
-      <div class="shift-tile-lbl">${s}-Shift</div>
-      <div class="shift-tile-val" style="color:${SC[s]}">${d.shiftErrors[s]}</div>
-      <div class="shift-tile-pct">${pct(d.shiftErrors[s],d.total)}</div>
-    </div>`).join('');
+// ════════════════════════════════════════════════════════
+//  COMBINED SHIFT "LIPSTICK" BULLET CHART
+//  Replaces the two separate donuts (All Shifts / Receiving Only)
+//  with one bar per shift. Outer/darker bar = all errors logged
+//  on that shift. Inner/lighter pastel bar = subset of those
+//  errors from Receiving-home-department processors.
+// ════════════════════════════════════════════════════════
+function renderShiftCombined(d) {
+  const maxVal = Math.max(1, ...['A','B','C'].map(s => d.shiftErrors[s]));
+  const rows = ['A','B','C'].map(s => {
+    const total = d.shiftErrors[s];
+    const recv  = d.shiftErrorsRecvOnly[s];
+    const outerW = (total/maxVal*100).toFixed(1);
+    const innerW = (recv/maxVal*100).toFixed(1);
+    const recvPctOfShift = pct(recv, total);
+    return `<div class="bullet-row">
+      <div class="bullet-head">
+        <span class="bullet-lbl" style="color:${darkShade(SC[s])}">${s}-Shift</span>
+        <span class="bullet-nums">
+          <strong style="color:var(--text1)">${fmt(total)}</strong> total
+          &nbsp;·&nbsp;
+          <strong style="color:var(--text1)">${fmt(recv)}</strong> Receiving (${recvPctOfShift})
+        </span>
+      </div>
+      <div class="bullet-track">
+        <div class="bullet-outer" style="width:${outerW}%;background:${darkShade(SC[s])}"></div>
+        <div class="bullet-inner" style="width:${innerW}%;background:${pastelShade(SC[s])}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
   return `<div class="card">
     <span class="badge" style="color:#7C3AED;background:${darkMode?'#7C3AED22':'#ede9fe'}">By Shift</span>
     <div class="sec-title">Error Volume by Shift</div>
-    <div class="sec-sub">Count and share of total errors — ${d.weeksLabel}</div>
-    <div style="display:flex;justify-content:center;margin:18px 0 10px">${donut}</div>
-    <div style="display:flex;gap:10px">${tiles}</div>
-  </div>`;
-}
-
-// New: "By Shift · Receiving Only" — same donut + tile treatment as the
-// all-department shift chart above, but scoped to Home Department = Receiving.
-// No monthly/weekly breakdown table underneath — donut and tiles only.
-function renderShiftReceivingOnly(d) {
-  const recvTotal = d.shiftErrorsRecvOnly.A + d.shiftErrorsRecvOnly.B + d.shiftErrorsRecvOnly.C;
-  if (!recvTotal) return '';
-  const pieData = ['A','B','C'].map(s=>({name:`${s}-Shift`,value:d.shiftErrorsRecvOnly[s],color:SC[s]}));
-  const donut   = buildDonut(pieData, recvTotal);
-  const tiles   = ['A','B','C'].map(s=>`
-    <div class="shift-tile">
-      <div class="shift-tile-lbl">${s}-Shift</div>
-      <div class="shift-tile-val" style="color:${SC[s]}">${d.shiftErrorsRecvOnly[s]}</div>
-      <div class="shift-tile-pct">${pct(d.shiftErrorsRecvOnly[s],recvTotal)}</div>
-    </div>`).join('');
-  return `<div class="card">
-    <span class="badge" style="color:#7C3AED;background:${darkMode?'#7C3AED22':'#ede9fe'}">By Shift · Receiving Only</span>
-    <div class="sec-title">Receiving Errors by Shift</div>
-    <div class="sec-sub">Home Department = Receiving only — ${d.weeksLabel}</div>
-    <div style="display:flex;justify-content:center;margin:18px 0 10px">${donut}</div>
-    <div style="display:flex;gap:10px">${tiles}</div>
+    <div class="sec-sub">All errors per shift, with the Receiving-only portion shown inside — ${d.weeksLabel}</div>
+    <div style="margin-top:20px">${rows}</div>
+    <div class="bullet-legend">
+      <div class="bullet-legend-item">
+        <span class="legend-swatch" style="background:${darkShade('#94A3B8')}"></span>
+        Darker bar — all errors, every home department
+      </div>
+      <div class="bullet-legend-item">
+        <span class="legend-swatch inner" style="background:${pastelShade('#94A3B8')}"></span>
+        Lighter bar — Receiving home department only
+      </div>
+    </div>
   </div>`;
 }
 
@@ -848,8 +913,7 @@ function render() {
     renderFYSelector(fyKeys) +
     (d ? [
       renderSummary(d),
-      renderShiftChart(d),
-      renderShiftReceivingOnly(d),
+      renderShiftCombined(d),
       renderDept(d),
       renderCheckpoints(d),
       renderVolume(d),
