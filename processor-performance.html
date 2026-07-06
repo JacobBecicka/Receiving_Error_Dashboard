@@ -31,10 +31,13 @@ function monthSortKey(m) {
   return yrNum * 12 + idx;
 }
 
+// Locked suite-standard shift palette — hex/alpha values matched exactly to
+// the Weekly Error Frequency Heat Map's SHIFTS array so a given LanID's
+// shift color reads identically across every tool in the suite.
 const SHIFT_META = {
-  a: { label:'A-Shift', color:'#0284c7', bg:'rgba(2,132,199,.12)',  bdr:'rgba(2,132,199,.35)' },
-  b: { label:'B-Shift', color:'#7c3aed', bg:'rgba(124,58,237,.12)', bdr:'rgba(124,58,237,.35)' },
-  c: { label:'C-Shift', color:'#059669', bg:'rgba(5,150,105,.12)',  bdr:'rgba(5,150,105,.35)'  },
+  a: { label:'A-Shift', color:'#38bdf8', bg:'rgba(56,189,248,.18)',  bdr:'rgba(56,189,248,.4)' },
+  b: { label:'B-Shift', color:'#a78bfa', bg:'rgba(167,139,250,.18)', bdr:'rgba(167,139,250,.4)' },
+  c: { label:'C-Shift', color:'#34d399', bg:'rgba(52,211,153,.18)',  bdr:'rgba(52,211,153,.4)'  },
 };
 
 const ERR_FILE  = 'AI_Safe_Weekly_Error_Data.xlsx';
@@ -47,6 +50,21 @@ const HUB_URL   = 'https://jacobbecicka.github.io/Receiving_Error_Dashboard/inde
 // actual calendar month a row belongs to is derived from its own Start time
 // date (see xlDateToMonthKey), completely independent of sheet naming.
 const FW_SHEET_RE = /^FW\s*\d+\s+\d+$/i;
+
+// Debug catcher — append ?debug=1 to the URL to expose row-level parsing
+// info (sheets scanned, records parsed, roster size) without affecting
+// production output. Same pattern used across the rest of the suite.
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+function dbg(label, payload) {
+  if (!DEBUG) return;
+  console.log(`[debug] ${label}`, payload);
+  window.__dbgLog = window.__dbgLog || [];
+  let str;
+  try { str = JSON.stringify(payload, null, 2); } catch (e) { str = String(payload); }
+  if (str && str.length > 1200) str = str.slice(0, 1200) + '\n…(truncated)';
+  window.__dbgLog.push({ label, str });
+  window.dispatchEvent(new Event('dbglog'));
+}
 
 const COLS = [
   { key:'tm',    label:'TM',       title:'LanID — Team Member identifier',                              w:72,  sortable:true  },
@@ -179,9 +197,11 @@ function normalizeSheetMon(name) {
 function parseErrors(wb) {
   // errors[lanid][monthKey] = { zErr, sErr, sh, dept }
   const errors = {};
+  const sheetsScanned = [];
 
   for (const sn of wb.SheetNames) {
     if (!FW_SHEET_RE.test(sn)) continue;
+    sheetsScanned.push(sn);
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1,defval:''});
 
     // Find header row (contains "Start time")
@@ -223,16 +243,20 @@ function parseErrors(wb) {
       if (parts.some(p=>p.includes('split move')))       errors[wm][monthKey].sErr++;
     }
   }
+  dbg('Error workbook — sheets scanned', sheetsScanned);
+  dbg('Error workbook — LanIDs found', Object.keys(errors).length);
   return errors;
 }
 
 function parseProd(wb) {
   // prod[tm][monthKey] = { sh, pal, zon, ps, sc }
   const prod = {};
+  const sheetsScanned = [];
 
   for (const sn of wb.SheetNames) {
     const monthKey = normalizeSheetMon(sn);
     if (!/^[A-Z][a-z]{2}\s\d{2}$/.test(monthKey)) continue;
+    sheetsScanned.push(sn);
 
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1,defval:''});
     if (rows.length<2) continue;
@@ -275,6 +299,8 @@ function parseProd(wb) {
       if (sk && !prod[tm][monthKey].sh) prod[tm][monthKey].sh = sk;
     }
   }
+  dbg('Production workbook — sheets scanned', sheetsScanned);
+  dbg('Production workbook — LanIDs found', Object.keys(prod).length);
   return prod;
 }
 
@@ -413,6 +439,35 @@ function ColumnGuide({T,prevLabel}) {
   );
 }
 
+// ── Debug Panel ────────────────────────────────────────────────────────────────
+function DebugPanel({ T }) {
+  const [log, setLog] = useState(window.__dbgLog || []);
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    const onLog = () => setLog([...(window.__dbgLog || [])]);
+    window.addEventListener('dbglog', onLog);
+    return () => window.removeEventListener('dbglog', onLog);
+  }, []);
+  if (!DEBUG) return null;
+  return (
+    <div style={{position:'fixed',bottom:0,left:0,right:0,maxHeight:open?'40vh':32,
+      overflowY:'auto',background:'#05070c',color:'#7dd3fc',
+      fontFamily:'DM Mono,monospace',fontSize:11,padding:'8px 14px',
+      borderTop:'2px solid #38bdf8',zIndex:999,whiteSpace:'pre-wrap',transition:'max-height .15s'}}>
+      <div style={{display:'flex',justifyContent:'space-between',color:'#fff',fontWeight:700,marginBottom:6,cursor:'pointer'}}
+        onClick={()=>setOpen(o=>!o)}>
+        <span>🐞 Debug Catcher (?debug=1) — {log.length} entries</span>
+        <span style={{color:'#f87171'}}>{open?'▾ collapse':'▸ expand'}</span>
+      </div>
+      {open && log.map((e,i)=>(
+        <div key={i} style={{marginBottom:8}}>
+          <b>{e.label}</b>{'\n'}{e.str}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 function App() {
   const [dark,      setDark]     = useState(false);
@@ -432,15 +487,21 @@ function App() {
   useEffect(()=>{
     (async()=>{
       try {
-        const [eRes,pRes] = await Promise.all([fetch(ERR_FILE),fetch(PROD_FILE)]);
+        // Cache-buster on both fetches — GitHub Pages CDN caching has been
+        // a recurring issue across the suite; this bypasses stale responses.
+        const bust = `?t=${Date.now()}`;
+        const [eRes,pRes] = await Promise.all([fetch(ERR_FILE+bust),fetch(PROD_FILE+bust)]);
         if (!eRes.ok) throw new Error(`Cannot load ${ERR_FILE} (HTTP ${eRes.status}). Ensure the file is uploaded to your GitHub Pages directory.`);
         if (!pRes.ok) throw new Error(`Cannot load ${PROD_FILE} (HTTP ${pRes.status}). Ensure the file is uploaded to your GitHub Pages directory.`);
         const [eBuf,pBuf] = await Promise.all([eRes.arrayBuffer(),pRes.arrayBuffer()]);
         const eWb = XLSX.read(new Uint8Array(eBuf), {type:'array',cellDates:true});
         const pWb = XLSX.read(new Uint8Array(pBuf), {type:'array',cellDates:true});
+        dbg('Error workbook sheet names', eWb.SheetNames);
+        dbg('Production workbook sheet names', pWb.SheetNames);
         setErrors(parseErrors(eWb));
         setProd(parseProd(pWb));
       } catch(e) {
+        dbg('Load failed', e.message);
         setLoadErr(e.message);
       } finally {
         setLoading(false);
@@ -863,6 +924,8 @@ function App() {
           </div>
         </>
       )}
+
+      <DebugPanel T={T} />
     </div>
   );
 }
