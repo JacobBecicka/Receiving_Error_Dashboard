@@ -76,7 +76,6 @@
     th.r, td.r { text-align: right; }
     tr.alt { background: var(--rowalt); }
 
-    /* Uniform header buttons — Hub / Print / Theme — matches Weekly & Monthly reports */
     .hdr-btn {
       display: flex; align-items: center; gap: 6px;
       background: var(--card); border: 1px solid var(--border);
@@ -104,8 +103,6 @@
     .tile-lbl { font-size: 10.5px; color: var(--text2); margin-bottom: 2px; }
     .tile-val { font-size: 17px; font-weight: 800; }
 
-    /* Grey bubble wrapper — matches the grey-track treatment used by
-       shift-tile / dept-tile strips elsewhere in this report */
     .bubble { background: var(--track); border-radius: 12px; padding: 14px 16px; }
 
     .ie-pair { background: var(--track); border-radius: 10px; padding: 10px 14px; flex: 1 1 150px; }
@@ -132,7 +129,6 @@
 
     .coach-shift-lbl { font-size: 12px; font-weight: 800; margin-bottom: 6px; }
 
-    /* ===== Lipstick / bullet bar — combined shift chart ===== */
     .bullet-row { margin-bottom: 18px; }
     .bullet-row:last-child { margin-bottom: 0; }
     .bullet-head {
@@ -186,7 +182,6 @@
       .card { padding: 16px 16px 14px; }
     }
 
-    /* ===================== PRINT ===================== */
     @media print {
       body { background: #fff !important; padding: 0 !important; }
       .no-print { display: none !important; }
@@ -205,27 +200,13 @@
 <div class="wrap"><div id="root"></div></div>
 
 <script>
-// ════════════════════════════════════════════════════════
-//  CONFIG
-// ════════════════════════════════════════════════════════
 const REPO_RAW = 'https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main';
 const WORKBOOK  = 'AI_Safe_Weekly_Error_Data.xlsx';
-const OUTLIER_THRESHOLD = 500; // units above this → outlier row
+const OUTLIER_THRESHOLD = 500;
 
-// ════════════════════════════════════════════════════════
-//  SHIFT COLORS  (matched to WeeklyHeatMapErrorsReceiving)
-//  A = sky blue | B = soft purple | C = mint green
-// ════════════════════════════════════════════════════════
 const SC = { A:'#38BDF8', B:'#A78BFA', C:'#34D399' };
+const DC = { Receiving:'#65A30D', Transfers:'#94A3B8' };
 
-// Department colors — matched to Weekly Error Report's DEPT_COLORS
-const DC = { Receiving:'#38BDF8', Transfers:'#94A3B8' };
-
-// ════════════════════════════════════════════════════════
-//  COLOR HELPERS — same-hue shade variants for the lipstick chart
-//  outer bar = darker/saturated (All Shifts), inner bar = lighter
-//  pastel (Receiving-only subset)
-// ════════════════════════════════════════════════════════
 function hexToRgb(hex) {
   const h = hex.replace('#','');
   return {
@@ -238,37 +219,20 @@ function rgbToHex(r,g,b) {
   const c = n => Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0');
   return `#${c(r)}${c(g)}${c(b)}`;
 }
-// Blend a hex color toward black (darken) or white (lighten) by ratio 0–1
 function shade(hex, ratio, toward) {
   const { r,g,b } = hexToRgb(hex);
   const t = toward === 'black' ? 0 : 255;
   return rgbToHex(r+(t-r)*ratio, g+(t-g)*ratio, b+(t-b)*ratio);
 }
-// Darker, more saturated variant — used for the OUTER "All Shifts" bar
 const darkShade  = hex => shade(hex, 0.28, 'black');
-// Light pastel variant — used for the INNER "Receiving-only" bar
 const pastelShade = hex => shade(hex, 0.55, 'white');
 
-// ════════════════════════════════════════════════════════
-//  STATE
-// ════════════════════════════════════════════════════════
 let darkMode   = false;
 let fyData     = {};
 let selectedFY = null;
 
-// ════════════════════════════════════════════════════════
-//  FISCAL CALENDAR
-//  Sheets are now named directly with their fiscal week, e.g.
-//  "FW1 26", "FW48 25" — the sheet name IS the fiscal week/year,
-//  so there's no calendar-week-to-fiscal-week math left to do here.
-//  fy label = "FY20{yy}", fiscal week = the number straight from
-//  the sheet name.
-// ════════════════════════════════════════════════════════
 const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
 
-// ════════════════════════════════════════════════════════
-//  LOAD WORKBOOK
-// ════════════════════════════════════════════════════════
 async function loadWorkbook() {
   const url = `${REPO_RAW}/${WORKBOOK}`;
   const resp = await fetch(url);
@@ -277,12 +241,6 @@ async function loadWorkbook() {
   return XLSX.read(buf, { type:'array' });
 }
 
-// ════════════════════════════════════════════════════════
-//  PARSE WORKBOOK  →  { FY2025:[...rows], FY2026:[...rows], FY2027:[...rows] }
-//  (object keys are built dynamically from whatever fiscal years
-//  actually appear as sheets in the workbook — no hardcoded list,
-//  so new fiscal years show up automatically as they're added.)
-// ════════════════════════════════════════════════════════
 function parseWorkbook(wb) {
   const out = {};
 
@@ -295,9 +253,8 @@ function parseWorkbook(wb) {
 
     const ws = wb.Sheets[name];
     const all = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-    if (all.length < 6) return; // need header row + at least 1 data row
+    if (all.length < 6) return;
 
-    // Row index 4 = header (matches pandas header=4)
     const hdr = all[4].map(h => String(h ?? '').replace(/\xa0/g,'').trim().replace(/:$/,'').replace(/\s+/g,' '));
     const ci = n => hdr.findIndex(h => h.toLowerCase() === n.toLowerCase());
 
@@ -350,15 +307,12 @@ function parseWorkbook(wb) {
 
 function parseCases(raw) {
   if (!raw || raw === '0') return 0;
-  if (/totes?|boxes?/i.test(raw)) return 0;   // exclude totes & boxes
-  if (/\+|plus/i.test(raw)) return 0;          // exclude "plus"-qualified
+  if (/totes?|boxes?/i.test(raw)) return 0;
+  if (/\+|plus/i.test(raw)) return 0;
   const n = parseInt(raw.replace(/[^\d]/g,''), 10);
   return isNaN(n) ? 0 : n;
 }
 
-// ════════════════════════════════════════════════════════
-//  AGGREGATE  →  dashboard data object
-// ════════════════════════════════════════════════════════
 function aggregate(rows) {
   if (!rows || !rows.length) return null;
 
@@ -368,11 +322,9 @@ function aggregate(rows) {
     ? `Week ${weeks[0]}`
     : `Weeks ${weeks[0]}–${weeks[weeks.length-1]}`;
 
-  // Shift counts
   const shiftErrors = { A:0, B:0, C:0 };
   rows.forEach(r => { if (r.shift in shiftErrors) shiftErrors[r.shift]++; });
 
-  // Shift counts — Receiving home department only (new "By Shift · Receiving Only" section)
   const shiftErrorsRecvOnly = { A:0, B:0, C:0 };
   rows.forEach(r => {
     if (r.shift in shiftErrorsRecvOnly && String(r.dept).toLowerCase().includes('receiv')) {
@@ -380,15 +332,12 @@ function aggregate(rows) {
     }
   });
 
-  // Home department split — Receiving vs. all Transfer departments combined.
-  // Same "receiv" substring match used by the Weekly Error Report.
   const deptSplit = { recv:0, xfer:0 };
   rows.forEach(r => {
     if (String(r.dept).toLowerCase().includes('receiv')) deptSplit.recv++;
     else deptSplit.xfer++;
   });
 
-  // Checkpoint breakdown
   const cpC = { shipment:{}, piece:{}, carton:{} };
   rows.forEach(r => {
     r.shipmentErrors.forEach(e => { cpC.shipment[e] = (cpC.shipment[e]||0)+1; });
@@ -402,7 +351,6 @@ function aggregate(rows) {
   const piece    = toArr(cpC.piece);
   const carton   = toArr(cpC.carton);
 
-  // Outliers
   const isOut = r => r.units >= OUTLIER_THRESHOLD;
   const outlierRows    = rows.filter(isOut);
   const nonOutlierRows = rows.filter(r => !isOut(r));
@@ -423,7 +371,6 @@ function aggregate(rows) {
     };
   });
 
-  // Outlier display list
   const outliers = outlierRows.map(r => ({
     week: r.fiscalWeek, shift: r.shift, units: r.units, cases: r.cases,
     desc: r.comments
@@ -431,7 +378,6 @@ function aggregate(rows) {
       : 'Large-volume error row — see source workbook for details.',
   }));
 
-  // SKU Maintenance breakdown by comment text
   const skuRows  = rows.filter(r => r.shipmentErrors.some(e => /sku\s*maint/i.test(e)));
   const skuTotal = skuRows.length;
   const sc = { A:{c:0,uI:0,uE:0}, B:{c:0,uI:0,uE:0}, C:{c:0,uI:0,uE:0} };
@@ -453,7 +399,6 @@ function aggregate(rows) {
       note:"Comment doesn't clearly describe a blank vs. wrong-value pattern." },
   ].filter(d => d.value > 0);
 
-  // Coaching candidates
   const coaching = {};
   ['A','B','C'].forEach(s => {
     coaching[s] = computeCoaching(rows.filter(r => r.shift === s));
@@ -498,9 +443,6 @@ function computeCoaching(rows) {
     .slice(0, 2);
 }
 
-// ════════════════════════════════════════════════════════
-//  TAKEAWAY GENERATOR  (rule-based, no AI)
-// ════════════════════════════════════════════════════════
 function generateTakeaways(d) {
   const shifts   = Object.entries(d.shiftErrors).sort((a,b)=>b[1]-a[1]);
   const busiest  = shifts[0];
@@ -541,18 +483,12 @@ function generateTakeaways(d) {
   return out;
 }
 
-// ════════════════════════════════════════════════════════
-//  HELPERS
-// ════════════════════════════════════════════════════════
 const fmt = n => n != null ? n.toLocaleString() : '—';
 const pct = (n,d) => d ? ((n/d)*100).toFixed(1)+'%' : '—';
 const esc = s => String(s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
-// ════════════════════════════════════════════════════════
-//  SVG DONUT  (no arc labels — tile strip carries the numbers)
-// ════════════════════════════════════════════════════════
 function polar(cx,cy,r,deg) {
   const rad = ((deg-90)*Math.PI)/180;
   return { x: cx + r*Math.cos(rad), y: cy + r*Math.sin(rad) };
@@ -572,9 +508,6 @@ function buildDonut(data, total) {
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paths}</svg>`;
 }
 
-// ════════════════════════════════════════════════════════
-//  RENDER FUNCTIONS
-// ════════════════════════════════════════════════════════
 function renderLoading() {
   return `<div class="card loading-wrap">
     <div class="spinner"></div>
@@ -640,11 +573,11 @@ function renderSummary(d) {
   const busiest  = Object.entries(d.shiftErrors).sort((a,b)=>b[1]-a[1])[0];
   const shipTotal = d.shipment.reduce((s,r)=>s+r.value,0);
   const tiles = [
-    { lbl:'Total Errors YTD', val:fmt(d.total),    color:'#16A34A', bg:darkMode?'#16A34A22':'#dcfce7' },
+    { lbl:'Total Errors YTD', val:fmt(d.total),    color:'#E11D48', bg:darkMode?'#E11D4822':'#FCE7EC' },
     { lbl:'Busiest Shift',    val:`${busiest[0]} (${pct(busiest[1],d.total)})`, color:SC[busiest[0]], bg:SC[busiest[0]]+'22' },
-    { lbl:'Top Checkpoint',   val:'Shipment',       color:'#0284C7', bg:darkMode?'#0284C722':'#e0f2fe' },
-    { lbl:'Units Impacted',   val:fmt(d.unitsIncl), color:'#DC2626', bg:darkMode?'#DC262622':'#fee2e2' },
-  ].map(t=>`<div class="tile" style="background:${t.bg};border-color:${t.color}30">
+    { lbl:'Top Checkpoint',   val:'Shipment',       color:'#C2410C', bg:darkMode?'#C2410C22':'#FFEDD5' },
+    { lbl:'Units Impacted',   val:fmt(d.unitsIncl), color:'#297622', bg:darkMode?'#29762222':'#E7F4E2' },
+  ].map(t=>`<div class="tile" style="background:${t.bg};border-color:${t.color}40">
     <div class="tile-lbl">${t.lbl}</div>
     <div class="tile-val" style="color:${t.color}">${esc(t.val)}</div>
   </div>`).join('');
@@ -661,13 +594,6 @@ function renderSummary(d) {
   </div>`;
 }
 
-// ════════════════════════════════════════════════════════
-//  COMBINED SHIFT "LIPSTICK" BULLET CHART
-//  Replaces the two separate donuts (All Shifts / Receiving Only)
-//  with one bar per shift. Outer/darker bar = all errors logged
-//  on that shift. Inner/lighter pastel bar = subset of those
-//  errors from Receiving-home-department processors.
-// ════════════════════════════════════════════════════════
 function renderShiftCombined(d) {
   const maxVal = Math.max(1, ...['A','B','C'].map(s => d.shiftErrors[s]));
   const rows = ['A','B','C'].map(s => {
@@ -693,7 +619,7 @@ function renderShiftCombined(d) {
   }).join('');
 
   return `<div class="card">
-    <span class="badge" style="color:#7C3AED;background:${darkMode?'#7C3AED22':'#ede9fe'}">By Shift</span>
+    <span class="badge" style="color:#A78BFA;background:${darkMode?'#A78BFA22':'#ede9fe'}">By Shift</span>
     <div class="sec-title">Error Volume by Shift</div>
     <div class="sec-sub">All errors per shift, with the Receiving-only portion shown inside — ${d.weeksLabel}</div>
     <div style="margin-top:20px">${rows}</div>
@@ -710,8 +636,6 @@ function renderShiftCombined(d) {
   </div>`;
 }
 
-// Receiving vs. Transfers donut + tiles, matching the Weekly Error
-// Report's "By Department" section (same colors, same donut/tile layout).
 function renderDept(d) {
   const total = d.deptSplit.recv + d.deptSplit.xfer;
   if (!total) return '';
@@ -727,7 +651,7 @@ function renderDept(d) {
       <div class="shift-tile-pct">${pct(p.value,total)}</div>
     </div>`).join('');
   return `<div class="card">
-    <span class="badge" style="color:#38BDF8;background:${darkMode?'#38BDF822':'#e0f2fe'}">By Department</span>
+    <span class="badge" style="color:#65A30D;background:${darkMode?'#65A30D22':'#ECFCCB'}">By Department</span>
     <div class="sec-title">Receiving vs. Transfers</div>
     <div class="sec-sub">Home Department — Receiving vs. all transfer departments combined, ${d.weeksLabel}</div>
     <div style="display:flex;justify-content:center;margin:18px 0 10px">${donut}</div>
@@ -792,7 +716,7 @@ function renderVolume(d) {
   }).join('');
 
   return `<div class="card">
-    <span class="badge" style="color:#DC2626;background:${darkMode?'#DC262622':'#fee2e2'}">Volume Impact</span>
+    <span class="badge" style="color:#297622;background:${darkMode?'#29762222':'#E7F4E2'}">Volume Impact</span>
     <div class="sec-title">Impacted Units &amp; Cases</div>
     <div class="sec-sub">Total units/cases touched by errors YTD, shown with and without large outliers</div>
     <div style="margin-top:18px">${outlierBlock}</div>
@@ -891,20 +815,17 @@ function renderAnalysis(d) {
   }
 
   return `<div class="card">
-    <span class="badge" style="color:#16A34A;background:${darkMode?'#16A34A22':'#dcfce7'}">Analysis</span>
+    <span class="badge" style="color:#15803D;background:${darkMode?'#15803D22':'#DCFCE7'}">Analysis</span>
     <div class="sec-title">Key Takeaways</div>
     <div style="margin-top:18px">${twHtml}</div>
     ${skuHtml}
   </div>`;
 }
 
-// ════════════════════════════════════════════════════════
-//  MAIN RENDER
-// ════════════════════════════════════════════════════════
 function render() {
   document.body.classList.toggle('dark', darkMode);
   const root = document.getElementById('root');
-  const fyKeys = Object.keys(fyData).sort().reverse(); // newest fiscal year first
+  const fyKeys = Object.keys(fyData).sort().reverse();
   const rows = fyData[selectedFY] || [];
   const d    = rows.length ? aggregate(rows) : null;
 
@@ -922,21 +843,14 @@ function render() {
     ].join('') : renderNoData());
 }
 
-// ════════════════════════════════════════════════════════
-//  EVENT HANDLERS
-// ════════════════════════════════════════════════════════
 function toggleTheme() { darkMode = !darkMode; render(); }
 function selectFY(fy)  { selectedFY = fy; render(); }
 
-// ════════════════════════════════════════════════════════
-//  INIT
-// ════════════════════════════════════════════════════════
 async function init() {
   document.getElementById('root').innerHTML = renderLoading();
   try {
     const wb = await loadWorkbook();
     fyData = parseWorkbook(wb);
-    // Auto-select highest FY with data
     const withData = Object.keys(fyData).filter(k=>fyData[k].length>0).sort().reverse();
     selectedFY = withData.length ? withData[0] : (Object.keys(fyData).sort().reverse()[0] || null);
     render();
