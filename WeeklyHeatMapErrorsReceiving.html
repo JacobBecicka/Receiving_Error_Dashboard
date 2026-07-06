@@ -17,7 +17,7 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useRef, useCallback, useMemo, useEffect } = React;
+    const { useState, useCallback, useMemo, useEffect } = React;
 
     const REPO_RAW = 'https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main';
     const WORKBOOK  = 'AI_Safe_Weekly_Error_Data.xlsx';
@@ -76,8 +76,6 @@
         sticky:        dark ? "#0f172a"                        : "#f0f4f8",
         tooltipBg:     dark ? "#1e293b"                        : "#ffffff",
         tooltipBorder: dark ? "#334155"                        : "#1e3a5f",
-        dropBg:        dark ? "rgba(30,41,59,.7)"              : "rgba(255,255,255,.7)",
-        dropBorder:    dark ? "#475569"                        : "#94a3b8",
         receivingColor:"#65A30D",
         scrollTrack:   dark ? "#1e293b"                        : "#dde3ea",
         moSep:         dark ? "rgba(100,116,139,.5)"           : "rgba(100,116,139,.35)",
@@ -190,14 +188,12 @@
       const [shift,    setShift]    = useState("a");
       const [selectedYY, setSelectedYY] = useState(null);
       const [tooltip,  setTooltip]  = useState(null);
-      const [dragging, setDragging] = useState(false);
       const [viewMode, setViewMode] = useState("raw");
       const [dark,     setDark]     = useState(false);
       const [loading,  setLoading]  = useState(true);
       const [loadErr,  setLoadErr]  = useState(null);
       const [showDebug, setShowDebug] = useState(urlDebug);
       const [logs, log] = useDebugLog();
-      const inputRef = useRef();
       const tk = makeTk(dark);
 
       // Pick a sensible default fiscal year once data loads: the FY that
@@ -240,31 +236,6 @@
         }
         autoLoad();
       }, []);
-
-      const load = useCallback(file => {
-        if (!file?.name.endsWith(".xlsx")) return;
-        const reader = new FileReader();
-        reader.onload = e => {
-          try {
-            const wb = XLSX.read(new Uint8Array(e.target.result), { type:"array" });
-            const parsed = parseWorkbook(wb, log);
-            if (!parsed.fiscalWeeks.length) {
-              setLoadErr('No fiscal week sheets found — see debug log.');
-              setShowDebug(true);
-            } else {
-              setLoadErr(null);
-            }
-            setData({ ...parsed, fileName:file.name });
-            setSelectedYY(pickDefaultYY(parsed.fiscalYears));
-          } catch (err) {
-            log('error', `Failed to parse ${file.name}: ${err.message}`);
-            setLoadErr(err.message);
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }, []);
-
-      const onDrop = e => { e.preventDefault(); setDragging(false); load(e.dataTransfer.files[0]); };
 
       const allFW = data?.fiscalWeeks ?? [];
       // Only show weeks belonging to the selected fiscal year.
@@ -358,9 +329,6 @@
             ::-webkit-scrollbar{height:4px;width:4px}
             ::-webkit-scrollbar-track{background:${tk.scrollTrack}}
             ::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:2px}
-            .drop-zone{border:1.5px dashed ${tk.dropBorder};border-radius:16px;
-              padding:3rem 3rem;text-align:center;cursor:pointer;transition:all .3s;background:${tk.dropBg}}
-            .drop-zone:hover,.drop-zone.active{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.08)}
             .wk-cell{transition:transform .1s;cursor:default;border-radius:3px}
             .wk-cell:hover{transform:scale(1.35);z-index:40;position:relative;box-shadow:0 0 10px rgba(251,146,60,.5)}
             tr:hover .wk-cell{opacity:.75}
@@ -431,7 +399,6 @@
                 style={showDebug?{color:"#f59e0b",borderColor:"#f59e0b"}:{}}>
                 DEBUG {logs.some(l=>l.level==='error') ? '⚠' : ''}
               </button>
-              <button className="hdr-btn" onClick={()=>window.print()}>🖨️ Print / Save PDF</button>
               <a className="hdr-btn" href="index.html">← Hub</a>
               <button className="hdr-btn" onClick={()=>setDark(d=>!d)}>{dark?'☀️ Light':'🌙 Dark'}</button>
             </div>
@@ -465,46 +432,24 @@
             </div>
 
           ) : !data || !allFW.length ? (
-            /* ── Error / manual fallback ── */
+            /* ── Error state ── */
             <div style={{ maxWidth:480, margin:"4rem auto", textAlign:"center" }}>
-              {loadErr && (
-                <div style={{ marginBottom:"1.5rem", padding:".75rem 1.25rem",
-                  background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.3)",
-                  borderRadius:10, color:"#f87171", fontSize:".75rem",
-                  fontFamily:"DM Sans,sans-serif", lineHeight:1.5 }}>
-                  ⚠ {loadErr}<br/>
-                  <span style={{ opacity:.7 }}>Check the DEBUG panel above, or upload the workbook manually below.</span>
-                </div>
-              )}
-              <div className={`drop-zone${dragging?" active":""}`}
-                onDragOver={e=>{e.preventDefault();setDragging(true);}}
-                onDragLeave={()=>setDragging(false)}
-                onDrop={onDrop}
-                onClick={()=>inputRef.current.click()}>
-                <div style={{ fontSize:"2rem", marginBottom:"1rem", opacity:.4 }}>⬆</div>
-                <p style={{ fontFamily:"DM Sans,sans-serif", color:tk.textMuted, marginBottom:".4rem" }}>
-                  Upload workbook manually
-                </p>
-                <p style={{ fontSize:".65rem", color:tk.textFaint }}>click to browse · .xlsx only</p>
-                <input ref={inputRef} type="file" accept=".xlsx" style={{ display:"none" }}
-                  onChange={e=>load(e.target.files[0])} />
+              <div style={{ marginBottom:"1.5rem", padding:".75rem 1.25rem",
+                background:"rgba(239,68,68,.08)", border:"1px solid rgba(239,68,68,.3)",
+                borderRadius:10, color:"#f87171", fontSize:".75rem",
+                fontFamily:"DM Sans,sans-serif", lineHeight:1.5 }}>
+                ⚠ {loadErr || 'No fiscal week sheets found in the workbook.'}<br/>
+                <span style={{ opacity:.7 }}>Check the DEBUG panel above for details, or verify the workbook on GitHub.</span>
               </div>
+              <button className="hdr-btn" onClick={()=>window.location.reload()} style={{ margin:"0 auto" }}>
+                ↻ Retry
+              </button>
             </div>
 
           ) : (
             <>
               {/* Control bar */}
               <div className="no-print" style={{ display:"flex", alignItems:"center", gap:".75rem", marginBottom:"1.25rem", flexWrap:"wrap" }}>
-                <button onClick={()=>setData(null)} style={{
-                  background:"transparent", border:`1px solid ${tk.borderMuted}`, color:tk.textMuted,
-                  padding:".3rem .8rem", borderRadius:6, cursor:"pointer",
-                  fontFamily:"DM Mono,monospace", fontSize:".65rem", letterSpacing:".05em", transition:"all .2s"
-                }}
-                  onMouseOver={e=>e.currentTarget.style.color="#f59e0b"}
-                  onMouseOut={e=>e.currentTarget.style.color=tk.textMuted}>
-                  ↑ NEW FILE
-                </button>
-
                 <div style={{ display:"flex", gap:".25rem", background:tk.tabBg, borderRadius:10, padding:".25rem" }}>
                   {SHIFTS.map(s => {
                     const on = shift===s.key;
@@ -577,7 +522,7 @@
                 <div style={{ display:"flex", alignItems:"center", gap:".5rem", marginLeft:".75rem" }}>
                   {[
                     {color:tk.receivingColor, bg:"rgba(101,163,13,.08)",   border:"rgba(101,163,13,.3)",   label:"RECEIVING"},
-                    {color:"#B45309",         bg:"rgba(180,83,9,.08)", border:"rgba(180,83,9,.3)", label:"TRAINING"},
+                    {color:"#5B21B6",         bg:"rgba(91,33,182,.08)", border:"rgba(91,33,182,.3)", label:"TRAINING"},
                   ].map(d=>(
                     <div key={d.label} style={{ display:"flex", alignItems:"center", gap:".35rem",
                       padding:".18rem .55rem", borderRadius:5, background:d.bg, border:`1px solid ${d.border}` }}>
@@ -651,14 +596,14 @@
                       return (
                         <tr key={wm}>
                           <td className="sticky-wm" style={{ fontSize:".65rem", fontWeight:500,
-                            color:isTraining?"#D97706":tk.receivingColor,
+                            color:activeShift.accent,
                             paddingBottom:"2px", whiteSpace:"nowrap" }}>
                             {wm}
                             {isTraining && (
                               <span style={{ marginLeft:".35rem", display:"inline-flex", alignItems:"center",
                                 justifyContent:"center", width:14, height:14, borderRadius:3,
-                                background:"rgba(180,83,9,.15)", border:"1px solid rgba(180,83,9,.35)",
-                                fontSize:".48rem", fontWeight:700, color:"#B45309",
+                                background:"rgba(91,33,182,.15)", border:"1px solid rgba(91,33,182,.4)",
+                                fontSize:".48rem", fontWeight:700, color:"#5B21B6",
                                 letterSpacing:".04em", verticalAlign:"middle" }}>T</span>
                             )}
                           </td>
@@ -739,8 +684,8 @@
                       padding:".15rem .5rem", borderRadius:4, fontSize:".58rem",
                       letterSpacing:".08em", fontWeight:500,
                       background:i===0?"rgba(239,68,68,.1)":tk.tabBg,
-                      color:isTraining?"#D97706":i===0?"#dc2626":tk.textMuted,
-                      border:`1px solid ${isTraining?"rgba(180,83,9,.4)":i===0?"rgba(239,68,68,.4)":tk.borderMuted}` }}>
+                      color:isTraining?"#5B21B6":i===0?"#dc2626":tk.textMuted,
+                      border:`1px solid ${isTraining?"rgba(91,33,182,.4)":i===0?"rgba(239,68,68,.4)":tk.borderMuted}` }}>
                       <TrendArrow slope={wmTrends[wm]} />
                       {wm} · {wmTotals[wm]}
                     </span>
@@ -768,12 +713,12 @@
               background:tk.tooltipBg, border:`1px solid ${tk.tooltipBorder}`, borderRadius:8,
               padding:".4rem .85rem", fontSize:".68rem", color:tk.text,
               pointerEvents:"none", zIndex:999, whiteSpace:"nowrap", boxShadow:"0 6px 24px rgba(0,0,0,.18)" }}>
-              <strong style={{ color:tooltip.isTraining?"#B45309":activeShift.accent }}>{tooltip.wm}</strong>
+              <strong style={{ color:activeShift.accent }}>{tooltip.wm}</strong>
               {tooltip.isTraining && (
                 <span style={{ marginLeft:".35rem", display:"inline-flex", alignItems:"center",
                   justifyContent:"center", width:14, height:14, borderRadius:3,
-                  background:"rgba(180,83,9,.15)", border:"1px solid rgba(180,83,9,.35)",
-                  fontSize:".48rem", fontWeight:700, color:"#B45309", letterSpacing:".04em", verticalAlign:"middle" }}>T</span>
+                  background:"rgba(91,33,182,.15)", border:"1px solid rgba(91,33,182,.4)",
+                  fontSize:".48rem", fontWeight:700, color:"#5B21B6", letterSpacing:".04em", verticalAlign:"middle" }}>T</span>
               )}
               <span style={{ color:tk.textMuted }}> · {fwLabel(tooltip.fw)}</span>
               {tooltip.fw.range && <span style={{ color:tk.textFaint }}> ({tooltip.fw.range})</span>}
