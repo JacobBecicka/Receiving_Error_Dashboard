@@ -14,11 +14,13 @@
   --card-hover:#263550; --badge-bg:#1e3a5f; --badge-text:#7dd3fc;
   --cp1:#0097A7; --cp2:#7C3AED; --cp3:#F59E0B;
   --shift-a:#38BDF8; --shift-b:#A78BFA; --shift-c:#34D399;
+  --critical:#FB7185; --neutral-accent:#CBD5E1;
 }
 [data-theme="light"] {
   --bg:#f0f4f8; --surface:#ffffff; --surface2:#e8eef5; --border:#cbd5e1;
-  --accent:#0369a1; --accent2:#0284c7; --text:#1e293b; --muted:#64748b;
+  --accent:#0369a1; --accent2:#0284c7; --text:#1e293b; --muted:#52667A;
   --card-hover:#dbeafe; --badge-bg:#dbeafe; --badge-text:#1d4ed8;
+  --critical:#BE123C; --neutral-accent:#334155;
 }
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 body {
@@ -66,13 +68,13 @@ header {
 /* Uniform Hub / Print / Theme buttons — same icon + label convention
    used across the Weekly, Monthly, YTD, and Heat Map reports:
    "← Hub", "🖨️ Print / Save PDF", "🌙 Dark" / "☀️ Light" */
-.btn {
+.btn, .hdr-btn {
   background:var(--surface2); border:1px solid var(--border); border-radius:8px;
   padding:.4rem .8rem; color:var(--text); font-size:.82rem; font-weight:600;
   cursor:pointer; font-family:inherit; transition:background .15s,border-color .15s;
   white-space:nowrap; text-decoration:none; display:inline-flex; align-items:center; gap:.35rem;
 }
-.btn:hover { background:var(--card-hover); border-color:var(--accent); }
+.btn:hover, .hdr-btn:hover { background:var(--card-hover); border-color:var(--accent); }
 .btn-accent  { background:var(--accent); color:#fff; border-color:var(--accent); }
 .btn-accent:hover { background:var(--accent2); }
 
@@ -233,6 +235,16 @@ main { max-width:960px; margin:0 auto; padding:1.75rem 1.25rem 4rem; }
 .log-meta { font-size:10px; color:var(--muted); }
 .log-meta b { color:var(--muted); font-weight:600; }
 
+/* Debug panel */
+#debug-panel {
+  position:fixed; bottom:0; left:0; right:0; max-height:40vh; overflow-y:auto;
+  background:#05070c; color:#7dd3fc; font-family:'Consolas',monospace; font-size:11px;
+  padding:10px 14px; border-top:2px solid var(--accent); z-index:999; display:none;
+  white-space:pre-wrap;
+}
+#debug-panel .dbg-hdr { color:#fff; font-weight:700; margin-bottom:6px; display:flex; justify-content:space-between; }
+#debug-panel .dbg-close { cursor:pointer; color:#f87171; }
+
 /* Responsive */
 @media(max-width:560px){
   .chart-row,.cp-cards,.row { flex-direction:column; }
@@ -270,9 +282,9 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
       <div style="font-size:22px;font-weight:800">Processor Error Card</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn" onclick="goHub()">← Hub</button>
-      <button class="btn" onclick="window.print()">🖨️ Print / Save PDF</button>
-      <button class="btn" onclick="toggleTheme()" id="fb-theme-btn">☀️ Light</button>
+      <button class="hdr-btn" onclick="goHub()">← Hub</button>
+      <button class="hdr-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button class="hdr-btn" onclick="toggleTheme()" id="fb-theme-btn">☀️ Light</button>
     </div>
   </div>
   <div style="font-size:40px;margin-bottom:8px">📊</div>
@@ -285,7 +297,7 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">AI_Safe_Weekly_Error_Data.xlsx</div>
     <div class="btn btn-accent">Browse Files</div>
   </label>
-  <button class="btn" onclick="goHub()" style="margin-top:8px">← Back to Hub</button>
+  <button class="hdr-btn" onclick="goHub()" style="margin-top:8px">← Back to Hub</button>
 </div>
 
 <!-- ══ HEADER ═════════════════════════════════════════════ -->
@@ -298,16 +310,16 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
     </div>
   </div>
   <div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    <button class="btn" onclick="goHub()">← Hub</button>
-    <button class="btn" id="btn-ov" onclick="showView('ov')" style="display:none">← Overview</button>
+    <button class="hdr-btn" onclick="goHub()">← Hub</button>
+    <button class="hdr-btn" id="btn-ov" onclick="showView('ov')" style="display:none">← Overview</button>
     <select class="proc-sel" id="fy-sel" style="min-width:120px" onchange="onFYChange(this.value)"></select>
     <select class="proc-sel" id="hdr-proc-sel" style="display:none" onchange="onSelChange(this.value)"></select>
     <label style="cursor:pointer">
-      <span class="btn">📂 Load File</span>
+      <span class="hdr-btn">📂 Load File</span>
       <input type="file" accept=".xlsx" style="display:none" onchange="loadFile(this.files[0])">
     </label>
-    <button class="btn" onclick="window.print()">🖨️ Print / Save PDF</button>
-    <button class="btn" id="theme-btn" onclick="toggleTheme()">☀️ Light</button>
+    <button class="hdr-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+    <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">☀️ Light</button>
   </div>
 </header>
 
@@ -441,6 +453,12 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
   </footer>
 </div>
 
+<!-- ══ DEBUG PANEL ════════════════════════════════════════ -->
+<div id="debug-panel">
+  <div class="dbg-hdr"><span>🐞 Debug Catcher (?debug=1)</span><span class="dbg-close" onclick="document.getElementById('debug-panel').style.display='none'">✕ close</span></div>
+  <div id="debug-body"></div>
+</div>
+
 <script>
 // =============================================================================
 // CONSTANTS
@@ -471,6 +489,25 @@ const CP_BADGE_CSS = {
   CP2:"background:rgba(124,58,237,.15);color:#A78BFA;border:1px solid rgba(124,58,237,.35)",
   CP3:"background:rgba(245,158,11,.15);color:#D97706;border:1px solid rgba(245,158,11,.35)",
 };
+
+// Debug catcher — append ?debug=1 to the URL to expose row-level parsing
+// info (records parsed, per-processor totals, FY detection) without
+// affecting production output. Mirrors the pattern used across the suite.
+const DEBUG = new URLSearchParams(location.search).get("debug")==="1";
+function dbg(label,payload){
+  if(!DEBUG) return;
+  console.log(`[debug] ${label}`,payload);
+  const panel=document.getElementById("debug-panel");
+  const body=document.getElementById("debug-body");
+  if(!panel||!body) return;
+  panel.style.display="block";
+  const line=document.createElement("div");
+  line.style.marginBottom="8px";
+  let payloadStr;
+  try{ payloadStr=JSON.stringify(payload,null,2); }catch(e){ payloadStr=String(payload); }
+  line.innerHTML=`<b>${label}</b>\n${payloadStr && payloadStr.length>1200?payloadStr.slice(0,1200)+"\n…(truncated)":payloadStr}`;
+  body.appendChild(line);
+}
 
 // =============================================================================
 // STATE
@@ -523,7 +560,7 @@ function computeWindowSeqs(fy){
 }
 
 // Strict FY weeks only — no backfill. Used for every non-graph stat
-// (checkpoint counts, error log, incident totals) so those only ever
+// (checkpoint counts, error log, error totals) so those only ever
 // reflect the currently selected fiscal year.
 function computeFYSeqs(fy){
   const seqs=[];
@@ -549,11 +586,11 @@ function scopedLog(proc,seqs){
   const set=new Set(seqs);
   return proc.rawLog.filter(r=>set.has(r.fw));
 }
-function scopedIncidentStats(proc,seqs){
+function scopedErrorStats(proc,seqs){
   const log=scopedLog(proc,seqs);
   let units=0,cases=0;
   for(const r of log){ units+=parseNum(r.unitsRaw); cases+=parseNum(r.casesRaw); }
-  return{incidents:log.length,totalUnits:units,totalCases:cases};
+  return{errors:log.length,totalUnits:units,totalCases:cases};
 }
 
 // Alphabetical comparator for LanIDs — used for all processor dropdowns.
@@ -575,8 +612,13 @@ function trendLabel(s){
 const shiftColor =sh=>SHIFT_COLORS[sh]||"#38BDF8";
 const shiftLetter=sh=>(sh||"A").charAt(0);
 
-// Theme-aware color getters
-const gc=()=>_dark?"#8b949e":"#64748b";
+// Theme-aware color getters. Light-mode grey values are intentionally
+// darker than the raw --muted CSS var's early draft (#64748b) since that
+// washed out on white/pale card backgrounds — see gMuted()/gNeutral().
+const gc=()=>_dark?"#94a3b8":"#52667A";      // chart ticks / captions (MUTED pair)
+const gMuted=()=>_dark?"#94a3b8":"#52667A";  // alias, semantic name for stat-card sub text
+const gNeutral=()=>_dark?"#CBD5E1":"#334155";// stat-card label/value text for non-CP, non-critical tiles
+const gCritical=()=>_dark?"#FB7185":"#BE123C"; // "Total Errors" style tiles — soft rose/berry, not harsh crimson
 const gb=()=>_dark?"#2e3f5c":"#cbd5e1";
 const gt=()=>_dark?"#e2e8f0":"#1e293b";
 const gAccent=()=>_dark?"#38bdf8":"#0369a1";
@@ -627,6 +669,7 @@ function parseWB(wb){
     SEQ_FY[i+1]=m.yy;
   });
   FW_LABELS = Object.fromEntries(sheetMeta.map((m,i)=>[i+1, labelOf[m.sheet]]));
+  dbg("Sheets detected",sheetMeta);
   // NOTE: FY_LIST is intentionally NOT built here. A sheet can exist (e.g. a
   // blank template for a future fiscal year) with zero usable data rows —
   // that shouldn't make the FY selectable. FY_LIST is computed after parsing
@@ -690,6 +733,7 @@ function parseWB(wb){
       });
     }
   }
+  dbg("Total records parsed",records.length);
   return records;
 }
 
@@ -745,7 +789,7 @@ function buildProcessorData(allRecords){
         shipTypes:{},pieceTypes:{},cartonTypes:{}};
     });
     const rawLog=[];
-    let incidents=0,totalUnits=0,totalCases=0;
+    let errors=0,totalUnits=0,totalCases=0;
 
     for(const r of records){
       const w=weekly[r.fw-1];
@@ -755,9 +799,9 @@ function buildProcessorData(allRecords){
       r.cp3Parts.forEach(t=>{w.carton++;  w.cartonTypes[t]=(w.cartonTypes[t]||0)+1;});
       w.total=w.shipment+w.piece+w.carton;
 
-      // Incidents — non-FYI only
+      // Errors — non-FYI only
       if(!r.fyi){
-        incidents++; totalUnits+=r.units; totalCases+=r.cases;
+        errors++; totalUnits+=r.units; totalCases+=r.cases;
         rawLog.push({fw:r.fw,fwLabel:r.fwLabel,date:r.dateStr,cps:r.allCPs,
           comment:r.comment,casesRaw:r.casesRaw,unitsRaw:r.unitsRaw});
       }
@@ -777,8 +821,9 @@ function buildProcessorData(allRecords){
     const shift=vote("shift")||"A-Shift", name=vote("name")||lanid, dept=vote("dept")||"Receiving";
     const activeWeeks=weekly.filter(w=>w.total>0).length;
 
-    result[lanid]={lanid,name,shift,dept,incidents,activeWeeks,totalUnits,totalCases,weekly,rawLog,totals:tot};
+    result[lanid]={lanid,name,shift,dept,errors,activeWeeks,totalUnits,totalCases,weekly,rawLog,totals:tot};
   }
+  dbg("Processors built",Object.keys(result).length);
   return result;
 }
 
@@ -797,11 +842,12 @@ function showFallback(msg){
   document.getElementById("v-fallback").style.display="flex";
   document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
   document.getElementById("fallback-msg").textContent=msg;
+  dbg("Fallback triggered",msg);
 }
 async function autoLoad(){
   setLoading("Fetching from GitHub…");
   try{
-    const res=await fetch(XLSX_URL);
+    const res=await fetch(XLSX_URL+`?t=${Date.now()}`);
     if(!res.ok) throw new Error(`HTTP ${res.status}`);
     document.getElementById("load-msg").textContent="Parsing workbook…";
     const wb=XLSX.read(await res.arrayBuffer(),{type:"array",cellDates:true});
@@ -890,15 +936,15 @@ function renderOverview(){
 
   // Dept-wide aggregates — scoped strictly to the selected FY (no backfill).
   // Only the charts below use the backfilled _winSeqs graph window.
-  let totalIncidents=0,totalCP1=0,totalCP2=0,totalCP3=0;
+  let totalErrors=0,totalCP1=0,totalCP2=0,totalCP3=0;
   const activeWeekSet=new Set();
-  const procScoped=procs.map(p=>({p,tot:scopedTotals(p,_fySeqs),inc:scopedIncidentStats(p,_fySeqs)}));
-  for(const{p,tot,inc} of procScoped){
-    totalIncidents+=inc.incidents; totalCP1+=tot.shipment;
+  const procScoped=procs.map(p=>({p,tot:scopedTotals(p,_fySeqs),err:scopedErrorStats(p,_fySeqs)}));
+  for(const{p,tot,err} of procScoped){
+    totalErrors+=err.errors; totalCP1+=tot.shipment;
     totalCP2+=tot.piece;   totalCP3+=tot.carton;
     _fySeqs.forEach(seq=>{ if(p.weekly[seq-1].total>0) activeWeekSet.add(seq); });
   }
-  const navy=gAccent();
+  const neutral=gNeutral(), critical=gCritical();
 
   document.getElementById("ov-sub").textContent=
     `All processors · FY${_curFY}`;
@@ -906,12 +952,12 @@ function renderOverview(){
     `Graph window: ${winRangeLabel()} (min. 8 wks) · Stacked by CP1 · CP2 · CP3`;
 
   document.getElementById("ov-stats").innerHTML=[
-    {l:"Processors",      v:procs.length,         s:"LanIDs on record",    c:navy},
-    {l:"Total Incidents", v:totalIncidents,        s:"assessed dept-wide",  c:navy},
-    {l:"Active Weeks",    v:activeWeekSet.size,    s:"weeks with errors",   c:navy},
-    {l:"CP1 Flags",       v:totalCP1,              s:"Shipment checkpoint", c:CP_VIZ.CP1},
-    {l:"CP2 Flags",       v:totalCP2,              s:"Piece checkpoint",    c:CP_VIZ.CP2},
-    {l:"CP3 Flags",       v:totalCP3,              s:"Carton checkpoint",   c:CP_VIZ.CP3},
+    {l:"Processors",   v:procs.length,      s:"LanIDs on record",    c:neutral},
+    {l:"Total Errors", v:totalErrors,       s:"assessed dept-wide",  c:critical},
+    {l:"Active Weeks", v:activeWeekSet.size,s:"weeks with errors",   c:neutral},
+    {l:"CP1 Flags",    v:totalCP1,          s:"Shipment checkpoint", c:CP_VIZ.CP1},
+    {l:"CP2 Flags",    v:totalCP2,          s:"Piece checkpoint",    c:CP_VIZ.CP2},
+    {l:"CP3 Flags",    v:totalCP3,          s:"Carton checkpoint",   c:CP_VIZ.CP3},
   ].map(x=>statCard(x.l,x.v,x.s,x.c)).join("");
 
   // Populate LanID dropdown — alphabetical by LanID
@@ -1065,7 +1111,7 @@ function renderDetail(lanid){
   const winWeekly=_winSeqs.map(seq=>proc.weekly[seq-1]);
   const fyWeekly=_fySeqs.map(seq=>proc.weekly[seq-1]);
   const fyTot=scopedTotals(proc,_fySeqs);
-  const fyInc=scopedIncidentStats(proc,_fySeqs);
+  const fyErr=scopedErrorStats(proc,_fySeqs);
 
   // Trends — computed over the graph window (for chart continuity)
   const trends={
@@ -1092,11 +1138,14 @@ function renderDetail(lanid){
 
   // Summary stats — all scoped to the selected FY only. The graph window
   // (backfilled to 8 weeks) is used purely for chart rendering below.
+  // "Flags / Errors" uses the shared critical accent (matches the Overview
+  // "Total Errors" tile) rather than the processor's shift color, since it's
+  // a severity metric, not a shift-identity one.
   document.getElementById("det-stats").innerHTML=[
-    {l:"Flags / Errors", v:`${fyTot.overall} / ${fyInc.incidents}`, s:`CP flags vs. incidents &#183; FY${_curFY}`,  c:sc},
-    {l:"Active Weeks",  v:`${fyActiveWeeks}/${_fySeqs.length}`,s:`weeks with &#8805;1 flag &#183; FY${_curFY}`, c:gt()},
+    {l:"Flags / Errors", v:`${fyTot.overall} / ${fyErr.errors}`, s:`CP flags vs. errors &#183; FY${_curFY}`,  c:gCritical()},
+    {l:"Active Weeks",  v:`${fyActiveWeeks}/${_fySeqs.length}`,s:`weeks with &#8805;1 flag &#183; FY${_curFY}`, c:gNeutral()},
     {l:"Overall Trend", v:ot.text,                           s:`slope ${trends.overall.toFixed(3)}/wk (graph window)`,c:ot.color},
-    {l:"Top Checkpoint",v:topCPLabel,                        s:`${fyTot[topCP]} flags &#183; FY${_curFY}`,          c:gt()},
+    {l:"Top Checkpoint",v:topCPLabel,                        s:`${fyTot[topCP]} flags &#183; FY${_curFY}`,          c:"#C2410C"},
   ].map(s=>`<div class="stat-card">
     <div class="stat-lbl">${s.l}</div>
     <div class="stat-val" style="color:${s.c}">${s.v}</div>
@@ -1105,12 +1154,12 @@ function renderDetail(lanid){
 
   // Impact stats — scoped to the selected FY
   document.getElementById("det-impact").innerHTML=[
-    {l:"Total Units Impacted",v:fyInc.totalUnits.toLocaleString()},
-    {l:"Total Cases Impacted",v:fyInc.totalCases.toLocaleString()},
+    {l:"Total Units Impacted",v:fyErr.totalUnits.toLocaleString()},
+    {l:"Total Cases Impacted",v:fyErr.totalCases.toLocaleString()},
   ].map(s=>`<div class="impact-card">
     <div class="stat-lbl">${s.l}</div>
     <div class="stat-val" style="color:#D97706">${s.v}</div>
-    <div class="stat-sub">FY${_curFY} incidents</div>
+    <div class="stat-sub">FY${_curFY} errors</div>
   </div>`).join("");
 
   // Trend subtitle
@@ -1323,16 +1372,10 @@ function toggleTheme(){
   document.getElementById("theme-btn").textContent=label;
   const fb=document.getElementById("fb-theme-btn");
   if(fb) fb.textContent=label;
-  // Redraw charts for current view
+  // Redraw charts / stat cards for current view (colors are theme-dependent)
   if(document.getElementById("v-ov").classList.contains("active")) renderOverview();
   if(document.getElementById("v-det").classList.contains("active")&&_cur) {
-    const proc=_data[_cur];
-    const winWeekly=_winSeqs.map(seq=>proc.weekly[seq-1]);
-    const trends={
-      shipment:linSlope(winWeekly,"shipment"),piece:linSlope(winWeekly,"piece"),
-      carton:linSlope(winWeekly,"carton"),overall:linSlope(winWeekly,"total"),
-    };
-    renderCharts(proc,trends,shiftColor(proc.shift),winWeekly);
+    renderDetail(_cur);
   }
 }
 
