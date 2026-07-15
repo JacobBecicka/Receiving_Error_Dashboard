@@ -65,9 +65,6 @@ header {
 .header-sub   { font-size:.72rem; color:var(--muted); }
 
 /* ── BUTTONS ────────────────────────────────────── */
-/* Uniform Hub / Print / Theme buttons — same icon + label convention
-   used across the Weekly, Monthly, YTD, and Heat Map reports:
-   "← Hub", "🖨️ Print / Save PDF", "🌙 Dark" / "☀️ Light" */
 .btn, .hdr-btn {
   background:var(--surface2); border:1px solid var(--border); border-radius:8px;
   padding:.4rem .8rem; color:var(--text); font-size:.82rem; font-weight:600;
@@ -466,20 +463,10 @@ footer { text-align:center; padding:1.5rem; font-size:.75rem;
 const XLSX_URL  = "https://raw.githubusercontent.com/JacobBecicka/Receiving_Error_Dashboard/main/AI_Safe_Weekly_Error_Data.xlsx";
 const HUB_URL   = "index.html";
 
-// Sheets are named directly with their fiscal week, e.g. "FW6 26", "FW48 25"
-// — the sheet name IS the fiscal week/year, so there's no calendar-week
-// offset math needed anymore (previously: XLSX "Week N" -> Tool FW N-5).
 const FW_SHEET_RE = /^FW\s*(\d+)\s+(\d+)$/i;
 
-// Minimum number of weekly data points required to render a meaningful
-// trend chart. If the selected fiscal year has fewer weeks than this,
-// we backfill with the most recent preceding weeks (from the prior FY).
 const MIN_GRAPH_WEEKS = 8;
 
-// FW1 calendar anchor — used only as a last-resort fallback when a fiscal
-// week has no usable row dates to derive its own range from. Real ranges
-// are computed live from the dates found in each sheet (see
-// deriveDateRanges()), so this only matters for a completely blank week.
 const FW1_START = new Date(2025, 11, 28); // matches the earliest sheet, FW48 '25
 
 const SHIFT_COLORS = { "A-Shift":"#38BDF8","B-Shift":"#A78BFA","C-Shift":"#34D399" };
@@ -490,9 +477,6 @@ const CP_BADGE_CSS = {
   CP3:"background:rgba(245,158,11,.15);color:#D97706;border:1px solid rgba(245,158,11,.35)",
 };
 
-// Debug catcher — append ?debug=1 to the URL to expose row-level parsing
-// info (records parsed, per-processor totals, FY detection) without
-// affecting production output. Mirrors the pattern used across the suite.
 const DEBUG = new URLSearchParams(location.search).get("debug")==="1";
 function dbg(label,payload){
   if(!DEBUG) return;
@@ -513,14 +497,14 @@ function dbg(label,payload){
 // STATE
 // =============================================================================
 let _data={}, _cur=null, _logFlt="All", _dark=true, _ch={};
-let NUM_WEEKS = 0;          // total fiscal weeks detected in the workbook (dynamic)
-let FW_DATE_RANGES = {};    // computed live from the workbook — see deriveDateRanges()
-let FW_LABELS = {};         // seq (1..NUM_WEEKS) -> display label, e.g. "FW6 '26"
-let SEQ_FY = {};            // seq (1..NUM_WEEKS) -> 2-digit fiscal year, e.g. 26
-let FY_LIST = [];           // unique fiscal years detected, descending (newest first)
-let _curFY = null;          // fiscal year currently selected in the FY dropdown
-let _winSeqs = [];          // seq numbers making up the current GRAPH window (FY + backfill to 8)
-let _fySeqs = [];           // seq numbers strictly within the selected FY (no backfill) — drives all non-graph stats
+let NUM_WEEKS = 0;
+let FW_DATE_RANGES = {};
+let FW_LABELS = {};
+let SEQ_FY = {};
+let FY_LIST = [];
+let _curFY = null;
+let _winSeqs = [];
+let _fySeqs = [];
 
 // =============================================================================
 // HELPERS
@@ -535,16 +519,11 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").
 function fwLbl(seq){ return FW_LABELS[seq] || `FW${seq}`; }
 function fwRangeLabel(){ return NUM_WEEKS ? `${fwLbl(1)} – ${fwLbl(NUM_WEEKS)}` : ""; }
 
-// Range label for the currently selected graphing window (FY + any
-// backfilled weeks needed to satisfy MIN_GRAPH_WEEKS).
 function winRangeLabel(){
   if(!_winSeqs.length) return "";
   return _winSeqs.length===1 ? fwLbl(_winSeqs[0]) : `${fwLbl(_winSeqs[0])} – ${fwLbl(_winSeqs[_winSeqs.length-1])}`;
 }
 
-// Given a fiscal year, return the ascending list of seq numbers to graph:
-// all weeks belonging to that FY, plus enough immediately-preceding weeks
-// (chronologically, so from the prior FY) to reach MIN_GRAPH_WEEKS total.
 function computeWindowSeqs(fy){
   const fySeqs=[];
   for(let s=1;s<=NUM_WEEKS;s++){ if(SEQ_FY[s]===fy) fySeqs.push(s); }
@@ -559,17 +538,12 @@ function computeWindowSeqs(fy){
   return win;
 }
 
-// Strict FY weeks only — no backfill. Used for every non-graph stat
-// (checkpoint counts, error log, error totals) so those only ever
-// reflect the currently selected fiscal year.
 function computeFYSeqs(fy){
   const seqs=[];
   for(let s=1;s<=NUM_WEEKS;s++){ if(SEQ_FY[s]===fy) seqs.push(s); }
   return seqs.sort((a,b)=>a-b);
 }
 
-// Aggregate a processor's checkpoint totals/sub-type breakdowns across a
-// specific set of week sequences (used to scope stats to the current FY).
 function scopedTotals(proc,seqs){
   const tot={shipment:0,piece:0,carton:0,shipTypes:{},pieceTypes:{},cartonTypes:{}};
   for(const seq of seqs){
@@ -593,8 +567,6 @@ function scopedErrorStats(proc,seqs){
   return{errors:log.length,totalUnits:units,totalCases:cases};
 }
 
-// Alphabetical comparator for LanIDs — used for all processor dropdowns.
-// Applies automatically to any new LanID added to the workbook in the future.
 const byLanidAlpha = (a,b)=>a.lanid.localeCompare(b.lanid,undefined,{numeric:true,sensitivity:"base"});
 
 function linSlope(weekly,key){
@@ -612,18 +584,14 @@ function trendLabel(s){
 const shiftColor =sh=>SHIFT_COLORS[sh]||"#38BDF8";
 const shiftLetter=sh=>(sh||"A").charAt(0);
 
-// Theme-aware color getters. Light-mode grey values are intentionally
-// darker than the raw --muted CSS var's early draft (#64748b) since that
-// washed out on white/pale card backgrounds — see gMuted()/gNeutral().
-const gc=()=>_dark?"#94a3b8":"#52667A";      // chart ticks / captions (MUTED pair)
-const gMuted=()=>_dark?"#94a3b8":"#52667A";  // alias, semantic name for stat-card sub text
-const gNeutral=()=>_dark?"#CBD5E1":"#334155";// stat-card label/value text for non-CP, non-critical tiles
-const gCritical=()=>_dark?"#FB7185":"#BE123C"; // "Total Errors" style tiles — soft rose/berry, not harsh crimson
+const gc=()=>_dark?"#94a3b8":"#52667A";
+const gMuted=()=>_dark?"#94a3b8":"#52667A";
+const gNeutral=()=>_dark?"#CBD5E1":"#334155";
+const gCritical=()=>_dark?"#FB7185":"#BE123C";
 const gb=()=>_dark?"#2e3f5c":"#cbd5e1";
 const gt=()=>_dark?"#e2e8f0":"#1e293b";
 const gAccent=()=>_dark?"#38bdf8":"#0369a1";
 
-// HTML helper for overview stat cards (with left-border accent)
 function statCard(label,value,sub,color){
   return`<div class="s-card" style="border-left:4px solid ${color}">
     <div class="s-lbl">${label}</div>
@@ -643,12 +611,6 @@ function fmtRange(minD,maxD){
 
 // =============================================================================
 // XLSX PARSING
-// Sheets are matched directly on the "FW<n> <yy>" naming pattern and sorted
-// chronologically (fiscal year, then fiscal week). Each sheet is then given
-// a sequential index (1..N) across the whole workbook — that sequential
-// index is what drives the weekly arrays/charts internally, while the
-// original "FW<n> '<yy>" text is kept as a display label (FW_LABELS) since
-// fiscal week numbers reset every year and would otherwise collide.
 // =============================================================================
 function parseWB(wb){
   const records=[];
@@ -670,10 +632,6 @@ function parseWB(wb){
   });
   FW_LABELS = Object.fromEntries(sheetMeta.map((m,i)=>[i+1, labelOf[m.sheet]]));
   dbg("Sheets detected",sheetMeta);
-  // NOTE: FY_LIST is intentionally NOT built here. A sheet can exist (e.g. a
-  // blank template for a future fiscal year) with zero usable data rows —
-  // that shouldn't make the FY selectable. FY_LIST is computed after parsing
-  // from the actual records that got produced (see computeFYList below).
 
   for(const {sheet:sn} of sheetMeta){
     const seq=seqOf[sn];
@@ -692,7 +650,6 @@ function parseWB(wb){
       const cp1Raw=clean(row[11]),cp2Raw=clean(row[12]),cp3Raw=clean(row[13]);
       const comment=clean(row[18]).slice(0,300);
 
-      // Split on semicolons — each sub-type = 1 separate CP flag
       const cp1Parts=(!cp1Raw||isNoErr(cp1Raw))?[]:cp1Raw.split(";").map(s=>s.trim()).filter(Boolean);
       const cp2Parts=(!cp2Raw||isNoErr(cp2Raw))?[]:cp2Raw.split(";").map(s=>s.trim()).filter(Boolean);
       const cp3Parts=(!cp3Raw||isNoErr(cp3Raw))?[]:cp3Raw.split(";").map(s=>s.trim()).filter(Boolean);
@@ -703,7 +660,6 @@ function parseWB(wb){
         ...cp3Parts.map(type=>({cp:"CP3",type})),
       ];
 
-      // Date — handle Date objects and Excel serial numbers
       const dv=row[8]; let dateStr="", dateObj=null;
       if(dv instanceof Date){ dateObj=dv; dateStr=dv.toISOString().slice(0,10); }
       else if(dv){
@@ -715,7 +671,6 @@ function parseWB(wb){
         }
       }
 
-      // Shift normalization — skip rows without a valid shift (matches YTD report)
       const sr=clean(row[9]).replace(/\xa0/g,"").trim();
       let shift=null;
       if(/^A(-?Shift)?$/i.test(sr)) shift="A-Shift";
@@ -723,10 +678,12 @@ function parseWB(wb){
       else if(/^C(-?Shift)?$/i.test(sr)) shift="C-Shift";
       if(!shift) continue;
 
+      const researcher=clean(row[7]).replace(/\xa0/g,"").trim();
+
       records.push({
         fw:seq, fwLabel:labelOf[sn], lanid,name:clean(row[5])||lanid,
         shift,dept:clean(row[10])||"Receiving",dateStr,dateObj,comment,
-        cp1Parts,cp2Parts,cp3Parts,allCPs,
+        cp1Parts,cp2Parts,cp3Parts,allCPs,researcher,
         casesRaw:clean(row[16]),unitsRaw:clean(row[17]),
         units:parseNum(row[17]),cases:parseNum(row[16]),
         fyi:isFYI(comment),
@@ -737,9 +694,6 @@ function parseWB(wb){
   return records;
 }
 
-// Derive each fiscal week's display date range from the actual row dates
-// found in that week's records. Falls back to a calculated 7-day window
-// off FW1_START only if a week has no usable dates at all (e.g. blank sheet).
 function deriveDateRanges(records,numWeeks){
   const bounds={};
   for(const r of records){
@@ -761,9 +715,6 @@ function deriveDateRanges(records,numWeeks){
   return out;
 }
 
-// Fiscal years are only offered in the dropdown if at least one actual data
-// row exists for them. A sheet named e.g. "FW1 27" that's been pre-created
-// but has no rows entered yet will NOT produce a selectable "FY27" option.
 function computeFYList(records){
   const set=new Set();
   for(const r of records){ const fy=SEQ_FY[r.fw]; if(fy!=null) set.add(fy); }
@@ -771,7 +722,6 @@ function computeFYList(records){
 }
 
 function buildProcessorData(allRecords){
-  // Determine how many fiscal weeks exist in this workbook — dynamic, no cap.
   NUM_WEEKS = allRecords.reduce((max,r)=>Math.max(max,r.fw),0);
   FW_DATE_RANGES = deriveDateRanges(allRecords,NUM_WEEKS);
 
@@ -793,13 +743,11 @@ function buildProcessorData(allRecords){
 
     for(const r of records){
       const w=weekly[r.fw-1];
-      // CP flags — ALL records (FYI included per spec)
       r.cp1Parts.forEach(t=>{w.shipment++;w.shipTypes[t]=(w.shipTypes[t]||0)+1;});
       r.cp2Parts.forEach(t=>{w.piece++;   w.pieceTypes[t]=(w.pieceTypes[t]||0)+1;});
       r.cp3Parts.forEach(t=>{w.carton++;  w.cartonTypes[t]=(w.cartonTypes[t]||0)+1;});
       w.total=w.shipment+w.piece+w.carton;
 
-      // Errors — non-FYI only
       if(!r.fyi){
         errors++; totalUnits+=r.units; totalCases+=r.cases;
         rawLog.push({fw:r.fw,fwLabel:r.fwLabel,date:r.dateStr,cps:r.allCPs,
@@ -818,7 +766,33 @@ function buildProcessorData(allRecords){
     tot.overall=tot.shipment+tot.piece+tot.carton;
 
     const vote=key=>{const m={};records.forEach(r=>{m[r[key]]=(m[r[key]]||0)+1;});return Object.entries(m).sort((a,b)=>b[1]-a[1])[0]?.[0]||"";};
-    const shift=vote("shift")||"A-Shift", name=vote("name")||lanid, dept=vote("dept")||"Receiving";
+
+    // Resolve a "current" value (shift or home dept) from the MOST RECENT
+    // fiscal week on record for this processor — not a majority vote across
+    // all history — so a mid-year shift or department transfer is picked up
+    // immediately rather than waiting for the new value's records to
+    // outnumber the old ones. If that most-recent week itself contains more
+    // than one distinct value (e.g. a mid-week transfer or a data-entry
+    // discrepancy), the row entered by researcher G2OJ (Jacob) is treated as
+    // the source of truth, since those entries are copy/pasted directly from
+    // the company directory. Falls back to the first row at that week if no
+    // G2OJ entry is present for the tie. Mirrors the same fix already applied
+    // in the Processor Performance dashboard, extended here to home dept too.
+    function resolveCurrent(field,fallback){
+      if(!records.length) return fallback;
+      const maxFw=records.reduce((m,r)=>Math.max(m,r.fw),0);
+      const rowsAtMaxFw=records.filter(r=>r.fw===maxFw);
+      const distinctVals=[...new Set(rowsAtMaxFw.map(r=>r[field]))];
+      if(distinctVals.length>1){
+        dbg(`Mixed ${field} in single week`,{lanid,fw:maxFw,values:distinctVals});
+        const g2ojRow=rowsAtMaxFw.find(r=>(r.researcher||"").toUpperCase()==="G2OJ");
+        if(g2ojRow) return g2ojRow[field]||fallback;
+      }
+      return rowsAtMaxFw[0]?.[field]||fallback;
+    }
+    const shift=resolveCurrent("shift","A-Shift");
+    const dept=resolveCurrent("dept","Receiving");
+    const name=vote("name")||lanid;
     const activeWeeks=weekly.filter(w=>w.total>0).length;
 
     result[lanid]={lanid,name,shift,dept,errors,activeWeeks,totalUnits,totalCases,weekly,rawLog,totals:tot};
@@ -873,14 +847,10 @@ async function loadFile(file){
 function init(){
   document.getElementById("v-loading").style.display="none";
   document.getElementById("app-header").style.display="flex";
-  // Populate header selector — alphabetical by LanID
   const hSel=document.getElementById("hdr-proc-sel");
   const sorted=Object.values(_data).sort(byLanidAlpha);
   hSel.innerHTML=sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
 
-  // FY selector — defaults to the newest fiscal year detected in the workbook.
-  // If that FY has fewer than MIN_GRAPH_WEEKS weeks of data, the graphing
-  // window automatically backfills with the preceding weeks (see computeWindowSeqs).
   _curFY = FY_LIST[0];
   _winSeqs = computeWindowSeqs(_curFY);
   _fySeqs = computeFYSeqs(_curFY);
@@ -888,15 +858,12 @@ function init(){
   fySel.innerHTML = FY_LIST.map(fy=>`<option value="${fy}">FY${fy}</option>`).join("");
   fySel.value = _curFY;
 
-  // Footer reflects actual detected week range (all-time, across the full workbook)
   document.getElementById("det-footer").innerHTML=
     `Processor Error Card &nbsp;·&nbsp; MWFC Receiving Operations &nbsp;·&nbsp; ${fwRangeLabel()} &nbsp;·&nbsp; Nordstrom`;
   renderOverview();
   showView("ov");
 }
 
-// Called when the FY dropdown changes — recomputes the graphing window and
-// re-renders whichever view (Overview or Detail) is currently active.
 function onFYChange(val){
   _curFY = +val;
   _winSeqs = computeWindowSeqs(_curFY);
@@ -929,13 +896,11 @@ function gotoDetail(){
 }
 
 // =============================================================================
-// OVERVIEW RENDERING  (original layout — no processor data until clicked)
+// OVERVIEW RENDERING
 // =============================================================================
 function renderOverview(){
   const procs=Object.values(_data);
 
-  // Dept-wide aggregates — scoped strictly to the selected FY (no backfill).
-  // Only the charts below use the backfilled _winSeqs graph window.
   let totalErrors=0,totalCP1=0,totalCP2=0,totalCP3=0;
   const activeWeekSet=new Set();
   const procScoped=procs.map(p=>({p,tot:scopedTotals(p,_fySeqs),err:scopedErrorStats(p,_fySeqs)}));
@@ -960,14 +925,11 @@ function renderOverview(){
     {l:"CP3 Flags",    v:totalCP3,          s:"Carton checkpoint",   c:CP_VIZ.CP3},
   ].map(x=>statCard(x.l,x.v,x.s,x.c)).join("");
 
-  // Populate LanID dropdown — alphabetical by LanID
   const sorted=Object.values(_data).sort(byLanidAlpha);
   const sel=document.getElementById("ov-sel");
   sel.innerHTML=`<option value="">&#8212; Select a LanID &#8212;</option>`+
     sorted.map(p=>`<option value="${p.lanid}">${p.lanid}</option>`).join("");
 
-  // Weekly stacked chart — all processors, scoped to the current FY window
-  // (backfilled with prior-FY weeks automatically if under MIN_GRAPH_WEEKS)
   const weeklyAgg=_winSeqs.map(seq=>({fw:seq,cp1:0,cp2:0,cp3:0}));
   for(const p of procs){
     _winSeqs.forEach((seq,i)=>{
@@ -981,7 +943,6 @@ function renderOverview(){
     {label:"CP3 — Carton",  data:weeklyAgg.map(w=>w.cp3),backgroundColor:CP_VIZ.CP3,stack:"s",borderRadius:4},
   ],{stacked:true,legend:true});
 
-  // Top error types per CP, dept-wide — scoped to the selected FY
   const cp1T={},cp2T={},cp3T={};
   for(const{tot} of procScoped){
     for(const[k,v] of Object.entries(tot.shipTypes))   cp1T[k]=(cp1T[k]||0)+v;
@@ -993,8 +954,6 @@ function renderOverview(){
     if(s.length) mkBar(id,s.map(([k])=>trunc(k,26)),[{data:s.map(([,v])=>v),backgroundColor:color,borderRadius:4}],{horizontal:true});
   });
 
-  // ── Dept-wide CP summary cards (same layout as individual processor cards)
-  // Week-over-week comparison uses the current FY window's last two weeks.
   const deptWeekly=_winSeqs.map(seq=>{
     const agg={fw:seq,shipment:0,piece:0,carton:0,total:0};
     for(const p of procs){
@@ -1093,7 +1052,6 @@ function renderDetail(lanid){
   _cur=lanid;
   document.getElementById("hdr-proc-sel").value=lanid;
   _logFlt="All";
-  // Reset log filter buttons
   const sc=shiftColor(proc.shift);
   document.querySelectorAll("#log-filters .flt-btn").forEach(b=>{
     const on=b.textContent==="All";
@@ -1105,15 +1063,11 @@ function renderDetail(lanid){
 
   const sl=shiftLetter(proc.shift);
 
-  // Windowed weekly data (current FY, backfilled to MIN_GRAPH_WEEKS if needed)
-  // — this drives ONLY the charts below. Every other stat on this page uses
-  // the strict FY-only scope (_fySeqs) so it reflects the current FY alone.
   const winWeekly=_winSeqs.map(seq=>proc.weekly[seq-1]);
   const fyWeekly=_fySeqs.map(seq=>proc.weekly[seq-1]);
   const fyTot=scopedTotals(proc,_fySeqs);
   const fyErr=scopedErrorStats(proc,_fySeqs);
 
-  // Trends — computed over the graph window (for chart continuity)
   const trends={
     shipment:linSlope(winWeekly,"shipment"),piece:linSlope(winWeekly,"piece"),
     carton:linSlope(winWeekly,"carton"),overall:linSlope(winWeekly,"total"),
@@ -1123,7 +1077,6 @@ function renderDetail(lanid){
   const topCPLabel={shipment:"Shipment",piece:"Piece",carton:"Carton"}[topCP];
   const fyActiveWeeks=fyWeekly.filter(w=>w.total>0).length;
 
-  // Identity header
   document.getElementById("det-hdr").innerHTML=`
     <div class="proc-avatar" style="background:${sc};box-shadow:0 0 0 3px var(--bg),0 0 0 5px ${sc}44">${sl}</div>
     <div>
@@ -1136,11 +1089,6 @@ function renderDetail(lanid){
       <div class="proc-meta-sub">FY${_curFY}${_fySeqs.length?` &#183; ${fwLbl(_fySeqs[0])}–${fwLbl(_fySeqs[_fySeqs.length-1])}`:""} &nbsp;&#183;&nbsp; Graph window: ${winRangeLabel()}</div>
     </div>`;
 
-  // Summary stats — all scoped to the selected FY only. The graph window
-  // (backfilled to 8 weeks) is used purely for chart rendering below.
-  // "Flags / Errors" uses the shared critical accent (matches the Overview
-  // "Total Errors" tile) rather than the processor's shift color, since it's
-  // a severity metric, not a shift-identity one.
   document.getElementById("det-stats").innerHTML=[
     {l:"Flags / Errors", v:`${fyTot.overall} / ${fyErr.errors}`, s:`CP flags vs. errors &#183; FY${_curFY}`,  c:gCritical()},
     {l:"Active Weeks",  v:`${fyActiveWeeks}/${_fySeqs.length}`,s:`weeks with &#8805;1 flag &#183; FY${_curFY}`, c:gNeutral()},
@@ -1152,7 +1100,6 @@ function renderDetail(lanid){
     <div class="stat-sub">${s.s}</div>
   </div>`).join("");
 
-  // Impact stats — scoped to the selected FY
   document.getElementById("det-impact").innerHTML=[
     {l:"Total Units Impacted",v:fyErr.totalUnits.toLocaleString()},
     {l:"Total Cases Impacted",v:fyErr.totalCases.toLocaleString()},
@@ -1162,11 +1109,9 @@ function renderDetail(lanid){
     <div class="stat-sub">FY${_curFY} errors</div>
   </div>`).join("");
 
-  // Trend subtitle
   document.getElementById("trend-sub").innerHTML=
     `Slope: ${trends.overall.toFixed(3)} flags/wk &nbsp;&#183;&nbsp; <span style="color:${ot.color};font-weight:700">${ot.text}</span> &nbsp;&#183;&nbsp; Graph window (min. 8 wks): ${winRangeLabel()}`;
 
-  // Checkpoint summary cards — scoped to the selected FY only
   const cpRows=[
     {label:"Shipment (CP1)",key:"shipment",typeKey:"shipTypes",  color:CP_VIZ.CP1},
     {label:"Piece (CP2)",   key:"piece",   typeKey:"pieceTypes", color:CP_VIZ.CP2},
@@ -1211,9 +1156,8 @@ function renderDetail(lanid){
 function renderCharts(proc,trends,sc,winWeekly){
   winWeekly = winWeekly || _winSeqs.map(seq=>proc.weekly[seq-1]);
   const fw_labels=winWeekly.map(w=>fwLbl(w.fw));
-  const fyTot=scopedTotals(proc,_fySeqs); // CP flag totals / top error types are FY-scoped
+  const fyTot=scopedTotals(proc,_fySeqs);
 
-  // Value labels plugin for checkpoint flags bar
   const valueLabels={
     id:"valueLabels",
     afterDatasetsDraw(chart){
@@ -1234,7 +1178,6 @@ function renderCharts(proc,trends,sc,winWeekly){
     bodyColor:gc(),borderColor:gb(),borderWidth:1,cornerRadius:8,
   };
 
-  // Weekly stacked bar — scoped to the FY graphing window
   killChart("weekly");
   _ch.weekly=new Chart(document.getElementById("ch-weekly").getContext("2d"),{
     type:"bar",
@@ -1254,7 +1197,6 @@ function renderCharts(proc,trends,sc,winWeekly){
     }
   });
 
-  // Trend line — scoped to the FY graphing window
   killChart("trend");
   _ch.trend=new Chart(document.getElementById("ch-trend").getContext("2d"),{
     type:"line",
@@ -1271,7 +1213,6 @@ function renderCharts(proc,trends,sc,winWeekly){
       }}
   });
 
-  // Checkpoint flags vertical bar (FY-scoped totals)
   killChart("cpflags");
   _ch.cpflags=new Chart(document.getElementById("ch-cpflags").getContext("2d"),{
     type:"bar",
@@ -1290,7 +1231,6 @@ function renderCharts(proc,trends,sc,winWeekly){
       }}
   });
 
-  // Top error types horizontal bar (FY-scoped)
   const topTypes=[
     ...Object.entries(fyTot.shipTypes).map(([type,count])=>({type,count,cp:"CP1"})),
     ...Object.entries(fyTot.pieceTypes).map(([type,count])=>({type,count,cp:"CP2"})),
@@ -1372,7 +1312,6 @@ function toggleTheme(){
   document.getElementById("theme-btn").textContent=label;
   const fb=document.getElementById("fb-theme-btn");
   if(fb) fb.textContent=label;
-  // Redraw charts / stat cards for current view (colors are theme-dependent)
   if(document.getElementById("v-ov").classList.contains("active")) renderOverview();
   if(document.getElementById("v-det").classList.contains("active")&&_cur) {
     renderDetail(_cur);
