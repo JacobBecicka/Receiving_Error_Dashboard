@@ -937,7 +937,7 @@ function App() {
 
         <Card t={t} className="print-break">
           <SectionHeader t={t} eyebrow="Checkpoints" eyebrowColor="#0284C7" eyebrowBg={dark?"#0284C722":"#e0f2fe"}
-            title="Errors by Checkpoint" subtitle="Shipment, Piece, and Carton checks — error types found at each stage" />
+            title="Error Checkpoint Breakdown" subtitle="Shipment, Piece, and Carton checkpoint summary" />
           <div style={{ fontSize:13, fontWeight:800, color:t.textPrimary, marginTop:4 }}>Shipment Error Check</div>
           <CheckpointTable t={t} rows={data.shipment} total={sTotal} accent="#0284C7" fmtPct={fmtPct} />
           <div style={{ fontSize:13, fontWeight:800, color:t.textPrimary, marginTop:18 }}>Piece Error Check</div>
