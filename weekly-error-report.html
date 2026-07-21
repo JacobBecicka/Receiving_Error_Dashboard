@@ -42,6 +42,30 @@ const SHIFT_COLORS = { A:"#38BDF8", B:"#A78BFA", C:"#34D399" };
 const DEPT_COLORS  = { Receiving:"#65A30D", Transfers:"#94A3B8" };
 
 // ---------------------------------------------------------------------------
+// Shade helpers (used by the Error Volume by Shift bullet/nested bar chart,
+// matching the styling used on the YTD Error Report for suite-wide uniformity)
+// ---------------------------------------------------------------------------
+function hexToRgbObj(hex) {
+  const h = hex.replace('#','');
+  return {
+    r: parseInt(h.substring(0,2),16),
+    g: parseInt(h.substring(2,4),16),
+    b: parseInt(h.substring(4,6),16),
+  };
+}
+function rgbObjToHex(r,g,b) {
+  const c = n => Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+function shade(hex, ratio, toward) {
+  const { r,g,b } = hexToRgbObj(hex);
+  const t = toward === 'black' ? 0 : 255;
+  return rgbObjToHex(r+(t-r)*ratio, g+(t-g)*ratio, b+(t-b)*ratio);
+}
+const darkShade   = hex => shade(hex, 0.28, 'black');
+const pastelShade = hex => shade(hex, 0.55, 'white');
+
+// ---------------------------------------------------------------------------
 // LOS (Level of Service) heat-map coloring — continuous gradient
 // Grounded in the actual FW3–21 '26 history available at build time:
 // mean 94.3%, stdev ~2.6 pts (n=19). Color stops anchor the current 92%
@@ -318,6 +342,56 @@ function DonutChart({ data, t }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Error Volume by Shift — nested/bullet bar chart (matches YTD Error Report
+// styling for suite-wide uniformity). Outer/darker bar = all errors for that
+// shift, every home department. Inner/lighter bar = the subset of those
+// errors where home department is Receiving.
+// ---------------------------------------------------------------------------
+function ShiftBulletChart({ shiftTotals, shiftRecv, t }) {
+  const maxVal = Math.max(1, shiftTotals.A, shiftTotals.B, shiftTotals.C);
+  const rows = ["A", "B", "C"].map(s => {
+    const total = shiftTotals[s];
+    const recv  = shiftRecv[s];
+    const outerW = (total / maxVal) * 100;
+    const innerW = (recv / maxVal) * 100;
+    const recvPctOfShift = total ? `${((recv / total) * 100).toFixed(1)}%` : "—";
+    return (
+      <div key={s} style={{ marginBottom: 18 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:6 }}>
+          <span style={{ fontSize:13, fontWeight:800, color:darkShade(SHIFT_COLORS[s]) }}>{s}-Shift</span>
+          <span style={{ fontSize:12, color:t.textSecond }}>
+            <strong style={{ color:t.textPrimary }}>{total}</strong> total
+            &nbsp;·&nbsp;
+            <strong style={{ color:t.textPrimary }}>{recv}</strong> Receiving ({recvPctOfShift})
+          </span>
+        </div>
+        <div style={{ position:"relative", height:26, borderRadius:7, background:t.trackBg, overflow:"hidden" }}>
+          <div style={{ position:"absolute", top:0, left:0, height:"100%", borderRadius:7,
+            width:`${outerW}%`, background:darkShade(SHIFT_COLORS[s]), transition:"width .3s" }} />
+          <div style={{ position:"absolute", top:6, left:0, height:14, borderRadius:5,
+            width:`${innerW}%`, background:pastelShade(SHIFT_COLORS[s]), transition:"width .3s" }} />
+        </div>
+      </div>
+    );
+  });
+  return (
+    <div style={{ marginTop:20 }}>
+      {rows}
+      <div style={{ display:"flex", gap:18, alignItems:"center", marginTop:14, fontSize:11.5, color:t.textSecond, flexWrap:"wrap" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ width:14, height:14, borderRadius:4, background:darkShade("#94A3B8"), flexShrink:0 }} />
+          Darker bar — all errors, every home department
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ width:14, height:8, borderRadius:3, background:pastelShade("#94A3B8"), flexShrink:0 }} />
+          Lighter bar — Receiving home department only
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function isNoError(v) {
   const s = String(v || "").trim().toLowerCase();
   return !s || s === "no errors" || s === "no error";
@@ -336,6 +410,7 @@ function parseWeek(wb, sheetName) {
   const dataRows  = rows.slice(5).filter(r => r && String(r[6]||"").trim());
   let total = 0;
   const shiftC = { A:0, B:0, C:0 };
+  const shiftRecvC = { A:0, B:0, C:0 };
   const deptC  = { recv:0, xfer:0 };
   const sErrs = {}, pErrs = {}, cErrs = {}, procC = {}, procShiftC = {};
   let firstId = null, lastId = null;
@@ -355,7 +430,8 @@ function parseWeek(wb, sheetName) {
     if (id !== "") lastId = id;
     shiftC[sk]++;
 
-    if (dept.includes("receiv")) deptC.recv++; else deptC.xfer++;
+    const isRecv = dept.includes("receiv");
+    if (isRecv) { deptC.recv++; shiftRecvC[sk]++; } else deptC.xfer++;
     if (wm) {
       procC[wm] = (procC[wm]||0)+1;
       if (!procShiftC[wm]) procShiftC[wm] = { A:0, B:0, C:0 };
@@ -372,6 +448,7 @@ function parseWeek(wb, sheetName) {
     total, dateRange,
     idRange: firstId!==null&&lastId!==null ? `IDs ${firstId}–${lastId}` : "",
     shift: shiftC,
+    shiftRecv: shiftRecvC,
     deptSplit: [{ name:"Receiving", value:deptC.recv }, { name:"Transfers", value:deptC.xfer }],
     shipment: sortObj(sErrs), piece: sortObj(pErrs), carton: sortObj(cErrs),
     topProcessors: Object.entries(procC)
@@ -719,11 +796,6 @@ function App() {
   const arrowColor = flat ? t.textMuted : improving ? "#34D399" : "#f87171";
   const arrow      = flat ? "→" : improving ? "↓" : "↑";
   const rollingAvg = rolling.length ? Math.round(rolling.reduce((s,d)=>s+d.total,0)/rolling.length) : 0;
-  const shiftPieData = [
-    { name:"A-Shift", value:data.shift.A, color:SHIFT_COLORS.A },
-    { name:"B-Shift", value:data.shift.B, color:SHIFT_COLORS.B },
-    { name:"C-Shift", value:data.shift.C, color:SHIFT_COLORS.C },
-  ];
   const deptPieData = data.deptSplit.map(d => ({ ...d, color:DEPT_COLORS[d.name] }));
 
   const losColor    = los !== null ? losHeat(los) : null;
@@ -907,17 +979,8 @@ function App() {
 
         <Card t={t}>
           <SectionHeader t={t} eyebrow="By Shift" eyebrowColor="#A78BFA" eyebrowBg={dark?"#A78BFA22":"#ede9fe"}
-            title="Error Share by Shift" subtitle="A-Shift, B-Shift, C-Shift — % of total errors" />
-          <DonutChart data={shiftPieData} t={t} />
-          <div style={{ display:"flex", gap:8, marginTop:12 }}>
-            {shiftPieData.map(d => (
-              <div key={d.name} style={{ flex:1, textAlign:"center", padding:"8px 4px", borderRadius:10, background:t.trackBg }}>
-                <div style={{ fontSize:11, color:t.textSecond }}>{d.name}</div>
-                <div style={{ fontSize:16, fontWeight:800, color:d.color }}>{d.value}</div>
-                <div style={{ fontSize:11, color:t.textMuted }}>{fmtPct(d.value)}</div>
-              </div>
-            ))}
-          </div>
+            title="Error Volume by Shift" subtitle={`All errors per shift, with the Receiving-only portion shown inside — ${wLabel}`} />
+          <ShiftBulletChart shiftTotals={data.shift} shiftRecv={data.shiftRecv} t={t} />
         </Card>
 
         <Card t={t}>
