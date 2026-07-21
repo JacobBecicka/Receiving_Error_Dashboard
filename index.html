@@ -42,7 +42,6 @@
       transition: background 0.2s, color 0.2s;
     }
 
-    /* ── PASSWORD GATE ── */
     #gate {
       display: flex;
       align-items: center;
@@ -81,7 +80,6 @@
     .gate-btn:hover { background: var(--accent2); }
     .gate-error { margin-top: 0.75rem; font-size: 0.85rem; color: #f87171; display: none; }
 
-    /* ── MAIN HUB ── */
     #hub { display: none; }
 
     header {
@@ -100,7 +98,6 @@
     .header-title { font-size: 1.1rem; font-weight: 700; color: var(--text); line-height: 1.2; }
     .header-sub { font-size: 0.75rem; color: var(--muted); }
 
-    /* Unified pill button standard shared across all suite tools */
     .hdr-btn {
       display: inline-flex;
       align-items: center;
@@ -165,7 +162,6 @@
 </head>
 <body data-theme="dark">
 
-  <!-- PASSWORD GATE -->
   <div id="gate">
     <div class="gate-box">
       <div class="gate-logo">📦</div>
@@ -179,7 +175,6 @@
     </div>
   </div>
 
-  <!-- MAIN HUB -->
   <div id="hub">
     <header>
       <div class="header-left">
@@ -196,7 +191,6 @@
       <div class="section-label">Active Tools</div>
       <div class="grid">
 
-        <!-- Weekly Error Report -->
         <div class="card" onclick="goTo('weekly-error-report.html')">
           <div class="card-top">
             <span class="card-icon">📊</span>
@@ -207,7 +201,6 @@
           <div class="card-footer">Open tool →</div>
         </div>
 
-        <!-- Monthly Error Report -->
         <div class="card" onclick="goTo('monthly-error-report.html')">
           <div class="card-top">
             <span class="card-icon">📅</span>
@@ -218,7 +211,6 @@
           <div class="card-footer">Open tool →</div>
         </div>
 
-        <!-- YTD Error Report -->
         <div class="card" onclick="goTo('ytd_report.html')">
           <div class="card-top">
             <span class="card-icon">📈</span>
@@ -229,7 +221,6 @@
           <div class="card-footer">Open tool →</div>
         </div>
 
-        <!-- Processor Performance -->
         <div class="card" onclick="goTo('processor-performance.html')">
           <div class="card-top">
             <span class="card-icon">👤</span>
@@ -240,7 +231,6 @@
           <div class="card-footer">Open tool →</div>
         </div>
 
-        <!-- Processor Error Card -->
         <div class="card" onclick="goTo('processor-error-card.html')">
           <div class="card-top">
             <span class="card-icon">🗂️</span>
@@ -251,7 +241,6 @@
           <div class="card-footer">Open tool →</div>
         </div>
 
-        <!-- Weekly Error Frequency Heat Map -->
         <div class="card" onclick="goTo('WeeklyHeatMapErrorsReceiving.html')">
           <div class="card-top">
             <span class="card-icon">🔥</span>
@@ -259,6 +248,16 @@
           </div>
           <div class="card-name">Weekly Error Frequency Heat Map</div>
           <div class="card-desc">52-week error frequency grid by LanID. Shift tabs, RAW/DELTA toggle, trend arrows, and Receiving vs Training department split.</div>
+          <div class="card-footer">Open tool →</div>
+        </div>
+
+        <div class="card" onclick="goTo('error-type-treemap.html')">
+          <div class="card-top">
+            <span class="card-icon">🌳</span>
+            <span class="card-badge">Live</span>
+          </div>
+          <div class="card-name">Error Type Treemap</div>
+          <div class="card-desc">Checkpoint-level error type breakdown by fiscal week or year. Click-to-filter by checkpoint, sized by volume.</div>
           <div class="card-footer">Open tool →</div>
         </div>
 
